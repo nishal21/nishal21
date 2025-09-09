@@ -1,28 +1,294 @@
-# 💫 About Me:
-🎮 Gaming Maverick<br>💻 Web Designer & Creator<br>🎬 Video Editing Virtuoso<br>🌟 Anime Enthusiast<br>✨Crafting digital dreams and pixelated adventure
+<div align="center">
 
+#  Nishal K | Digital Architect & Innovation Catalyst
 
-## 🌐 Socials:
-[![Discord](https://img.shields.io/badge/Discord-%237289DA.svg?logo=discord&logoColor=white)](https://discord.gg/demonking.___) [![Instagram](https://img.shields.io/badge/Instagram-%23E4405F.svg?logo=Instagram&logoColor=white)](https://instagram.com/demonking.___) [![LinkedIn](https://img.shields.io/badge/LinkedIn-%230077B5.svg?logo=linkedin&logoColor=white)](https://linkedin.com/in/nishal-k-167b1a328) [![Pinterest](https://img.shields.io/badge/Pinterest-%23E60023.svg?logo=Pinterest&logoColor=white)](https://pinterest.com/demonking__) [![Reddit](https://img.shields.io/badge/Reddit-%23FF4500.svg?logo=Reddit&logoColor=white)](https://reddit.com/user/Radiant-Ad-9540) [![Stack Overflow](https://img.shields.io/badge/-Stackoverflow-FE7A16?logo=stack-overflow&logoColor=white)](https://stackoverflow.com/users/nishal-k) [![X](https://img.shields.io/badge/X-black.svg?logo=X&logoColor=white)](https://x.com/Etainment2) 
+<img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=28&duration=3000&pause=1000&color=00D9FF&center=true&vCenter=true&width=600&lines=Full-Stack+Developer;UI%2FUX+Designer;Video+Production+Specialist;AI+%26+ML+Enthusiast;Digital+Content+Creator" alt="Typing SVG" />
 
-# 💻 Tech Stack:
-![HTML5](https://img.shields.io/badge/html5-%23E34F26.svg?style=for-the-badge&logo=html5&logoColor=white) ![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E) ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54) ![Java](https://img.shields.io/badge/java-%23ED8B00.svg?style=for-the-badge&logo=openjdk&logoColor=white) ![PowerShell](https://img.shields.io/badge/PowerShell-%235391FE.svg?style=for-the-badge&logo=powershell&logoColor=white) ![Google Cloud](https://img.shields.io/badge/GoogleCloud-%234285F4.svg?style=for-the-badge&logo=google-cloud&logoColor=white) ![Netlify](https://img.shields.io/badge/netlify-%23000000.svg?style=for-the-badge&logo=netlify&logoColor=#00C7B7) ![Firebase](https://img.shields.io/badge/firebase-%23039BE5.svg?style=for-the-badge&logo=firebase) ![GithubPages](https://img.shields.io/badge/github%20pages-121013?style=for-the-badge&logo=github&logoColor=white) ![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white) ![Cloudflare](https://img.shields.io/badge/Cloudflare-F38020?style=for-the-badge&logo=Cloudflare&logoColor=white) ![.Net](https://img.shields.io/badge/.NET-5C2D91?style=for-the-badge&logo=.net&logoColor=white) ![Web3.js](https://img.shields.io/badge/web3.js-F16822?style=for-the-badge&logo=web3.js&logoColor=white) ![Qt](https://img.shields.io/badge/Qt-%23217346.svg?style=for-the-badge&logo=Qt&logoColor=white) ![NestJS](https://img.shields.io/badge/nestjs-%23E0234E.svg?style=for-the-badge&logo=nestjs&logoColor=white) ![MUI](https://img.shields.io/badge/MUI-%230081CB.svg?style=for-the-badge&logo=mui&logoColor=white) ![NodeJS](https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white) ![Django](https://img.shields.io/badge/django-%23092E20.svg?style=for-the-badge&logo=django&logoColor=white) ![Apache](https://img.shields.io/badge/apache-%23D42029.svg?style=for-the-badge&logo=apache&logoColor=white) ![Firebase](https://img.shields.io/badge/firebase-a08021?style=for-the-badge&logo=firebase&logoColor=ffcd34) ![MySQL](https://img.shields.io/badge/mysql-4479A1.svg?style=for-the-badge&logo=mysql&logoColor=white) ![AmazonDynamoDB](https://img.shields.io/badge/Amazon%20DynamoDB-4053D6?style=for-the-badge&logo=Amazon%20DynamoDB&logoColor=white) ![MicrosoftSQLServer](https://img.shields.io/badge/Microsoft%20SQL%20Server-CC2927?style=for-the-badge&logo=microsoft%20sql%20server&logoColor=white) ![Adobe](https://img.shields.io/badge/adobe-%23FF0000.svg?style=for-the-badge&logo=adobe&logoColor=white) ![Adobe After Effects](https://img.shields.io/badge/Adobe%20After%20Effects-9999FF.svg?style=for-the-badge&logo=Adobe%20After%20Effects&logoColor=white) ![Adobe Lightroom](https://img.shields.io/badge/Adobe%20Lightroom-31A8FF.svg?style=for-the-badge&logo=Adobe%20Lightroom&logoColor=white) ![Adobe Lightroom Classic](https://img.shields.io/badge/Adobe%20Lightroom%20Classic-31A8FF.svg?style=for-the-badge&logo=Adobe%20Lightroom%20Classic&logoColor=white) ![Adobe Photoshop](https://img.shields.io/badge/adobe%20photoshop-%2331A8FF.svg?style=for-the-badge&logo=adobe%20photoshop&logoColor=white) ![Adobe Premiere Pro](https://img.shields.io/badge/Adobe%20Premiere%20Pro-9999FF.svg?style=for-the-badge&logo=Adobe%20Premiere%20Pro&logoColor=white) ![Inkscape](https://img.shields.io/badge/Inkscape-e0e0e0?style=for-the-badge&logo=inkscape&logoColor=080A13) ![Gimp](https://img.shields.io/badge/Gimp-657D8B?style=for-the-badge&logo=gimp&logoColor=FFFFFF) ![Framer](https://img.shields.io/badge/Framer-black?style=for-the-badge&logo=framer&logoColor=blue) ![Figma](https://img.shields.io/badge/figma-%23F24E1E.svg?style=for-the-badge&logo=figma&logoColor=white) ![Canva](https://img.shields.io/badge/Canva-%2300C4CC.svg?style=for-the-badge&logo=Canva&logoColor=white) ![Blender](https://img.shields.io/badge/blender-%23F5792A.svg?style=for-the-badge&logo=blender&logoColor=white) ![Adobe InDesign](https://img.shields.io/badge/Adobe%20InDesign-49021F?style=for-the-badge&logo=adobeindesign&logoColor=FF3366) ![Adobe Illustrator](https://img.shields.io/badge/adobe%20illustrator-%23FF9A00.svg?style=for-the-badge&logo=adobe%20illustrator&logoColor=white) ![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white) ![GitLab CI](https://img.shields.io/badge/gitlab%20CI-%23181717.svg?style=for-the-badge&logo=gitlab&logoColor=white) ![GitHub Actions](https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white) ![Gitea](https://img.shields.io/badge/Gitea-34495E?style=for-the-badge&logo=gitea&logoColor=5D9425) ![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white) ![GitLab](https://img.shields.io/badge/gitlab-%23181717.svg?style=for-the-badge&logo=gitlab&logoColor=white) ![Apache Subversion](https://img.shields.io/badge/subversion-%23809CC9.svg?style=for-the-badge&logo=subversion&logoColor=white) ![Raspberry Pi](https://img.shields.io/badge/-RaspberryPi-C51A4A?style=for-the-badge&logo=Raspberry-Pi) ![Meta](https://img.shields.io/badge/Meta-%230467DF.svg?style=for-the-badge&logo=Meta&logoColor=white) ![Home Assistant](https://img.shields.io/badge/home%20assistant-%2341BDF5.svg?style=for-the-badge&logo=home-assistant&logoColor=white) ![Arduino](https://img.shields.io/badge/-Arduino-00979D?style=for-the-badge&logo=Arduino&logoColor=white)
-# 📊 GitHub Stats:
-![](https://github-readme-stats.vercel.app/api?username=nishal21&theme=dark&hide_border=false&include_all_commits=true&count_private=true)<br/>
-![](https://github-readme-streak-stats.herokuapp.com/?user=nishal21&theme=dark&hide_border=false)<br/>
-![](https://github-readme-stats.vercel.app/api/top-langs/?username=nishal21&theme=dark&hide_border=false&include_all_commits=true&count_private=true&layout=compact)
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
-### ✍️ Random Dev Quote
-![](https://quotes-github-readme.vercel.app/api?type=vetical&theme=tokyonight)
+</div>
 
-### 🔝 Top Contributed Repo
-![](https://github-contributor-stats.vercel.app/api?username=nishal21&limit=5&theme=onedark&combine_all_yearly_contributions=true)
+## 🎯 **About Me**
+
+```typescript
+const nishal = {
+    identity: "Digital Innovator & Problem Solver",
+    location: "Building the future, one line of code at a time",
+    focus: ["Full-Stack Development", "UI/UX Design", "Video Production", "AI/ML", "Animation" ],
+    philosophy: "Transforming ideas into digital masterpieces",
+    currentGoal: "Creating seamless user experiences that inspire and engage",
+    funFact: "I debug code by day and create anime-inspired designs by night 🌙"
+};
+```
+
+<div align="center">
+
+### 🌟 **Professional Highlights**
+🔥 **5+ Years** of crafting digital experiences  
+⚡ **50+ Projects** delivered across multiple domains  
+🎨 **Pixel-perfect** designs with seamless functionality  
+🚀 **Performance-driven** solutions that scale  
+
+</div>
 
 ---
-[![](https://visitcount.itsvg.in/api?id=nishal21&icon=8&color=0)](https://visitcount.itsvg.in)
 
-  ## 💰 You can help me by Donating
-  [![BuyMeACoffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/kingtanjiro) [![Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://patreon.com/DemonKing834?utm_medium=unknown&utm_source=join_link&utm_campaign=creatorshare_creator&utm_content=copyLink) [![Ko-Fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/demon_king) 
+<div align="center">
+
+## 🌐 **Connect & Collaborate**
+<div align="center">
+
+[![Portfolio](https://img.shields.io/badge/Portfolio-FF5722?style=for-the-badge&logo=google-chrome&logoColor=white)](https://your-portfolio.com)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/nishal-k-167b1a328)
+[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/demonking.___)
+[![Instagram](https://img.shields.io/badge/Instagram-E4405F?style=for-the-badge&logo=instagram&logoColor=white)](https://instagram.com/demonking.___)
+[![X](https://img.shields.io/badge/X-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/Etainment2)
+
+</div>
+
+---
+
+<div align="center">
+
+## 💻 **Technology Arsenal**
+
+### **Languages & Frameworks**
+<table>
+<tr>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=python" width="48" height="48" alt="Python" />
+        <br>Python
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=js" width="48" height="48" alt="JavaScript" />
+        <br>JavaScript
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=java" width="48" height="48" alt="Java" />
+        <br>Java
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=html" width="48" height="48" alt="HTML5" />
+        <br>HTML5
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=css" width="48" height="48" alt="CSS3" />
+        <br>CSS3
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=nodejs" width="48" height="48" alt="Node.js" />
+        <br>Node.js
+    </td>
+</tr>
+<tr>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=react" width="48" height="48" alt="React" />
+        <br>React
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=django" width="48" height="48" alt="Django" />
+        <br>Django
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=nestjs" width="48" height="48" alt="NestJS" />
+        <br>NestJS
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=dotnet" width="48" height="48" alt=".NET" />
+        <br>.NET
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=qt" width="48" height="48" alt="Qt" />
+        <br>Qt
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=pytorch" width="48" height="48" alt="PyTorch" />
+        <br>PyTorch
+    </td>
+</tr>
+</table>
+
+### **Cloud & DevOps**
+<table>
+<tr>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=aws" width="48" height="48" alt="AWS" />
+        <br>AWS
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=gcp" width="48" height="48" alt="Google Cloud" />
+        <br>GCP
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=firebase" width="48" height="48" alt="Firebase" />
+        <br>Firebase
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=netlify" width="48" height="48" alt="Netlify" />
+        <br>Netlify
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=cloudflare" width="48" height="48" alt="Cloudflare" />
+        <br>Cloudflare
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=github" width="48" height="48" alt="GitHub" />
+        <br>GitHub
+    </td>
+</tr>
+</table>
+
+### **Design & Multimedia**
+<table>
+<tr>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=figma" width="48" height="48" alt="Figma" />
+        <br>Figma
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=ps" width="48" height="48" alt="Photoshop" />
+        <br>Photoshop
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=ai" width="48" height="48" alt="Illustrator" />
+        <br>Illustrator
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=ae" width="48" height="48" alt="After Effects" />
+        <br>After Effects
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=pr" width="48" height="48" alt="Premiere Pro" />
+        <br>Premiere Pro
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=blender" width="48" height="48" alt="Blender" />
+        <br>Blender
+    </td>
+</tr>
+</table>
+
+### **Databases & Tools**
+<table>
+<tr>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=mysql" width="48" height="48" alt="MySQL" />
+        <br>MySQL
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=dynamodb" width="48" height="48" alt="DynamoDB" />
+        <br>DynamoDB
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=git" width="48" height="48" alt="Git" />
+        <br>Git
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=vscode" width="48" height="48" alt="VS Code" />
+        <br>VS Code
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=arduino" width="48" height="48" alt="Arduino" />
+        <br>Arduino
+    </td>
+    <td align="center" width="100">
+        <img src="https://skillicons.dev/icons?i=raspberrypi" width="48" height="48" alt="Raspberry Pi" />
+        <br>Raspberry Pi
+    </td>
+</tr>
+</table>
+
+</div>
+
+---
+
+<div align="center">
+
+## 📊 **Performance Analytics**
+
+<img width="400" src="https://github-readme-stats.vercel.app/api?username=nishal21&show_icons=true&theme=tokyonight&hide_border=true&bg_color=0D1117&title_color=00D9FF&icon_color=00D9FF&text_color=FFFFFF" />
+
+<img width="400" src="https://github-readme-streak-stats.herokuapp.com/?user=nishal21&theme=tokyonight&hide_border=true&background=0D1117&stroke=00D9FF&ring=00D9FF&fire=FF6B6B&currStreakLabel=00D9FF" />
+
+<img width="335" src="https://github-readme-stats.vercel.app/api/top-langs/?username=nishal21&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117&title_color=00D9FF&text_color=FFFFFF" />
+
+</div>
+
+---
+
+<div align="center">
+
+## 🏆 **Achievements & Recognition**
+
+<img src="https://github-profile-trophy.vercel.app/?username=nishal21&theme=tokyonight&no-frame=true&column=3&margin-w=15&margin-h=15" />
+
+</div>
+
+---
+
+<div align="center">
+
+
+<div align="center">
+
+## 🤝 **Let's Build Something Amazing Together**
+
+### **Open for Collaboration on:**
+🔹 **Full-Stack Web Applications**  
+🔹 **UI/UX Design Projects**  
+🔹 **Video Production & Animation**  
+🔹 **AI/ML Integration Solutions**  
+🔹 **Open Source Contributions**  
+
+### **Currently Learning:**
+🌱 **Advanced AI/ML Algorithms**  
+🌱 **Cloud Architecture Patterns**  
+🌱 **3D Graphics & WebGL**  
+🌱 **Blockchain Development**  
+
+</div>
+
+---
+
+<div align="center">
+
+## 💖 **Support My Work**
+
+*If you find my projects helpful, consider supporting my work!*
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/kingtanjiro)
+[![Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://patreon.com/DemonKing834)
+[![Ko-Fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/demon_king)
+
+</div>
+
+---
+
+<div align="center">
+
+## 📈 **Profile Analytics**
+
+<img src="https://komarev.com/ghpvc/?username=nishal21&label=Profile%20Views&color=00D9FF&style=for-the-badge" alt="Profile Views" />
+
+<img src="https://img.shields.io/github/followers/nishal21?label=Followers&style=for-the-badge&color=00D9FF&labelColor=0D1117" alt="GitHub Followers" />
+
+### **Repository Contributions**
+<img src="https://github-contributor-stats.vercel.app/api?username=nishal21&limit=5&theme=tokyonight&combine_all_yearly_contributions=true&hide_border=true" />
+
+</div>
+
+<div align="center">
+
+---
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+**"Code is poetry written in logic, design is emotion expressed in pixels."** ✨
+
+*Made with 💙 and lots of ☕*
+
+---
+
+</div> 
 
   
-<!-- Proudly created with GPRM ( https://gprm.itsvg.in ) -->
