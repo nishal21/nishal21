@@ -4,7 +4,7 @@
 
 <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=28&duration=3000&pause=1000&color=00D9FF&center=true&vCenter=true&width=600&lines=Full-Stack+Developer;UI%2FUX+Designer;Video+Production+Specialist;AI+%26+ML+Enthusiast;Digital+Content+Creator" alt="Typing SVG" />
 
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%" alt="Animated wave divider">
 
 </div>
 
@@ -36,7 +36,6 @@ const nishal = {
 <div align="center">
 
 ## 🌐 **Connect & Collaborate**
-<div align="center">
 
 [![Portfolio](https://img.shields.io/badge/Portfolio-FF5722?style=for-the-badge&logo=google-chrome&logoColor=white)](https://nishalk.netlify.app)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/nishal-k-167b1a328)
@@ -206,11 +205,11 @@ const nishal = {
 
 ## 📊 **Performance Analytics**
 
-<img width="400" src="https://github-readme-stats.vercel.app/api?username=nishal21&show_icons=true&theme=tokyonight&hide_border=true&bg_color=0D1117&title_color=00D9FF&icon_color=00D9FF&text_color=FFFFFF" />
+<img width="400" src="https://github-readme-stats.vercel.app/api?username=nishal21&show_icons=true&theme=tokyonight&hide_border=true&bg_color=0D1117&title_color=00D9FF&icon_color=00D9FF&text_color=FFFFFF" alt="Nishal's GitHub Stats" />
 
-<img width="400" src="https://github-readme-streak-stats.herokuapp.com/?user=nishal21&theme=tokyonight&hide_border=true&background=0D1117&stroke=00D9FF&ring=00D9FF&fire=FF6B6B&currStreakLabel=00D9FF" />
+<img width="400" src="https://github-readme-streak-stats.herokuapp.com/?user=nishal21&theme=tokyonight&hide_border=true&background=0D1117&stroke=00D9FF&ring=00D9FF&fire=FF6B6B&currStreakLabel=00D9FF" alt="GitHub Streak Stats" />
 
-<img width="335" src="https://github-readme-stats.vercel.app/api/top-langs/?username=nishal21&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117&title_color=00D9FF&text_color=FFFFFF" />
+<img width="335" src="https://github-readme-stats.vercel.app/api/top-langs/?username=nishal21&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117&title_color=00D9FF&text_color=FFFFFF" alt="Top Languages" />
 
 </div>
 
@@ -220,14 +219,11 @@ const nishal = {
 
 ## 🏆 **Achievements & Recognition**
 
-<img src="https://github-profile-trophy.vercel.app/?username=nishal21&theme=tokyonight&no-frame=true&column=3&margin-w=15&margin-h=15" />
+<img src="https://github-profile-trophy.vercel.app/?username=nishal21&theme=tokyonight&no-frame=true&column=7&margin-w=15&margin-h=15" alt="GitHub Trophies" />
 
 </div>
 
 ---
-
-<div align="center">
-
 
 <div align="center">
 
@@ -273,7 +269,7 @@ const nishal = {
 <img src="https://img.shields.io/github/followers/nishal21?label=Followers&style=for-the-badge&color=00D9FF&labelColor=0D1117" alt="GitHub Followers" />
 
 ### **Repository Contributions**
-<img src="https://github-contributor-stats.vercel.app/api?username=nishal21&limit=5&theme=tokyonight&combine_all_yearly_contributions=true&hide_border=true" />
+<img src="https://github-contributor-stats.vercel.app/api?username=nishal21&limit=5&theme=tokyonight&combine_all_yearly_contributions=true&hide_border=true" alt="Top Repository Contributions" />
 
 </div>
 
@@ -281,7 +277,7 @@ const nishal = {
 
 ---
 
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%" alt="Animated wave divider">
 
 **"Code is poetry written in logic, design is emotion expressed in pixels."** ✨
 
@@ -289,6 +285,5 @@ const nishal = {
 
 ---
 
-</div> 
-
+</div>
   
