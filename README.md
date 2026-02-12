@@ -1,8 +1,10 @@
 <div align="center">
 
-#  Nishal K | Digital Architect & Innovation Catalyst
+# 🚀 Nishal K | Digital Architect & Innovation Catalyst
 
 <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=28&duration=3000&pause=1000&color=00D9FF&center=true&vCenter=true&width=600&lines=Full-Stack+Developer;UI%2FUX+Designer;Video+Production+Specialist;AI+%26+ML+Enthusiast;Digital+Content+Creator" alt="Typing SVG" />
+
+<br>
 
 <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
@@ -14,7 +16,7 @@
 const nishal = {
     identity: "Digital Innovator & Problem Solver",
     location: "Building the future, one line of code at a time",
-    focus: ["Full-Stack Development", "UI/UX Design", "Video Production", "AI/ML", "Animation" ],
+    focus: ["Full-Stack Development", "UI/UX Design", "Video Production", "AI/ML", "Animation"],
     philosophy: "Transforming ideas into digital masterpieces",
     currentGoal: "Creating seamless user experiences that inspire and engage",
     funFact: "I debug code by day and create anime-inspired designs by night 🌙"
@@ -24,10 +26,11 @@ const nishal = {
 <div align="center">
 
 ### 🌟 **Professional Highlights**
+
 🔥 **5+ Years** of crafting digital experiences  
 ⚡ **50+ Projects** delivered across multiple domains  
 🎨 **Pixel-perfect** designs with seamless functionality  
-🚀 **Performance-driven** solutions that scale  
+🚀 **Performance-driven** solutions that scale
 
 </div>
 
@@ -36,7 +39,6 @@ const nishal = {
 <div align="center">
 
 ## 🌐 **Connect & Collaborate**
-<div align="center">
 
 [![Portfolio](https://img.shields.io/badge/Portfolio-FF5722?style=for-the-badge&logo=google-chrome&logoColor=white)](https://nishalk.netlify.app)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/nishal-k-167b1a328)
@@ -53,6 +55,7 @@ const nishal = {
 ## 💻 **Technology Arsenal**
 
 ### **Languages & Frameworks**
+
 <table>
 <tr>
     <td align="center" width="100">
@@ -109,6 +112,7 @@ const nishal = {
 </table>
 
 ### **Cloud & DevOps**
+
 <table>
 <tr>
     <td align="center" width="100">
@@ -139,6 +143,7 @@ const nishal = {
 </table>
 
 ### **Design & Multimedia**
+
 <table>
 <tr>
     <td align="center" width="100">
@@ -169,6 +174,7 @@ const nishal = {
 </table>
 
 ### **Databases & Tools**
+
 <table>
 <tr>
     <td align="center" width="100">
@@ -206,11 +212,22 @@ const nishal = {
 
 ## 📊 **Performance Analytics**
 
-<img width="400" src="https://github-readme-stats.vercel.app/api?username=nishal21&show_icons=true&theme=tokyonight&hide_border=true&bg_color=0D1117&title_color=00D9FF&icon_color=00D9FF&text_color=FFFFFF" />
+<a href="https://github.com/nishal21">
+  <img width="400" src="https://github-readme-stats-nishal21s-projects.vercel.app/api?username=nishal21&show_icons=true&theme=tokyonight&hide_border=true&bg_color=0D1117&title_color=00D9FF&icon_color=00D9FF&text_color=FFFFFF" alt="Nishal's GitHub Stats" />
+</a>
+<a href="https://github.com/nishal21">
+  <img width="400" src="https://streak-stats.demolab.com/?user=nishal21&theme=tokyonight&hide_border=true&background=0D1117&stroke=00D9FF&ring=00D9FF&fire=FF6B6B&currStreakLabel=00D9FF" alt="Nishal's Streak Stats" />
+</a>
 
-<img width="400" src="https://github-readme-streak-stats.herokuapp.com/?user=nishal21&theme=tokyonight&hide_border=true&background=0D1117&stroke=00D9FF&ring=00D9FF&fire=FF6B6B&currStreakLabel=00D9FF" />
+<br>
 
-<img width="335" src="https://github-readme-stats.vercel.app/api/top-langs/?username=nishal21&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117&title_color=00D9FF&text_color=FFFFFF" />
+<a href="https://github.com/nishal21">
+  <img width="335" src="https://github-readme-stats-nishal21s-projects.vercel.app/api/top-langs/?username=nishal21&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117&title_color=00D9FF&text_color=FFFFFF" alt="Top Languages" />
+</a>
+
+<br>
+
+<img src="https://github-readme-activity-graph.vercel.app/graph?username=nishal21&bg_color=0D1117&color=00D9FF&line=00D9FF&point=FF6B6B&area=true&area_color=00D9FF&hide_border=true" width="95%" alt="Contribution Graph" />
 
 </div>
 
@@ -220,7 +237,7 @@ const nishal = {
 
 ## 🏆 **Achievements & Recognition**
 
-<img src="https://github-profile-trophy.vercel.app/?username=nishal21&theme=tokyonight&no-frame=true&column=3&margin-w=15&margin-h=15" />
+<img src="https://github-profile-trophy.vercel.app/?username=nishal21&theme=tokyonight&no-frame=true&no-bg=true&column=7&margin-w=15&margin-h=15" alt="GitHub Trophies" />
 
 </div>
 
@@ -228,23 +245,22 @@ const nishal = {
 
 <div align="center">
 
-
-<div align="center">
-
 ## 🤝 **Let's Build Something Amazing Together**
 
 ### **Open for Collaboration on:**
+
 🔹 **Full-Stack Web Applications**  
 🔹 **UI/UX Design Projects**  
 🔹 **Video Production & Animation**  
 🔹 **AI/ML Integration Solutions**  
-🔹 **Open Source Contributions**  
+🔹 **Open Source Contributions**
 
 ### **Currently Learning:**
+
 🌱 **Advanced AI/ML Algorithms**  
 🌱 **Cloud Architecture Patterns**  
 🌱 **3D Graphics & WebGL**  
-🌱 **Blockchain Development**  
+🌱 **Blockchain Development**
 
 </div>
 
@@ -269,17 +285,14 @@ const nishal = {
 ## 📈 **Profile Analytics**
 
 <img src="https://komarev.com/ghpvc/?username=nishal21&label=Profile%20Views&color=00D9FF&style=for-the-badge" alt="Profile Views" />
-
 <img src="https://img.shields.io/github/followers/nishal21?label=Followers&style=for-the-badge&color=00D9FF&labelColor=0D1117" alt="GitHub Followers" />
-
-### **Repository Contributions**
-<img src="https://github-contributor-stats.vercel.app/api?username=nishal21&limit=5&theme=tokyonight&combine_all_yearly_contributions=true&hide_border=true" />
+<img src="https://img.shields.io/github/stars/nishal21?label=Stars&style=for-the-badge&color=FF6B6B&labelColor=0D1117" alt="GitHub Stars" />
 
 </div>
 
-<div align="center">
-
 ---
+
+<div align="center">
 
 <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
@@ -287,8 +300,4 @@ const nishal = {
 
 *Made with 💙 and lots of ☕*
 
----
-
-</div> 
-
-  
+</div>
