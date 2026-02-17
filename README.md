@@ -212,20 +212,18 @@ const nishal = {
 
 ## 📊 **Performance Analytics**
 
-<a href="https://github.com/nishal21">
-  <img width="400" src="https://github-readme-stats-nishal21s-projects.vercel.app/api?username=nishal21&show_icons=true&theme=tokyonight&hide_border=true&bg_color=0D1117&title_color=00D9FF&icon_color=00D9FF&text_color=FFFFFF" alt="Nishal's GitHub Stats" />
-</a>
-<a href="https://github.com/nishal21">
-  <img width="400" src="https://streak-stats.demolab.com/?user=nishal21&theme=tokyonight&hide_border=true&background=0D1117&stroke=00D9FF&ring=00D9FF&fire=FF6B6B&currStreakLabel=00D9FF" alt="Nishal's Streak Stats" />
-</a>
-
+![GitHub Stats](https://github-readme-stats-fast.vercel.app/api?username=nishal21&show_icons=true&theme=tokyonight)
+<br><br>
 <br>
 
-<a href="https://github.com/nishal21">
-  <img width="335" src="https://github-readme-stats-nishal21s-projects.vercel.app/api/top-langs/?username=nishal21&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117&title_color=00D9FF&text_color=FFFFFF" alt="Top Languages" />
-</a>
-
+![GitHub Stats](https://github-readme-stats-fast.vercel.app/api/streak?username=nishal21&theme=tokyonight)
+<br><br>
 <br>
+
+![GitHub Stats](https://github-readme-stats-fast.vercel.app/api/top-langs/?username=nishal21&layout=compact&theme=tokyonight)
+<br><br>
+<br>
+
 
 <img src="https://github-readme-activity-graph.vercel.app/graph?username=nishal21&bg_color=0D1117&color=00D9FF&line=00D9FF&point=FF6B6B&area=true&area_color=00D9FF&hide_border=true" width="95%" alt="Contribution Graph" />
 
@@ -237,7 +235,7 @@ const nishal = {
 
 ## 🏆 **Achievements & Recognition**
 
-<img src="https://github-profile-trophy.vercel.app/?username=nishal21&theme=tokyonight&no-frame=true&no-bg=true&column=7&margin-w=15&margin-h=15" alt="GitHub Trophies" />
+<br>
 
 </div>
 
