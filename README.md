@@ -235,8 +235,8 @@ const nishal = {
 
 ## 🏆 **Achievements & Recognition**
 
-<br>
-
+<br><br>
+![Github Stats](https://github-trophies.vercel.app/?username=nishal21&theme=darkhub&no-frame=true)
 </div>
 
 ---
