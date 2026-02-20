@@ -10,27 +10,16 @@
 
 </div>
 
-## 🎯 **About Me**
 
-```typescript
-const nishal = {
-    identity: "Digital Innovator & Problem Solver",
-    location: "Building the future, one line of code at a time",
-    focus: ["Full-Stack Development", "UI/UX Design", "Video Production", "AI/ML", "Animation"],
-    philosophy: "Transforming ideas into digital masterpieces",
-    currentGoal: "Creating seamless user experiences that inspire and engage",
-    funFact: "I debug code by day and create anime-inspired designs by night 🌙"
-};
-```
 
 <div align="center">
 
-### 🌟 **Professional Highlights**
+###   Highlights
 
-🔥 **5+ Years** of crafting digital experiences  
-⚡ **50+ Projects** delivered across multiple domains  
-🎨 **Pixel-perfect** designs with seamless functionality  
-🚀 **Performance-driven** solutions that scale
+ **5+ Years** of crafting digital experiences  
+ **50+ Projects** delivered across multiple domains  
+ **Pixel-perfect** designs with seamless functionality  
+ **Performance-driven** solutions that scale
 
 </div>
 
@@ -48,165 +37,7 @@ const nishal = {
 
 </div>
 
----
 
-<div align="center">
-
-## 💻 **Technology Arsenal**
-
-### **Languages & Frameworks**
-
-<table>
-<tr>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=python" width="48" height="48" alt="Python" />
-        <br>Python
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=js" width="48" height="48" alt="JavaScript" />
-        <br>JavaScript
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=java" width="48" height="48" alt="Java" />
-        <br>Java
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=html" width="48" height="48" alt="HTML5" />
-        <br>HTML5
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=css" width="48" height="48" alt="CSS3" />
-        <br>CSS3
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=nodejs" width="48" height="48" alt="Node.js" />
-        <br>Node.js
-    </td>
-</tr>
-<tr>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=react" width="48" height="48" alt="React" />
-        <br>React
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=django" width="48" height="48" alt="Django" />
-        <br>Django
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=nestjs" width="48" height="48" alt="NestJS" />
-        <br>NestJS
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=dotnet" width="48" height="48" alt=".NET" />
-        <br>.NET
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=qt" width="48" height="48" alt="Qt" />
-        <br>Qt
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=pytorch" width="48" height="48" alt="PyTorch" />
-        <br>PyTorch
-    </td>
-</tr>
-</table>
-
-### **Cloud & DevOps**
-
-<table>
-<tr>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=aws" width="48" height="48" alt="AWS" />
-        <br>AWS
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=gcp" width="48" height="48" alt="Google Cloud" />
-        <br>GCP
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=firebase" width="48" height="48" alt="Firebase" />
-        <br>Firebase
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=netlify" width="48" height="48" alt="Netlify" />
-        <br>Netlify
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=cloudflare" width="48" height="48" alt="Cloudflare" />
-        <br>Cloudflare
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=github" width="48" height="48" alt="GitHub" />
-        <br>GitHub
-    </td>
-</tr>
-</table>
-
-### **Design & Multimedia**
-
-<table>
-<tr>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=figma" width="48" height="48" alt="Figma" />
-        <br>Figma
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=ps" width="48" height="48" alt="Photoshop" />
-        <br>Photoshop
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=ai" width="48" height="48" alt="Illustrator" />
-        <br>Illustrator
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=ae" width="48" height="48" alt="After Effects" />
-        <br>After Effects
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=pr" width="48" height="48" alt="Premiere Pro" />
-        <br>Premiere Pro
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=blender" width="48" height="48" alt="Blender" />
-        <br>Blender
-    </td>
-</tr>
-</table>
-
-### **Databases & Tools**
-
-<table>
-<tr>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=mysql" width="48" height="48" alt="MySQL" />
-        <br>MySQL
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=dynamodb" width="48" height="48" alt="DynamoDB" />
-        <br>DynamoDB
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=git" width="48" height="48" alt="Git" />
-        <br>Git
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=vscode" width="48" height="48" alt="VS Code" />
-        <br>VS Code
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=arduino" width="48" height="48" alt="Arduino" />
-        <br>Arduino
-    </td>
-    <td align="center" width="100">
-        <img src="https://skillicons.dev/icons?i=raspberrypi" width="48" height="48" alt="Raspberry Pi" />
-        <br>Raspberry Pi
-    </td>
-</tr>
-</table>
-
-</div>
-
----
 
 <div align="center">
 
@@ -243,26 +74,6 @@ const nishal = {
 
 <div align="center">
 
-## 🤝 **Let's Build Something Amazing Together**
-
-### **Open for Collaboration on:**
-
-🔹 **Full-Stack Web Applications**  
-🔹 **UI/UX Design Projects**  
-🔹 **Video Production & Animation**  
-🔹 **AI/ML Integration Solutions**  
-🔹 **Open Source Contributions**
-
-### **Currently Learning:**
-
-🌱 **Advanced AI/ML Algorithms**  
-🌱 **Cloud Architecture Patterns**  
-🌱 **3D Graphics & WebGL**  
-🌱 **Blockchain Development**
-
-</div>
-
----
 
 <div align="center">
 
