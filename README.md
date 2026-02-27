@@ -16,7 +16,7 @@
 
 ###   Highlights
 
- **5+ Years** of crafting digital experiences  
+ **Years** of crafting digital experiences  
  **50+ Projects** delivered across multiple domains  
  **Pixel-perfect** designs with seamless functionality  
  **Performance-driven** solutions that scale
