@@ -1,0 +1,34 @@
+# Update Profile README with Latest Activity
+# This workflow updates your README with your latest GitHub activity
+
+name: Update README with Latest Activity
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"  # Runs every 6 hours
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  update-readme:
+    name: Update README with latest activity
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Activity Readme
+        uses: jamesgeorge007/github-activity-readme@v0.3.6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          COMMIT_MSG: "Updated README with latest activity"
+          MAX_LINES: 5
+          README_FILE: "./README.md"
+
+# This will add a section like:
+# ## 📈 Recent Activity
+# - Merged PR #123 in repo-name
+# - Pushed 3 commits to repo-name
+# etc.
