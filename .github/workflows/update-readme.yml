@@ -7,8 +7,6 @@ on:
   schedule:
     - cron: "0 */6 * * *"  # Runs every 6 hours
   workflow_dispatch:
-  push:
-    branches: [main, master]
 
 jobs:
   update-readme:
@@ -25,7 +23,6 @@ jobs:
         with:
           COMMIT_MSG: "Updated README with latest activity"
           MAX_LINES: 5
-          README_FILE: "./README.md"
 
 # This will add a section like:
 # ## 📈 Recent Activity
