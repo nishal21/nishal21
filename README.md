@@ -76,7 +76,7 @@
 
 ## 📝 **Latest Blog Posts**
 
-<!-- BLOG:START --><tr><td><a href="https://dev.to/nishal21/i-built-a-carbon-footprint-tracker-for-my-code-using-electron-2llo">I built a Carbon Footprint tracker for my code &lpar;using Tauri?!&rpar; 🍃</a></td><td>Feb 8, 2026</td></tr><!-- BLOG:END -->
+<!-- BLOG:START --><tr><td><a href="https://dev.to/nishal21/i-built-an-open-source-neo-brutalist-network-diagnostic-tool-react-python-cli-2gbg">I built an open-source, Neo-Brutalist network diagnostic tool &lpar;React + Python CLI&rpar;</a></td><td>Mar 27, 2026</td></tr><tr><td><a href="https://dev.to/nishal21/i-built-a-carbon-footprint-tracker-for-my-code-using-electron-2llo">I built a Carbon Footprint tracker for my code &lpar;using Tauri?!&rpar; 🍃</a></td><td>Feb 8, 2026</td></tr><!-- BLOG:END -->
 
 ---
 
