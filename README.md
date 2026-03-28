@@ -76,7 +76,7 @@
 
 ## 📝 **Latest Blog Posts**
 
-<!-- BLOG:START --><tr><td><a href="https://dev.to/nishal21/how-i-built-a-memory-safe-steganography-engine-in-rust-to-protect-data-from-ai-scrapers-4cch">How I Built a Memory-Safe Steganography Engine in Rust to Protect Data from AI Scrapers</a></td><td>Mar 28, 2026</td></tr><tr><td><a href="https://dev.to/nishal21/i-built-an-open-source-neo-brutalist-network-diagnostic-tool-react-python-cli-2gbg">I built an open-source, Neo-Brutalist network diagnostic tool &lpar;React + Python CLI&rpar;</a></td><td>Mar 27, 2026</td></tr><tr><td><a href="https://dev.to/nishal21/i-built-a-carbon-footprint-tracker-for-my-code-using-electron-2llo">I built a Carbon Footprint tracker for my code &lpar;using Tauri?!&rpar; 🍃</a></td><td>Feb 8, 2026</td></tr><!-- BLOG:END -->
+<!-- BLOG:START --><tr><td><a href="https://dev.to/nishal21/how-i-built-a-memory-safe-steganography-engine-in-rust-to-protect-data-from-ai-scrapers-4cch">How I Built a Memory-Safe Steganography Engine in Rust to Protect Data from AI Scrapers</a></td><td>Mar 28, 2026</td></tr><br><tr><td><a href="https://dev.to/nishal21/i-built-an-open-source-neo-brutalist-network-diagnostic-tool-react-python-cli-2gbg">I built an open-source, Neo-Brutalist network diagnostic tool &lpar;React + Python CLI&rpar;</a></td><td>Mar 27, 2026</td></tr><br><tr><td><a href="https://dev.to/nishal21/i-built-a-carbon-footprint-tracker-for-my-code-using-electron-2llo">I built a Carbon Footprint tracker for my code &lpar;using Tauri?!&rpar; 🍃</a></td><td>Feb 8, 2026</td></tr><br><!-- BLOG:END -->
 
 ---
 
