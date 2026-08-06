@@ -116,9 +116,9 @@
 
 ## 📈 **Profile Analytics**
 
-<img src="https://komarev.com/ghpvc/?username=nishal21&label=Profile%20Views&color=00D9FF&style=for-the-badge" alt="Profile Views" />
 <img src="https://img.shields.io/github/followers/nishal21?label=Followers&style=for-the-badge&color=00D9FF&labelColor=0D1117" alt="GitHub Followers" />
-<img src="https://img.shields.io/github/stars/nishal21?label=Stars&style=for-the-badge&color=FF6B6B&labelColor=0D1117" alt="GitHub Stars" />
+<img src="https://img.shields.io/github/stars/nishal21?label=Stars&style=for-the-badge&color=FF6B6B&labelColor=0D1117" alt="GitHub Stars" /><br>
+<a href="https://u8views.com/github/nishal21"><img src="https://u8views.com/api/v1/github/profiles/104292450/views/day-week-month-total-count.svg"></a>
 
 </div>
 
