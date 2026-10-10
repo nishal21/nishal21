@@ -252,6 +252,14 @@ def place(buf, x, t):
     S.add(buf, x, t)
 
 
+def halves(line):
+    """Split a sung line at its comma; the first half keeps the comma so Piper phrases it as unfinished."""
+    if "," not in line:
+        return [line]
+    a, b = line.split(",", 1)
+    return [a.strip() + ",", b.strip()]
+
+
 def melody(contour, t0, span, step=2):
     """Synth-lead notes for a contour: one note per `step` 16ths from t0, the last one held to the end of the
     span. Returns [(midi, start, dur)] an octave above the written contour."""
@@ -310,18 +318,20 @@ def vocals(lyrics, n):
             place(st["rap"], S.pan(edge_fade(x), 0) * 0.85, t)
             tl(t, t + len(x) / SR, sec, d)
 
-    # chorus: the female voice delivers each line on the downbeat, natural pitch and timing (no retune),
-    # a touch slower than the verses.
-    # The synth lead plays the hook melody under it. Rendered once and placed at both choruses.
+    # chorus: the female voice takes each line slowly, natural pitch (no retune). The two halves of a line
+    # are separate takes placed on the downbeats of its two bars, so every half gets a bar to breathe.
     clen = int(8 * BAR * SR) + SR * 2
     lead_v = np.zeros(clen)
     ctl, mel = [], []
     for i, (d, sp, _) in enumerate(lyrics["Chorus"]):
         t = 2 * i * BAR
-        x = V.rap_line(sing_v, sp, 2 * BAR * 0.86)
-        x = S.compress(x / (np.max(np.abs(x)) + 1e-9), thr_db=-16, ratio=2.5, attack=0.01, release=0.12)
-        S.add(lead_v, edge_fade(x), t)
-        ctl.append((t, t + len(x) / SR, d))
+        end = t
+        for k, half in enumerate(halves(sp)):
+            x = V.phrase(sing_v, half, V.SING_SPEED, BAR * 0.95)
+            x = S.compress(x / (np.max(np.abs(x)) + 1e-9), thr_db=-16, ratio=2.5, attack=0.01, release=0.12)
+            S.add(lead_v, edge_fade(x), t + k * BAR)
+            end = t + k * BAR + len(x) / SR
+        ctl.append((t, end, d))
         mel += melody(HOOK[i], t, 2 * BAR)
     lead_line = S.lead([m for m, _, _ in mel], clen, [a for _, a, _ in mel], [b for _, _, b in mel], vel=0.13, vibrato=0.25)
     for c0 in starts["Chorus"]:
@@ -342,14 +352,18 @@ def vocals(lyrics, n):
     place(hook_lead, S.pan(S.lead([m for m, _, _ in motif], int(4.2 * BAR * SR), [a for _, a, _ in motif],
                                   [b for _, _, b in motif], vel=0.3, vibrato=0.3), 0.1), h0)
 
-    # breakdown: one line, spoken softly over the keys, lead plays the breakdown melody
+    # breakdown: one line, softly, the second half a bar and a half after the first
     b0 = starts["Breakdown"][0]
     d, sp, _ = lyrics["Breakdown"][0]
-    x = V.rap_line(sing_v, sp, 2.2 * BAR)
-    x = edge_fade(x / (np.max(np.abs(x)) + 1e-9))
-    place(st["sing"], S.pan(x * 0.8, 0), b0 + 0.25 * BAR)
-    S.add(lead_only, x, b0 + 0.25 * BAR)
-    tl(b0 + 0.25 * BAR, b0 + 0.25 * BAR + len(x) / SR, "Breakdown", d)
+    end = b0
+    for k, half in enumerate(halves(sp)):
+        x = V.phrase(sing_v, half, V.SING_SPEED + 0.1, BAR * 1.4)
+        x = edge_fade(x / (np.max(np.abs(x)) + 1e-9))
+        at = b0 + (0.5 + 1.5 * k) * BAR
+        place(st["sing"], S.pan(x * 0.8, 0), at)
+        S.add(lead_only, x, at)
+        end = at + len(x) / SR
+    tl(b0 + 0.5 * BAR, end, "Breakdown", d)
     bm = melody(BREAK, 0, 3.6 * BAR, step=4)
     place(hook_lead, S.pan(S.lead([m for m, _, _ in bm], int(4.5 * BAR * SR), [a for _, a, _ in bm],
                                   [b for _, _, b in bm], vel=0.1, vibrato=0.4), 0.2), b0 + 0.25 * BAR)

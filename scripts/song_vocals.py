@@ -16,9 +16,11 @@ from song_synth import SR, sos
 VOICE_DIR = os.environ.get("PIPER_VOICE_DIR", os.path.expanduser("~/.cache/piper-voices"))
 HF = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/"
 RAP_VOICE = ("en_US-ryan-high", "en_US/ryan/high/")
-# chorus and breakdown: LibriTTS-R speaker 534 (female), picked from an audition of every free Piper English
-# female voice for clarity, a warm 180-200 Hz pitch, low 3-6 kHz harshness and a steady, clean tone
-SING_VOICE = ("en_US-libritts_r-medium", "en_US/libritts_r/medium/", "534")
+# chorus and breakdown: one female speaker of the LibriTTS-R model. Swap voices by changing this id
+# (auditioned favourites: "7318" most natural, "534" close second).
+SING_SPEAKER = "7318"
+SING_SPEED = 1.6  # Piper length_scale for the chorus: slow and relaxed
+SING_VOICE = ("en_US-libritts_r-medium", "en_US/libritts_r/medium/", SING_SPEAKER)
 
 
 class _Speaker:
@@ -64,9 +66,10 @@ def up(y, fs, fs_out=SR):
     return signal.sosfiltfilt(_LP[key], y)
 
 
-def tts(voice, text, speed=1.0, native=False):
+def tts(voice, text, speed=1.0, native=False, noise=0.6, noise_w=0.7):
+    """noise sets how much the voice colour varies, noise_w how much syllable lengths vary."""
     from piper import SynthesisConfig
-    cfg = SynthesisConfig(length_scale=speed, noise_scale=0.6, noise_w_scale=0.7)
+    cfg = SynthesisConfig(length_scale=speed, noise_scale=noise, noise_w_scale=noise_w)
     a = np.concatenate([c.audio_float_array for c in voice.synthesize(text, syn_config=cfg)]).astype(np.float64)
     idx = np.where(np.abs(a) > 0.015)[0]
     if len(idx):
@@ -84,6 +87,20 @@ def rap_line(voice, text, window):
         x = tts(voice, text, scale)
     if len(x) / SR > window * 0.98:
         x = x[: int(window * 0.98 * SR)]
+        x[-int(0.03 * SR):] *= np.linspace(1, 0, int(0.03 * SR))
+    return signal.sosfilt(sos("highpass", 90), x)
+
+
+def phrase(voice, text, speed, max_len):
+    """Speak a short phrase at a set length_scale. If it runs past max_len seconds, ask Piper for a
+    slightly faster take (never below 1.0); trim with a fade only as a last resort."""
+    while True:
+        x = tts(voice, text, speed)
+        if len(x) / SR <= max_len or speed <= 1.0:
+            break
+        speed = max(1.0, speed - 0.1)
+    if len(x) / SR > max_len:
+        x = x[: int(max_len * SR)]
         x[-int(0.03 * SR):] *= np.linspace(1, 0, int(0.03 * SR))
     return signal.sosfilt(sos("highpass", 90), x)
 

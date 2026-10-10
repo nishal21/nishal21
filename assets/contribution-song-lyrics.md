@@ -31,7 +31,7 @@ Every bar is one week of my GitHub contribution calendar, in order. Busier weeks
 
 ## Breakdown
 
-`0:58` Light weeks play low, heavy weeks play loud  
+`0:59` Light weeks play low, heavy weeks play loud  
 
 ## Chorus
 
