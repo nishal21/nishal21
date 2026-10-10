@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem("color-scheme")??"light dark"}catch(e){}</script>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.youtube.com 'sha256-gvJAalNElArwIMEq+hiCdNY4pw0lSyuZApkmsxFB/84='; style-src 'self'; img-src 'self' https: data: blob:; media-src 'self' https: http: blob:; connect-src 'self' https: http:; worker-src 'self' blob:; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://player.twitch.tv https://clips.twitch.tv https://geo.dailymotion.com https://streamable.com https://www.loom.com https://drive.google.com https://archive.org https://onedrive.live.com; object-src 'none'; base-uri 'none'; form-action 'self'">
+<title>Videos · Nishal K</title>
+<meta name="description" content="Nishal K's videos: the nightly contribution-song clip, his YouTube edits and mashups, and a player for any video link.">
+<meta name="theme-color" content="#0f120a">
+<meta property="og:type" content="video.other">
+<meta property="og:title" content="Videos · Nishal K">
+<meta property="og:description" content="The contribution-song clip, YouTube edits and mashups, and a player for any video link.">
+<meta property="og:url" content="https://nishal21.github.io/nishal21/video/">
+<meta property="og:image" content="https://nishal21.github.io/nishal21/player/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../player/cover.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preload" href="../player/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="videos.json" as="fetch" crossorigin="anonymous">
+<link rel="stylesheet" href="video.css">
+<script src="video.js" defer></script>
+</head>
+<body>
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.6v12.8a1 1 0 0 0 1.5.86l10.6-6.4a1 1 0 0 0 0-1.72L9.5 4.74A1 1 0 0 0 8 5.6z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4.2" height="14" rx="1.4" fill="currentColor" stroke="none"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.4" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-replay" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4v4h4"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M5 5.8v12.4a.8.8 0 0 0 1.2.7l8.8-6.2a.8.8 0 0 0 0-1.4L6.2 5.1A.8.8 0 0 0 5 5.8z" fill="currentColor" stroke="none"/><path d="M18.5 5v14"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" fill="currentColor"/><path class="w1" d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path class="w2" d="M18.2 6.6a7.8 7.8 0 0 1 0 10.8"/><path class="x" d="m16 9.5 5 5m0-5-5 5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.7 7.7 0 0 0 0-3l2-1.6-2-3.4-2.4.9a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.4A7.6 7.6 0 0 0 7 6.4l-2.4-.9-2 3.4 2 1.6a7.7 7.7 0 0 0 0 3l-2 1.6 2 3.4 2.4-.9a7.6 7.6 0 0 0 2.6 1.5l.4 2.4h4l.4-2.4a7.6 7.6 0 0 0 2.6-1.5l2.4.9 2-3.4z"/></symbol>
+  <symbol id="i-pip" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><rect x="12" y="11.5" width="6.5" height="5" rx="1" fill="currentColor"/></symbol>
+  <symbol id="i-theater" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/></symbol>
+  <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/></symbol>
+  <symbol id="i-unfull" viewBox="0 0 24 24"><path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20"/></symbol>
+  <symbol id="i-cc" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M10.5 10.2a2.3 2.3 0 1 0 0 3.6M17 10.2a2.3 2.3 0 1 0 0 3.6"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M14 5l6 5.5-6 5.5v-3.2c-4.6 0-7.6 1.4-10 4.7.8-4.8 3.7-8.5 10-9.3z"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v4.5A1.5 1.5 0 0 1 16.5 20h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3.1-3.1a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3.1 3.1a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M12 15V4m0 0-4 4m4-4 4 4"/><path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/></symbol>
+  <symbol id="i-loop" viewBox="0 0 24 24"><path d="M17 3.5 20 6.5l-3 3"/><path d="M4 11.5v-1a4 4 0 0 1 4-4h12M7 20.5l-3-3 3-3"/><path d="M20 12.5v1a4 4 0 0 1-4 4H4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.6A8 8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1z"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.4v.1"/></symbol>
+  <symbol id="i-keys" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M8 14h8"/></symbol>
+  <symbol id="i-yt" viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="M10.2 9.3v5.4l4.6-2.7z" fill="currentColor"/></symbol>
+</svg>
+
+<div class="backdrop" aria-hidden="true"></div>
+<a class="skip" href="#stage">Skip to the player</a>
+
+<header class="top">
+  <a class="handle" href="https://github.com/nishal21">nishal21</a>
+  <nav class="tabs" aria-label="Pages">
+    <a href="../player/">Song</a>
+    <a href="./" aria-current="page">Videos</a>
+  </nav>
+  <button type="button" id="theme" class="icon-btn theme">
+    <svg class="icon-sun"><use href="#i-sun"/></svg>
+    <svg class="icon-moon"><use href="#i-moon"/></svg>
+    <span class="to-dark visually-hidden">Switch to dark theme</span>
+    <span class="to-light visually-hidden">Switch to light theme</span>
+  </button>
+</header>
+
+<main class="watch" id="watch">
+  <div class="primary">
+    <div class="stage-wrap">
+      <div class="glow" aria-hidden="true"><canvas id="glow" width="64" height="36"></canvas></div>
+      <div class="stage paused idle-off" id="stage" data-kind="none" data-shape="wide" tabindex="-1" role="region" aria-label="Video player" aria-describedby="title">
+        <video id="video" playsinline preload="metadata" disablepictureinpicture="false"></video>
+        <div class="embed" id="embed"></div>
+        <div class="shield" id="shield" aria-hidden="true"></div>
+        <div class="ripple left" aria-hidden="true"><span>10 seconds</span></div>
+        <div class="ripple right" aria-hidden="true"><span>10 seconds</span></div>
+        <div class="bezel" id="bezel" aria-hidden="true"></div>
+        <div class="spinner" aria-hidden="true"></div>
+        <button type="button" class="big-play" id="big-play" aria-label="Play">
+          <svg class="i-play"><use href="#i-play"/></svg>
+          <svg class="i-replay"><use href="#i-replay"/></svg>
+        </button>
+        <div class="notice" id="notice" role="alert" hidden>
+          <svg><use href="#i-alert"/></svg>
+          <p id="notice-text"></p>
+          <a id="notice-link" target="_blank" rel="noopener noreferrer" hidden>Open the link <svg><use href="#i-out"/></svg></a>
+        </div>
+        <div class="postplay" id="postplay" role="status" hidden>
+          <p class="pp-label" id="pp-label">Up next</p>
+          <p class="pp-title" id="pp-title"></p>
+          <div class="pp-actions"><button type="button" id="pp-play">Play now</button><button type="button" id="pp-cancel">Cancel</button></div>
+          <span class="pp-bar" aria-hidden="true"><i></i></span>
+        </div>
+        <div class="resume" id="resume" hidden>
+          <span id="resume-text"></span>
+          <button type="button" id="restart">Start over</button>
+        </div>
+
+        <div class="chrome" id="chrome">
+          <div class="scrub" id="scrub">
+            <div class="track" aria-hidden="true">
+              <div class="buffered" id="buffered"></div>
+              <div class="hover-fill"></div>
+              <div class="played"></div>
+              <div class="ab-range" id="ab-range" hidden></div>
+              <div class="chap-marks" id="chap-marks"></div>
+            </div>
+            <span class="knob" aria-hidden="true"></span>
+            <div class="preview" id="preview" aria-hidden="true">
+              <div class="pv-frame"><video id="pv" muted playsinline preload="none" tabindex="-1"></video><img id="pv-img" alt=""></div>
+              <span class="pv-chap" id="pv-chap"></span><span id="pv-time">0:00</span>
+            </div>
+            <input type="range" id="seek" min="0" max="1000" step="1" value="0" aria-label="Seek" aria-valuetext="0:00 of 0:00">
+          </div>
+          <div class="bar">
+            <button type="button" class="cb play" id="play" aria-label="Play (k)"><svg class="i-play"><use href="#i-play"/></svg><svg class="i-pause"><use href="#i-pause"/></svg></button>
+            <button type="button" class="cb" id="next" aria-label="Next video (Shift+N)" hidden><svg><use href="#i-next"/></svg></button>
+            <div class="vol" id="vol">
+              <button type="button" class="cb" id="mute" aria-label="Mute (m)"><svg><use href="#i-vol"/></svg></button>
+              <input type="range" id="volume" min="0" max="100" step="1" value="100" aria-label="Volume">
+            </div>
+            <button type="button" class="time" id="time" aria-label="Show time remaining"><span id="cur">0:00</span><span class="sep">/</span><span id="dur">0:00</span></button>
+            <button type="button" class="chap" id="chap" aria-label="Chapters" aria-haspopup="true" hidden><span id="chap-name"></span><span aria-hidden="true">›</span></button>
+            <span class="spacer"></span>
+            <button type="button" class="cb" id="cc" aria-label="Captions (c)" aria-pressed="false" hidden><svg><use href="#i-cc"/></svg></button>
+            <button type="button" class="cb" id="loop-btn" aria-label="Loop" aria-pressed="false"><svg><use href="#i-loop"/></svg></button>
+            <button type="button" class="cb" id="settings-btn" aria-label="Settings" aria-haspopup="menu" aria-expanded="false" aria-controls="settings"><svg><use href="#i-gear"/></svg><span class="rate-tag" id="rate-tag" hidden></span></button>
+            <button type="button" class="cb" id="pip" aria-label="Picture in picture (i)"><svg><use href="#i-pip"/></svg></button>
+            <button type="button" class="cb wide-only" id="theater" aria-label="Theater mode (t)" aria-pressed="false"><svg><use href="#i-theater"/></svg></button>
+            <button type="button" class="cb" id="fs" aria-label="Full screen (f)"><svg class="i-full"><use href="#i-full"/></svg><svg class="i-unfull"><use href="#i-unfull"/></svg></button>
+          </div>
+        </div>
+
+        <div class="menu" id="settings" role="menu" aria-label="Settings" hidden>
+          <div class="menu-head">Speed</div>
+          <div class="speeds" id="speeds" role="group" aria-label="Playback speed"></div>
+          <button type="button" class="menu-row" role="menuitemcheckbox" id="m-loop" aria-checked="false"><span>Loop</span><span class="switch"></span></button>
+          <button type="button" class="menu-row" role="menuitem" id="m-ambient" aria-haspopup="true"><span>Ambient light</span><span class="chev" id="m-ambient-state">On ›</span></button>
+          <button type="button" class="menu-row" role="menuitemcheckbox" id="m-autoplay" aria-checked="true"><span>Autoplay next</span><span class="switch"></span></button>
+          <button type="button" class="menu-row" role="menuitem" id="m-chapters" aria-haspopup="true" hidden><span>Chapters</span><span class="chev">›</span></button>
+          <button type="button" class="menu-row" role="menuitem" id="m-subs" aria-haspopup="true"><span>Subtitles</span><span class="chev" id="m-subs-state">Off ›</span></button>
+          <div class="menu-head">More</div>
+          <button type="button" class="menu-row" role="menuitem" id="m-sleep"><span>Sleep timer</span><span class="chev" id="m-sleep-state">Off</span></button>
+          <button type="button" class="menu-row" role="menuitem" id="m-ab"><span>Repeat a part</span><span class="chev" id="m-ab-state">Set start</span></button>
+          <button type="button" class="menu-row native-only" role="menuitemcheckbox" id="m-fill" aria-checked="false"><span>Fill the frame</span><span class="switch"></span></button>
+          <button type="button" class="menu-row native-only" role="menuitemcheckbox" id="m-boost" aria-checked="false"><span>Volume boost</span><span class="switch"></span></button>
+          <button type="button" class="menu-row native-only" role="menuitem" id="m-shot"><span>Save this frame</span><kbd>⇧S</kbd></button>
+          <button type="button" class="menu-row" role="menuitemcheckbox" id="m-mini" aria-checked="true"><span>Mini player on scroll</span><span class="switch"></span></button>
+          <button type="button" class="menu-row" role="menuitem" id="m-keys"><span>Keyboard shortcuts</span><kbd>?</kbd></button>
+        </div>
+        <div class="menu" id="ambient" role="dialog" aria-label="Ambient light" hidden>
+          <div class="menu-head"><button type="button" class="back" id="amb-back" aria-label="Back to settings">‹ Ambient light</button></div>
+          <button type="button" class="menu-row" role="switch" id="a-on" aria-checked="true"><span>On</span><span class="switch"></span></button>
+          <div class="menu-head">Source</div>
+          <div class="amb-modes" role="radiogroup" aria-label="Ambient source">
+            <button type="button" role="radio" data-mode="live" aria-checked="true">Live</button>
+            <button type="button" role="radio" data-mode="light" aria-checked="false">Light</button>
+          </div>
+          <p class="amb-note" id="amb-note">Live follows every frame. On YouTube and Vimeo it plays a muted copy behind the player, which uses more data.</p>
+          <div class="amb-sliders" id="amb-sliders">
+            <label>Blur <output data-for="blur"></output><input type="range" data-k="blur" min="0" max="120" step="2"></label>
+            <label>Size <output data-for="scale"></output><input type="range" data-k="scale" min="1" max="1.6" step="0.02"></label>
+            <label>Brightness <output data-for="bright"></output><input type="range" data-k="bright" min="0.4" max="1.6" step="0.05"></label>
+            <label>Saturation <output data-for="sat"></output><input type="range" data-k="sat" min="0.5" max="2.5" step="0.05"></label>
+            <label>Strength <output data-for="opacity"></output><input type="range" data-k="opacity" min="0.1" max="1" step="0.05"></label>
+            <label>Edge fade <output data-for="fade"></output><input type="range" data-k="fade" min="0" max="60" step="2"></label>
+          </div>
+          <button type="button" class="menu-row" role="switch" id="a-tint" aria-checked="true"><span>Tint the page</span><span class="switch"></span></button>
+          <button type="button" class="menu-row" role="switch" id="a-sync" aria-checked="true"><span>Tight sync (Live)</span><span class="switch"></span></button>
+          <button type="button" class="menu-row" role="menuitem" id="a-reset"><span>Reset to defaults</span></button>
+        </div>
+        <div class="menu" id="chapters" role="dialog" aria-label="Chapters" hidden>
+          <div class="menu-head"><button type="button" class="back" data-back="m-chapters" aria-label="Back to settings">‹ Chapters</button></div>
+          <ol class="chap-list" id="chap-list"></ol>
+        </div>
+        <div class="menu" id="subs" role="dialog" aria-label="Subtitles" hidden>
+          <div class="menu-head"><button type="button" class="back" data-back="m-subs" aria-label="Back to settings">‹ Subtitles</button></div>
+          <p class="amb-note" id="subs-note">Add a .vtt or .srt file. It stays on your device.</p>
+          <label class="menu-row file-row"><span>Choose a file</span><span class="chev">›</span><input type="file" id="subs-file" accept=".vtt,.srt,text/vtt"></label>
+          <form class="subs-url" id="subs-url"><input type="url" id="subs-link" placeholder="Or a link to a .vtt or .srt" aria-label="Subtitle link" autocomplete="off" spellcheck="false"><button type="submit">Add</button></form>
+          <div class="menu-head">Text size</div>
+          <div class="amb-modes" role="radiogroup" aria-label="Subtitle size" id="cue-size">
+            <button type="button" role="radio" data-size="s" aria-checked="false">Small</button>
+            <button type="button" role="radio" data-size="m" aria-checked="true">Medium</button>
+            <button type="button" role="radio" data-size="l" aria-checked="false">Large</button>
+          </div>
+          <button type="button" class="menu-row" role="switch" id="cue-bg" aria-checked="true"><span>Dark background</span><span class="switch"></span></button>
+        </div>
+        <button type="button" class="mini-close" id="mini-close" aria-label="Close mini player"><svg><use href="#i-x"/></svg></button>
+        <div class="drop" id="drop" aria-hidden="true"><svg><use href="#i-file"/></svg><span>Drop a video to play it</span></div>
+      </div>
+    </div>
+
+    <section class="info" aria-labelledby="title">
+      <p class="eyebrow" id="eyebrow">Share clip</p>
+      <h1 id="title">Contribution song, busiest week</h1>
+      <p class="meta" id="meta"></p>
+      <div class="actions">
+        <button type="button" class="pill" id="share"><svg><use href="#i-share"/></svg>Share</button>
+        <a class="pill" id="download" href="#" download hidden><svg><use href="#i-download"/></svg><span>Download</span></a>
+        <a class="pill" id="open" href="#" target="_blank" rel="noopener noreferrer" hidden><svg><use href="#i-out"/></svg><span>Open on YouTube</span></a>
+      </div>
+      <div class="share-menu" id="share-menu" role="menu" aria-label="Share" hidden>
+        <button type="button" role="menuitem" id="s-native" hidden>Share…</button>
+        <button type="button" role="menuitem" id="s-copy">Copy link</button>
+        <button type="button" role="menuitem" id="s-copy-t">Copy link at <span id="s-t">0:00</span></button>
+      </div>
+      <details class="desc" id="desc" hidden><summary>Description</summary><p id="desc-text"></p></details>
+    </section>
+
+    <form class="link" id="link-form" novalidate>
+      <h2 class="link-h" id="link-h">Play any video</h2>
+      <div class="field">
+        <svg aria-hidden="true"><use href="#i-link"/></svg>
+        <label for="link" class="visually-hidden">Video link</label>
+        <input id="link" name="v" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a link: YouTube, Vimeo, Twitch, MP4, m3u8, mpd…" aria-describedby="link-msg link-help">
+        <button type="submit" class="go">Play</button>
+      </div>
+      <p class="link-msg" id="link-msg" role="status" aria-live="polite"></p>
+      <p class="link-help" id="link-help">
+        Works with YouTube, Vimeo, Twitch, Dailymotion, Streamable, Loom, Google Drive, Dropbox, OneDrive and archive.org links, plus direct MP4, WebM, MOV, OGG, MKV, HLS and DASH files. Messy links with tracking or timestamps are fine.<span class="or">Or <label class="file-btn"><input type="file" id="file" accept="video/*,audio/*,.mkv,.mov,.m4v,.ogv"><svg aria-hidden="true"><use href="#i-file"/></svg>play a file from your device</label>. It stays on your device.</span>
+      </p>
+    </form>
+  </div>
+
+  <aside class="queue" aria-labelledby="queue-h">
+    <div class="queue-head">
+      <h2 id="queue-h">Up next</h2>
+      <button type="button" class="mini-switch" id="autoplay" role="switch" aria-checked="true"><span>Autoplay</span><span class="switch"></span></button>
+    </div>
+    <ol class="queue-list" id="queue"></ol>
+  </aside>
+</main>
+
+<section class="library" id="library" aria-labelledby="lib-h">
+  <header class="lib-head">
+    <div>
+      <h2 id="lib-h">Videos</h2>
+      <p id="lib-sub">Edits, mashups and Shorts from <a href="https://www.youtube.com/@DemonKing0.___" id="channel-link">@DemonKing0.___</a></p>
+    </div>
+    <div class="lib-tools">
+      <div class="chips" role="radiogroup" aria-label="Show">
+        <button type="button" role="radio" aria-checked="true" data-f="all">All</button>
+        <button type="button" role="radio" aria-checked="false" data-f="videos">Videos</button>
+        <button type="button" role="radio" aria-checked="false" data-f="shorts">Shorts</button>
+      </div>
+      <div class="search">
+        <svg aria-hidden="true"><use href="#i-search"/></svg>
+        <label for="q" class="visually-hidden">Search videos</label>
+        <input id="q" type="search" placeholder="Search" autocomplete="off">
+      </div>
+    </div>
+  </header>
+  <div class="shelf-wrap" id="cw-wrap" hidden>
+    <div class="shelf-top"><h3 class="shelf-h">Continue watching</h3><button type="button" class="text-btn" id="cw-clear">Clear</button></div>
+    <ul class="shelf cw" id="cw"></ul>
+  </div>
+  <div class="shelf-wrap" id="shorts-wrap">
+    <h3 class="shelf-h">Shorts</h3>
+    <ul class="shelf" id="shorts"></ul>
+  </div>
+  <ul class="grid" id="grid"></ul>
+  <p class="empty" id="empty" hidden></p>
+</section>
+
+<dialog class="keys" id="keys" aria-labelledby="keys-h">
+  <header><h2 id="keys-h">Keyboard shortcuts</h2><button type="button" class="icon-btn" id="keys-close" aria-label="Close"><svg><use href="#i-x"/></svg></button></header>
+  <dl>
+    <div><dt><kbd>K</kbd> <kbd>Space</kbd></dt><dd>Play or pause</dd></div>
+    <div><dt><kbd>J</kbd> <kbd>L</kbd></dt><dd>Back or forward 10 seconds</dd></div>
+    <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Back or forward 5 seconds</dd></div>
+    <div><dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Volume (with the player focused)</dd></div>
+    <div><dt><kbd>0</kbd>–<kbd>9</kbd></dt><dd>Jump to 0–90%</dd></div>
+    <div><dt><kbd>,</kbd> <kbd>.</kbd></dt><dd>One frame back or forward (paused)</dd></div>
+    <div><dt><kbd>&lt;</kbd> <kbd>&gt;</kbd></dt><dd>Slower or faster</dd></div>
+    <div><dt><kbd>M</kbd></dt><dd>Mute</dd></div>
+    <div><dt><kbd>F</kbd></dt><dd>Full screen</dd></div>
+    <div><dt><kbd>T</kbd></dt><dd>Theater mode</dd></div>
+    <div><dt><kbd>I</kbd></dt><dd>Picture in picture</dd></div>
+    <div><dt><kbd>C</kbd></dt><dd>Captions, when the video has them</dd></div>
+    <div><dt><kbd>R</kbd></dt><dd>Loop</dd></div>
+    <div><dt><kbd>Shift</kbd> <kbd>N</kbd></dt><dd>Next video</dd></div>
+    <div><dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Repeat from here, until here</dd></div>
+    <div><dt><kbd>\</kbd></dt><dd>Stop repeating a part</dd></div>
+    <div><dt><kbd>Shift</kbd> <kbd>S</kbd></dt><dd>Save the current frame (video files)</dd></div>
+    <div><dt><kbd>/</kbd></dt><dd>Paste a link</dd></div>
+  </dl>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<footer class="foot">
+  <p>Made by <a href="https://github.com/nishal21">Nishal K</a> in Kerala. YouTube videos play through YouTube's privacy-enhanced player and only load when you press play.</p>
+</footer>
+</body>
+</html>

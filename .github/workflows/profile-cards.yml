@@ -1,6 +1,6 @@
 # Profile cards and the contribution song.
 # Cards: what I'm building, recent commits, latest YouTube upload, last 12 months, contribution song.
-# The song MP3 and its player page are published to GitHub Pages (https://nishal21.github.io/nishal21/player/)
+# The song MP3, its player page and the video page (/video/) are published to GitHub Pages (https://nishal21.github.io/nishal21/player/)
 # instead of being committed, so the repo doesn't grow by 1.5 MB every night.
 # Each generator runs on its own; if one fails, its previous image stays in place and Pages keeps the last song.
 # Uses only the built-in GITHUB_TOKEN and public endpoints. No extra secrets.
@@ -16,6 +16,7 @@ on:
     branches: [main]
     paths:
       - "player/**"
+      - "video/**"
       - "scripts/**"
       - ".github/workflows/profile-cards.yml"
 
@@ -77,6 +78,10 @@ jobs:
       - name: Latest YouTube upload
         continue-on-error: true
         run: python scripts/youtube_card.py
+
+      - name: Video library
+        continue-on-error: true
+        run: python scripts/youtube_videos.py
 
       - name: Check the lyric templates
         continue-on-error: true
