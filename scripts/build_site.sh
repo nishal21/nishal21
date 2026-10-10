@@ -12,6 +12,8 @@ for f in contribution-song.mp3 contribution-song.json contribution-song.lrc cont
 done
 # Cover for link previews and the lock screen (needs Pillow, which the song step already installs).
 python3 player/make_cover.py _site/player || echo "cover not built; the page draws its own"
+# 15 s vertical video of the busiest week, for sharing (optional: the player hides the link without it)
+python3 scripts/share_clip.py _site/player || echo "share clip not built"
 cat > _site/index.html <<'HTML'
 <!doctype html><meta charset="utf-8"><title>Contribution song</title>
 <meta http-equiv="refresh" content="0; url=player/"><link rel="canonical" href="player/">

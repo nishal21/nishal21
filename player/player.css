@@ -490,3 +490,4 @@ kbd {
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
 .dragging .ly { transition: none; }
+.dl[hidden] { display: none; }

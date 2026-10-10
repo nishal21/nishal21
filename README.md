@@ -127,7 +127,7 @@ More edits and remixes on [my channel](https://www.youtube.com/@DemonKing0.___).
   </picture>
 </p>
 
-<p align="center"><a href="https://nishal21.github.io/nishal21/player/">Listen to the contribution song</a> · <a href="assets/contribution-song-lyrics.md">Lyrics</a> · <a href="https://nishal21.github.io/nishal21/player/contribution-song.mp3">Download MP3</a><br>Every bar is one week of my contribution calendar, and the lyrics come from the same numbers.</p>
+<p align="center"><a href="https://nishal21.github.io/nishal21/player/">Listen to the contribution song</a> · <a href="assets/contribution-song-lyrics.md">Lyrics</a> · <a href="https://nishal21.github.io/nishal21/player/contribution-song.mp3">Download MP3</a> · <a href="https://nishal21.github.io/nishal21/player/share-clip.mp4">Clip</a><br>Every bar is one week of my contribution calendar, and the lyrics come from the same numbers.</p>
 
 <p align="center">
   <picture>

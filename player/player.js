@@ -647,6 +647,9 @@ audio.addEventListener("ended", () => { audio.currentTime = 0; update(true); });
 audio.addEventListener("timeupdate", () => { if (audio.paused) update(); });
 audio.addEventListener("seeked", () => { lastT = audio.currentTime; update(true); });
 audio.addEventListener("loadedmetadata", () => update(true));
+// the share clip is built nightly; hide its link if this build doesn't have one
+fetch("share-clip.mp4", { method: "HEAD" }).then((r) => { if (!r.ok) $("#clip-dl").hidden = true; })
+  .catch(() => { $("#clip-dl").hidden = true; });
 audio.addEventListener("error", () => { $("#where").textContent = "Couldn't load the audio. The MP3 download may still work."; });
 seek.addEventListener("input", () => jump((seek.value / 1000) * (audio.duration || song.length)));
 
