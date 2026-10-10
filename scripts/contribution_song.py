@@ -22,11 +22,17 @@ from datetime import datetime, timezone
 import numpy as np
 from scipy import signal
 
+import song_data as SD
+import song_events as EV
 import song_synth as S
 import song_lyrics as LY
+import song_timbres as TB
 import song_vocals as V
 from common import (ASSETS, CARD_H, CARD_W, FONT, THEMES, USER, card_open, contribution_calendar, esc, fail,
                     gh_api, write_atomic)
+
+LANG_TIMBRES = True   # each week's dominant language colours the bass, keys and arp (song_timbres.py)
+EVENT_ACCENTS = True  # releases, big PRs, new repos and the peak day as one-shot accents (song_events.py)
 
 SR = S.SR
 BPM = 140
@@ -115,6 +121,7 @@ def instrumental(weeks, rng):
     bars = bar_sections()
     lead_n, lead_t, lead_d = [], [], []
     bass_n, bass_t, bass_d = [], [], []
+    tone_ev = {"keys": [], "pluck": []}  # the same notes, for the language tones (song_timbres)
     for b, (sec, k, secn) in enumerate(bars):
         t0 = b * BAR
         wk = weeks[b] if b < len(weeks) else []
@@ -201,8 +208,10 @@ def instrumental(weeks, rng):
             hits = [0] if w < 0.15 and verse else [0, 6] if w < 0.5 else [0, 6, 10, 14]
             for h in hits:
                 for j, note in enumerate(ch):
-                    x = S.epiano(note, int(SR * (BAR - h * STEP) * 0.9), 0.32 * hv())
+                    nn, vel = int(SR * (BAR - h * STEP) * 0.9), 0.32 * hv()
+                    x = S.epiano(note, nn, vel)
                     S.add(st["keys"], S.pan(x, -0.25 + 0.15 * j) * lvl, t0 + sw(h) + 0.006 * j)
+                    tone_ev["keys"].append((note, t0 + sw(h) + 0.006 * j, nn, vel * lvl, -0.25 + 0.15 * j))
         if full or sec == "Build":
             open_ = 1.0 if full else 0.35 + 0.3 * k
             ss = S.supersaw(ch + [ch[0] + 12], nbar, cutoff=1000 + 2600 * open_ * (0.7 + 0.3 * w), rel=0.2)
@@ -217,8 +226,10 @@ def instrumental(weeks, rng):
                 arp = [ch[0] + 12, ch[2] + 12, ch[1] + 12, ch[3] + 12]
                 stp = 2 if w < 0.5 else 1
                 for i, s in enumerate(range(0, 16, stp)):
-                    x = S.pluck(arp[i % 4], int(SR * 0.3), 0.22 * hv(), bright=2500 + 3000 * w)
+                    vel = 0.22 * hv()
+                    x = S.pluck(arp[i % 4], int(SR * 0.3), vel, bright=2500 + 3000 * w)
                     S.add(st["pluck"], S.pan(x, 0.4 if i % 2 else -0.4) * lvl, t0 + sw(s))
+                    tone_ev["pluck"].append((arp[i % 4], t0 + sw(s), int(SR * 0.3), vel * lvl, 0.4 if i % 2 else -0.4))
 
         # --- lead responses in the verses: a short answer in the gap after each 2-bar rap line ---
         if verse and k % 2 == 1:
@@ -243,6 +254,8 @@ def instrumental(weeks, rng):
     b808 = S.bass808(bass_n, bass_t, bass_d, n, glide=0.07, drive=2.2)
     st["bass"] = np.stack([b808, b808]) * 0.6
     st["lead"] = S.pan(S.lead(lead_n, n, lead_t, lead_d, vel=0.32), 0.15)
+    tone_ev["bass"] = (bass_n, bass_t, bass_d, 0.6)
+    st["_tones"] = tone_ev
     return st, kicks, n
 
 
@@ -509,8 +522,10 @@ def lrc(timeline, s):
     return "\n".join(out) + "\n"
 
 
-def song_json(s, facts, weeks, timeline, length, song):
+def song_json(s, facts, weeks, timeline, length, song, langs=None, events=None):
     """Everything the player page needs: timing, lyrics, stats, the weekly grid and a waveform."""
+    langs = langs or [None] * len(weeks)
+    events = events or [[] for _ in weeks]
     acc, sections = 0, []
     for name, nb in SECTIONS:
         sections.append(dict(name=name, start=round(acc * BAR, 3), bars=nb))
@@ -523,7 +538,8 @@ def song_json(s, facts, weeks, timeline, length, song):
                    best=str(s["best"]), best_n=s["best_n"], month=f"{s['month'][0]}-{s['month'][1]:02d}",
                    month_n=s["month_n"], streak=s["longest"], streak_start=str(s["lstart"]), streak_end=str(s["lend"]),
                    recent=(facts or {}).get("recent", []), langs=(facts or {}).get("langs", [])),
-        weeks=[dict(start=str(w[0][0]) if w else None, days=[c for _, c in w]) for w in weeks],
+        weeks=[dict(start=str(w[0][0]) if w else None, days=[c for _, c in w], lang=langs[i], events=events[i])
+               for i, w in enumerate(weeks)],
         lines=[dict(t=round(l["start"], 3), end=round(l["end"], 3), section=l["section"], text=l["text"])
                for l in timeline],
         peaks=[round(float(p), 3) for p in peaks(song, 400)])
@@ -579,6 +595,33 @@ def render_card(s, length, wave_peaks, t):
 
 
 
+def week_facts(weeks):
+    """Dominant language and notable events per week (None / [] when the data can't be had)."""
+    langs, events = [None] * len(weeks), [[] for _ in weeks]
+    dated = [w for w in weeks if w]
+    if not dated:
+        return langs, events
+    data = SD.load_data(dated)
+    off = len(weeks) - len(dated)
+    for i, (l, e) in enumerate(zip(SD.week_langs(dated, data), SD.week_events(dated, data))):
+        langs[off + i], events[off + i] = l, e
+    return langs, events
+
+
+def colour(inst, weeks, langs, events, timeline, n):
+    """Apply the language tones and event accents (each behind its flag). Vocals are not touched."""
+    tones = inst.pop("_tones")
+    if LANG_TIMBRES:
+        inst = TB.apply(inst, tones, [SD.FAMILY.get(l) for l in langs], BAR, n)
+    if EVENT_ACCENTS:
+        bars = bar_sections()
+        acc, placed = EV.render(events, timeline, BAR, BEAT, n, lambda b: chord_at(bars[b][0], bars[b][1]))
+        inst["fx"] = inst["fx"] + acc
+        for b, ev in placed:
+            print(f"accent: bar {b + 1} {ev['type']} {ev['repo'] or ''} {ev['title']}")
+    return inst
+
+
 def main():
     if not shutil.which("ffmpeg"):
         fail("ffmpeg not found")
@@ -596,6 +639,8 @@ def main():
         rng = np.random.default_rng(s["total"])
         inst, kicks, n = instrumental(weeks, rng)
         vox, hook_lead, timeline = vocals(lyrics, n)
+        langs, events = week_facts(weeks)
+        inst = colour(inst, weeks, langs, events, timeline, n)
         length = len(weeks) * BAR + 2.0
         song, vox_solo = mixdown(inst, kicks, vox, hook_lead, n, length)
         song, lufs = master(song)
@@ -618,7 +663,8 @@ def main():
     for name, t in THEMES.items():
         write_atomic(os.path.join(ASSETS, f"song-{name}.svg"), render_card(s, length, wp, t))
     write_atomic(os.path.join(ASSETS, "contribution-song.lrc"), lrc(timeline, s))
-    write_atomic(os.path.join(ASSETS, "contribution-song.json"), song_json(s, facts, weeks, timeline, length, song))
+    write_atomic(os.path.join(ASSETS, "contribution-song.json"),
+                 song_json(s, facts, weeks, timeline, length, song, langs, events))
     print(f"song: {mmss(length)} ({length:.1f}s), {len(weeks)} bars, {len(timeline)} vocal lines, {lufs:.1f} LUFS")
 
 

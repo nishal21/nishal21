@@ -51,6 +51,13 @@ jobs:
           path: ~/.cache/piper-voices
           key: piper-voices-ryan-high-libritts_r-medium-v5
 
+      - name: Restore the song data cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/song-data
+          key: song-data-${{ github.run_id }}
+          restore-keys: song-data-
+
       - name: Last 12 months
         continue-on-error: true
         run: python scripts/year_card.py

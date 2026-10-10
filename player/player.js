@@ -469,6 +469,12 @@ pane.addEventListener("pointercancel", endDrag);
 function setWait(i, v) { (lineLabel[i] ?? lineEls[i]).classList.toggle("wait", v); }
 
 /* year grid */
+function eventText(e) {
+  if (e.type === "release") return `release: ${e.repo} ${e.title}`;
+  if (e.type === "pr") return `merged PR in ${e.repo}`;
+  if (e.type === "repo") return `new repo: ${e.repo}`;
+  return "busiest day of the year";
+}
 function level(c) { return c === 0 ? 0 : Math.min(4, 1 + Math.floor((c / dmax) * 4)); }
 function buildGrid(data) {
   const wrap = $("#weeks"), months = $("#months");
@@ -479,7 +485,9 @@ function buildGrid(data) {
     b.className = "wk";
     b.tabIndex = i === 0 ? 0 : -1;
     const total = w.days.reduce((a, c) => a + c, 0);
-    b.setAttribute("aria-label", `Week of ${day(w.start)}, ${total} contributions. Play from here.`);
+    const notes = [w.lang ? `mostly ${w.lang}` : "", ...(w.events || []).map(eventText)].filter(Boolean).join("; ");
+    b.setAttribute("aria-label", `Week of ${day(w.start)}, ${total} contributions${notes ? `, ${notes}` : ""}. Play from here.`);
+    b.title = `Week of ${day(w.start)}: ${total} contributions${notes ? `\n${notes}` : ""}`;
     const cells = [];
     for (let d = 0; d < 7; d++) {
       const c = document.createElement("span");

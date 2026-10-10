@@ -224,7 +224,7 @@ def lead(notes, n_total, starts, durs, vel=0.6, vibrato=0.25):
     return vel * x * amp
 
 
-def bass808(notes, starts, durs, n_total, glide=0.06, drive=2.5):
+def bass808(notes, starts, durs, n_total, glide=0.06, drive=2.5, lp=900):
     """808 sub with portamento into each note."""
     f = np.zeros(n_total)
     amp = np.zeros(n_total)
@@ -244,7 +244,7 @@ def bass808(notes, starts, durs, n_total, glide=0.06, drive=2.5):
     f[f == 0] = 40
     x = np.sin(2 * np.pi * np.cumsum(f) / SR)
     x = np.tanh(drive * x) / np.tanh(drive)
-    x = signal.sosfilt(sos("lowpass", 900), x)
+    x = signal.sosfilt(sos("lowpass", lp), x)
     return x * amp
 
 
