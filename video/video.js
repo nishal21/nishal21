@@ -238,7 +238,8 @@ function parseLink(raw) {
   // Social sites only play inside their own apps here: no third-party social embeds, just a way out
   const social = host === "tiktok.com" || host.endsWith(".tiktok.com") ? "TikTok" : host === "instagram.com" ? "Instagram"
     : host === "facebook.com" || host === "fb.watch" || host === "web.facebook.com" ? "Facebook"
-    : host === "x.com" || host === "twitter.com" || host === "fxtwitter.com" || host === "vxtwitter.com" ? "X" : null;
+    : host === "x.com" || host === "twitter.com" || host === "fxtwitter.com" || host === "vxtwitter.com" ? "X"
+    : known("smolish.com") ? "Smolish" : null;
   if (social) return { kind: "external", provider: social, src: clean(), shape: "wide" };
   // Indee's embeddable player has no link form: it needs the site's API key, the viewer's Indee login and DRM,
   // set up by a server. A static page can't hold those safely, so Indee links get a clear answer instead.
@@ -596,7 +597,13 @@ function ytSrc(it, mirror = false) {
   });
   // origin must be the real https origin (https://nishal21.github.io on Pages); a file:// page has none
   if (/^https?:$/.test(location.protocol)) { q.set("origin", location.origin); q.set("widget_referrer", SITE.href); }
-  if (mirror) q.set("mute", "1");
+  if (mirror) { q.set("mute", "1"); q.set("cc_load_policy", "0"); }
+  else {
+    // captions only when the viewer turned them on here; never forced by the video
+    const on = store.get("captions", false), lang = store.get("capLang", "");
+    q.set("cc_load_policy", on ? "1" : "0");
+    if (on && lang) q.set("cc_lang_pref", lang);
+  }
   if (it.start) q.set("start", String(Math.floor(it.start)));
   if (it.list && !mirror) q.set("list", it.list);
   return `https://www.youtube-nocookie.com/embed/${it.id || "videoseries"}?${q}`;
@@ -623,14 +630,50 @@ function ytAdapter(it) {
     get t() { return ready ? yt.getCurrentTime?.() || 0 : 0; },
     get d() { return ready ? yt.getDuration?.() || 0 : 0; },
     get paused() { return state !== 1 && state !== 3; },
+    get state() { return state; },
     setVol(v, m) { if (!ready) return; yt.setVolume(Math.round(v * 100)); m ? yt.mute() : yt.unMute(); },
     setRate(r) { ready && yt.setPlaybackRate(r); },
     setLoop(l) { ready && it.list && yt.setLoop(l); },
     rates: () => (ready && yt.getAvailablePlaybackRates?.()) || [1],
     buffered() { return ready ? [[0, (yt.getVideoLoadedFraction?.() || 0) * a.d]] : []; },
     next() { if (ready && it.list) { yt.nextVideo(); return true; } return false; },
-    destroy() { clearInterval(poll); try { yt?.destroy(); } catch {} },
+    destroy() { clearInterval(poll); clearTimeout(capT); try { yt?.destroy(); } catch {} },
+    caps: {
+      list() { return raw().map((t) => ({ id: t.languageCode, label: t.displayName || t.languageName || t.languageCode })); },
+      // YouTube reports the old track for a while after a switch, so remember what was picked
+      current() { return capCur; },
+      apply,
+    },
   };
+  // off unloads YouTube's caption module (which is what actually hides them); on loads it and picks a track
+  let capT = 0, capCur = "";
+  function raw() { try { return (yt.getOption("captions", "tracklist") || []).filter((t) => t && t.languageCode); } catch { return []; } }
+  function apply(pick) {
+    if (!ready) return;
+    clearTimeout(capT);
+    if (!store.get("captions", false)) {
+      capCur = "";
+      try { yt.unloadModule("captions"); } catch {}
+      return;
+    }
+    try { yt.loadModule("captions"); } catch {}
+    let tries = 0;
+    // the module takes a moment to load; a track set before that is ignored
+    const choose = () => {
+      const list = raw();
+      if (!list.length || !(yt.getOptions?.() || []).includes("captions")) {
+        if (++tries < 16) capT = setTimeout(choose, 250);
+        else if (pick !== undefined) { toast("This video has no captions."); store.set("captions", false); apply(); syncCC(); }
+        return;
+      }
+      const want = pick || store.get("capLang", "");
+      const t = list.find((x) => x.languageCode === want) || list.find((x) => want && x.languageCode.split("-")[0] === want.split("-")[0]) || list.find((x) => x.languageCode.startsWith((navigator.language || "en").split("-")[0])) || list[0];
+      try { yt.setOption("captions", "track", t); } catch {}
+      capCur = t.languageCode;
+      syncCC();
+    };
+    capT = setTimeout(choose, 300);
+  }
   setState("waiting", true);
   loadYT().then(() => {
     if (P !== a) return;
@@ -645,7 +688,10 @@ function ytAdapter(it) {
           if (data?.title && !it.title) setTitle(data.title, data.author);
           paint();
           if (it.autoplay) yt.playVideo();
+          syncCC();
         },
+        // YouTube loads its caption module by itself when a video starts; keep it in line with the choice
+        onApiChange() { if (!store.get("captions", false)) apply(); },
         onStateChange(e) {
           state = e.data;
           if (state === 1) {
@@ -655,13 +701,14 @@ function ytAdapter(it) {
             const data = yt.getVideoData?.();
             if (data?.title && (it.list || !it.title)) setTitle(data.title, data.author);
             if (prefs.rate !== 1) yt.setPlaybackRate(prefs.rate);
+            if (!store.get("captions", false)) apply();
             onPlay();
           } else if (state === 2 || state === 5 || state === -1) { setState("waiting", false); onPause(); }
           else if (state === 3) setState("waiting", true);
           else if (state === 0) onEnded();
-          amb.mirrorSync(true);
+          amb.sync();
         },
-        onPlaybackRateChange(e) { prefs.rate = e.data; syncRateUI(); amb.mirrorSync(true); },
+        onPlaybackRateChange(e) { prefs.rate = e.data; syncRateUI(); amb.sync(); },
         onError(e) {
           if ((e.data === 101 || e.data === 150) && it.id) { const l = store.get("ytonly", []); if (!l.includes(it.id)) store.set("ytonly", [...l, it.id].slice(-200)); markYtOnly(); }
           embedBox.replaceChildren(); // our message instead of YouTube's own error screen
@@ -677,9 +724,11 @@ function ytAdapter(it) {
 /* ----- Vimeo adapter (postMessage player API; Vimeo keeps its own controls) ----- */
 const VIMEO = "https://player.vimeo.com";
 function vimeoSrc(it, mirror = false) {
-  const q = new URLSearchParams({ dnt: "1", playsinline: "1", title: "0", byline: "0", portrait: "0", autopause: "0" });
+  // controls=0 hides Vimeo's own UI so ours can sit on top (Vimeo honours it on paid accounts' videos)
+  const q = new URLSearchParams({ dnt: "1", playsinline: "1", title: "0", byline: "0", portrait: "0", badge: "0", autopause: "0", controls: "0", keyboard: "0", pip: "0", vimeo_logo: "0" });
   if (it.hash) q.set("h", it.hash);
-  if (mirror) { q.set("muted", "1"); q.set("controls", "0"); q.set("quality", "240p"); }
+  q.set("speed", "1");
+  if (mirror) { q.set("muted", "1"); q.set("quality", "240p"); }
   return `${VIMEO}/video/${it.id}?${q}${it.start ? `#t=${Math.floor(it.start)}s` : ""}`;
 }
 const vimeoPost = (f, method, value) => f.contentWindow?.postMessage(JSON.stringify(value === undefined ? { method } : { method, value }), VIMEO);
@@ -689,7 +738,10 @@ function vimeoListen(f, handler) {
     let m = e.data;
     if (typeof m === "string") { try { m = JSON.parse(m); } catch { return; } }
     if (!m || typeof m !== "object") return;
-    if (m.event === "ready") for (const ev of ["play", "pause", "ended", "timeupdate", "progress", "playbackratechange", "error"]) vimeoPost(f, "addEventListener", ev);
+    // the embed answers with its older event names: playProgress, loadProgress, seek, finish
+    const alias = { playProgress: "timeupdate", loadProgress: "progress", seek: "seeked", finish: "ended" };
+    if (alias[m.event]) m = { ...m, event: alias[m.event] };
+    if (m.event === "ready") for (const ev of ["play", "pause", "ended", "timeupdate", "progress", "playbackratechange", "seeked", "bufferstart", "bufferend", "texttrackchange", "loaded", "error"]) vimeoPost(f, "addEventListener", ev);
     handler(m);
   };
   addEventListener("message", on);
@@ -698,34 +750,74 @@ function vimeoListen(f, handler) {
 function vimeoAdapter(it) {
   const f = frame(vimeoSrc(it), it.title ? `Vimeo: ${it.title}` : "Vimeo video");
   embedBox.append(f);
-  let t = 0, d = 0, paused = true, loaded = 0;
+  let t = 0, tAt = 0, d = 0, paused = true, loaded = 0, buffering = false, ended = false, rate = 1, speedOk = true, tracks = [], track = "", wantPlay = -1e9, retried = false;
+  const applyCaps = (pick) => {
+    const on = store.get("captions", false);
+    if (!on) { vimeoPost(f, "disableTextTrack"); track = ""; return; }
+    if (!tracks.length) { if (pick !== undefined) { toast("This video has no captions."); store.set("captions", false); syncCC(); } return; }
+    const want = pick || store.get("capLang", "");
+    const tr = tracks.find((x) => x.language === want) || tracks.find((x) => want && x.language.split("-")[0] === want.split("-")[0]) || tracks[0];
+    vimeoPost(f, "enableTextTrack", { language: tr.language, kind: tr.kind });
+  };
   const off = vimeoListen(f, (m) => {
     const data = m.data || {};
-    if (m.event === "ready") { setState("waiting", false); vimeoPost(f, "setVolume", prefs.muted ? 0 : prefs.volume); vimeoPost(f, "getDuration"); }
+    if (m.event === "ready") {
+      setState("waiting", false);
+      vimeoPost(f, "setVolume", prefs.muted ? 0 : prefs.volume);
+      vimeoPost(f, "getDuration"); vimeoPost(f, "getTextTracks");
+      if (prefs.rate !== 1) vimeoPost(f, "setPlaybackRate", prefs.rate);
+    }
+    else if (m.event === "loaded") { vimeoPost(f, "getTextTracks"); }
     else if (m.method === "getDuration" && isFinite(m.value)) { d = +m.value; paint(); }
-    else if (m.event === "timeupdate") { t = data.seconds || 0; d = data.duration || d; }
+    else if (m.method === "getTextTracks" && Array.isArray(m.value)) {
+      tracks = m.value.filter((x) => x && x.language).map((x) => ({ language: x.language, kind: x.kind || "subtitles", label: x.label || x.language }));
+      track = (m.value.find((x) => x.mode === "showing") || {}).language || "";
+      applyCaps(); syncCC();
+    }
+    else if (m.event === "texttrackchange") { track = data.language || ""; syncCC(); }
+    // speed changes only work on videos from paid Vimeo accounts; say so once and stay at 1×
+    else if (m.event === "error" && data.method === "setPlaybackRate") {
+      speedOk = false; prefs.rate = 1; syncRateUI();
+      if (P === a) toast("The owner of this Vimeo video hasn't allowed speed changes.");
+    }
+    else if (m.event === "error" && data.method === "play") { paused = true; onPause(); }
+    // the first play sometimes fails while Vimeo's stream starts up; one quiet retry fixes it
+    else if (m.event === "error" && data.name === "PlaybackError" && paused && performance.now() - wantPlay < 4000 && !retried) { retried = true; setTimeout(() => { if (paused) vimeoPost(f, "play"); }, 700); }
+    else if (m.event === "timeupdate") { t = data.seconds || 0; tAt = performance.now(); d = data.duration || d; }
     else if (m.event === "progress") loaded = data.percent || 0;
-    else if (m.event === "play") { paused = false; onPlay(); }
+    else if (m.event === "play") { paused = false; ended = false; tAt = performance.now(); onPlay(); }
     else if (m.event === "pause") { paused = true; onPause(); }
-    else if (m.event === "ended") { paused = true; onEnded(); }
-    else if (m.event === "playbackratechange") prefs.rate = data.playbackRate || 1;
+    else if (m.event === "ended") { paused = true; ended = true; onEnded(); }
+    else if (m.event === "seeked") { t = data.seconds ?? t; tAt = performance.now(); amb.sync(); }
+    else if (m.event === "bufferstart") { buffering = true; amb.sync(); }
+    else if (m.event === "bufferend") { buffering = false; tAt = performance.now(); amb.sync(); }
+    else if (m.event === "playbackratechange") { prefs.rate = rate = data.playbackRate || 1; amb.sync(); }
     // Vimeo keeps its own controls and shows its own error screens, so its errors never cover the player here;
     // only a privacy refusal gets a short note (PlaybackError is often transient and Vimeo retries itself)
     else if (m.event === "error" && !data.method && /Privacy|NotFound|Password/.test(data.name || "")) toast("Vimeo says this video is private or can't be shown on other sites.");
   });
   setState("waiting", true);
   setTimeout(() => setState("waiting", false), 4000);
-  return {
+  const a = {
     vimeo: true,
-    play() { vimeoPost(f, "play"); }, pause() { vimeoPost(f, "pause"); },
-    seek(x) { t = clamp(x, 0, d || x); vimeoPost(f, "setCurrentTime", t); },
-    get t() { return t; }, get d() { return d; }, get paused() { return paused; },
+    play() { wantPlay = performance.now(); vimeoPost(f, "play"); }, pause() { vimeoPost(f, "pause"); },
+    seek(x) { t = clamp(x, 0, d || x); tAt = performance.now(); ended = false; vimeoPost(f, "setCurrentTime", t); },
+    // timeupdate arrives about four times a second; between those the clock is carried forward
+    get t() { return paused || buffering || !tAt ? t : Math.min(d || Infinity, t + ((performance.now() - tAt) / 1000) * rate); },
+    get d() { return d; }, get paused() { return paused; }, get buffering() { return buffering; }, get ended() { return ended; },
     setVol(v, m) { vimeoPost(f, "setVolume", m ? 0 : v); },
-    setRate(r) { vimeoPost(f, "setPlaybackRate", r); },
+    setRate(r) { if (speedOk) vimeoPost(f, "setPlaybackRate", r); },
     setLoop(l) { vimeoPost(f, "setLoop", l); },
-    rates: () => RATES, buffered: () => [[0, loaded * d]],
+    rates: () => (speedOk ? RATES : [1]), buffered: () => [[0, loaded * d]],
+    set speedOk(v) { speedOk = v; },
     destroy() { off(); },
+    caps: {
+      list: () => tracks.map((x) => ({ id: x.language, label: x.label })),
+      current: () => track,
+      apply: applyCaps,
+    },
   };
+  return a;
 }
 
 /* ----- other sites: their own player in a sandboxed frame ----- */
@@ -837,6 +929,7 @@ function load(it, { play = false, push = true, focus = false } = {}) {
   P.setVol(prefs.volume, prefs.muted);
   P.setLoop(loop);
   syncToggles();
+  syncCC();
   amb.setSource(it);
   extras.onLoad(it);
   if (it.kind === "vimeo") vimeoOembed(it, seq);
@@ -879,8 +972,14 @@ async function vimeoOembed(it, seq) {
     if (seq !== loadSeq) return;
     if (typeof o.title === "string") { it.title = o.title; setTitle(o.title); }
     if (typeof o.author_name === "string") $("#meta").textContent = o.author_name;
-    if (typeof o.thumbnail_url === "string" && /^https:\/\/i\.vimeocdn\.com\//.test(o.thumbnail_url)) { it.thumb = o.thumbnail_url; it.remoteThumb = true; amb.setSource(it); mediaMeta(); }
+    if (typeof o.thumbnail_url === "string" && /^https:\/\/i\.vimeocdn\.com\//.test(o.thumbnail_url)) { it.thumb = o.thumbnail_url; it.remoteThumb = true; amb.updateStills(it); mediaMeta(); }
     if (o.width && o.height) setShape(o.height > o.width * 1.05 ? "tall" : "wide");
+    // controls=0 and speed only work on videos from paid Vimeo plans; free ones keep a little Vimeo UI
+    if (/^(basic|free)$/i.test(o.account_type || "") && cur === it) {
+      if (P?.vimeo) P.speedOk = false;
+      stage.classList.add("vimeo-free");
+      toast("This Vimeo video comes from a free account, so Vimeo shows a little of its own player. These controls still work.");
+    }
   } catch {}
 }
 
@@ -933,6 +1032,7 @@ function seekTo(t) {
   if (!P || P.embed || !P.d) return;
   P.seek(clamp(t, 0, P.d), true);
   setState("ended", false);
+  amb.seeked(clamp(t, 0, P.d));
   paint();
 }
 const seekBy = (s) => P && seekTo(P.t + s);
@@ -1028,20 +1128,64 @@ async function togglePiP() {
   } catch { toast("Picture in picture isn't available right now."); }
 }
 const textTracks = () => [...video.textTracks].filter((t) => t.kind === "subtitles" || t.kind === "captions");
-function captionsCheck() {
-  const tracks = textTracks(), on = store.get("captions", false);
-  $("#cc").hidden = !tracks.length;
-  tracks.forEach((t, i) => (t.mode = on && i === 0 ? "showing" : "hidden"));
-  $("#cc").setAttribute("aria-pressed", String(on && tracks.length > 0));
+/* Captions are off unless the viewer turns them on; the choice and the language carry across videos.
+   Files use their text tracks; YouTube and Vimeo go through their player APIs. */
+function capTracks() {
+  if (P?.caps) return P.caps.list();
+  return textTracks().map((t, i) => ({ id: String(i), label: t.label || t.language || `Track ${i + 1}`, lang: t.language }));
+}
+function nativeCaps(pickIdx) {
+  const tracks = textTracks(), on = store.get("captions", false), lang = store.get("capLang", "");
+  let i = pickIdx ?? tracks.findIndex((t) => lang && t.language === lang);
+  if (i < 0) i = 0;
+  tracks.forEach((t, k) => (t.mode = on && k === i ? "showing" : "hidden"));
+}
+function captionsCheck() { nativeCaps(); syncCC(); }
+function syncCC() {
+  const on = store.get("captions", false);
+  const ext = P?.yt || P?.vimeo;
+  const n = capTracks().length;
+  $("#cc").hidden = !(ext || n);
+  $("#cc").setAttribute("aria-pressed", String(on && (P?.yt || n > 0)));
+  $("#m-subs-state").textContent = (on && (P?.yt || n > 0) ? "On" : "Off") + " ›";
+  renderCapList();
+}
+function setCaptions(on, id) {
+  store.set("captions", on);
+  if (on && id != null) {
+    const t = capTracks().find((x) => x.id === id);
+    store.set("capLang", t?.lang || (P?.caps ? id : "") || store.get("capLang", ""));
+  }
+  if (P?.caps) P.caps.apply(id ?? null);
+  else nativeCaps(id != null ? +id : undefined);
+  syncCC();
 }
 function toggleCaptions() {
-  const tracks = textTracks();
-  if (!tracks.length) { bezel("No captions"); return; }
-  const on = tracks[0].mode !== "showing";
-  tracks.forEach((t, i) => (t.mode = on && i === 0 ? "showing" : "hidden"));
-  store.set("captions", on);
-  $("#cc").setAttribute("aria-pressed", String(on));
+  if (!P?.caps && !textTracks().length) { bezel("No captions"); return; }
+  const on = !store.get("captions", false);
+  setCaptions(on);
   bezel(on ? "Captions on" : "Captions off");
+}
+// the track list in the Subtitles panel: Off plus every track the video has
+function renderCapList() {
+  const box = $("#cap-list");
+  if (!box) return;
+  const list = capTracks(), on = store.get("captions", false);
+  const now = P?.caps ? P.caps.current() : String(textTracks().findIndex((t) => t.mode === "showing"));
+  box.hidden = !list.length && !P?.caps;
+  const row = (label, checked, fn) => {
+    const b = el("button", { type: "button", className: "menu-row", textContent: label });
+    b.setAttribute("role", "menuitemradio");
+    b.setAttribute("aria-checked", String(checked));
+    b.addEventListener("click", fn);
+    return b;
+  };
+  box.replaceChildren(
+    row("Off", !on, () => setCaptions(false)),
+    ...list.map((t) => row(t.label, on && t.id === now, () => setCaptions(true, t.id))),
+    ...(!list.length && P?.caps ? [el("p", { className: "amb-note", textContent: on ? "Looking for captions…" : "Turn captions on to see this video's languages." })] : []),
+  );
+  if (!list.length && P?.caps && !on) box.lastChild.before(row("On", false, () => setCaptions(true)));
 }
 
 /* remember where long videos were left */
@@ -1440,23 +1584,27 @@ $("#link").addEventListener("focus", () => {
 });
 
 /* ---------- ambient light ----------
-   Live: files, HLS, DASH and local files are sampled from the real frame every 250 ms. YouTube and
-   Vimeo can't be read (cross-origin), so Live plays a muted, low-quality duplicate of the same
-   video behind the player and keeps it in step (the youtube-ambilight approach).
-   Light: YouTube uses the build's storyboard sprite when there is one, otherwise the thumbnail
-   plus YouTube's three automatic frames (roughly 25, 50 and 75 % in), chosen by position; Vimeo
-   and the rest use their thumbnail; failing that, colours from the build or a neutral glow. */
-const AMB_DEFAULTS = { on: true, mode: "live", blur: 60, scale: 1.18, bright: 1, sat: 1.4, opacity: 0.8, fade: 30, tint: true, sync: true };
-const lowPower = () => coarse.matches || navigator.connection?.saveData || (navigator.hardwareConcurrency || 8) <= 4;
+   Video files, HLS, DASH and local files: the glow is drawn from the playing <video> itself on every
+   new frame (up to 30 a second), so it can't fall behind or drift. No second decoder is involved.
+   YouTube and Vimeo can't be read (cross-origin). Calm (the default) uses YouTube's preview frames or
+   the thumbnail, picked by the current position and crossfaded slowly. Live copy plays a muted,
+   low-quality duplicate behind the player; it is only shown while it is provably on the same frame
+   (within a quarter of a second, both playing or both paused). While either side buffers, seeks, plays
+   an ad or changes speed the copy is hidden and the calm glow shows instead, and if the copy can't
+   catch up within a few seconds it is dropped for that video. */
+const AMB_DEFAULTS = { v: 2, on: true, mode: "light", blur: 36, scale: 1.14, bright: 0.9, sat: 1.1, opacity: 0.55, tint: true };
+const LIVE_MAX = 0.25, LIVE_SHOW = 0.15;
 const amb = (() => {
   const saved = store.get("ambient", null);
   let s = { ...AMB_DEFAULTS, ...(saved || {}) };
-  if (!saved && lowPower()) s.mode = "light"; // phones and tablets start light; Live is one tap away
+  // the first version defaulted to a live copy that drifted and a much stronger, oval glow: start calm again
+  if (saved && saved.v !== 2) s = { ...AMB_DEFAULTS, on: saved.on !== false, tint: saved.tint !== false };
   const ctx = glow.getContext("2d", { alpha: false });
   const tgt = el("canvas", { width: 64, height: 36 });
   const tctx = tgt.getContext("2d", { willReadFrequently: true });
-  let source = null, colors = null, timer = 0, blendRaf = 0, blendLeft = 0, n = 0, readable = true;
-  let mirror = null, lastSync = 0, drift = 0, seeks = 0;
+  let source = null, colors = null, timer = 0, blendRaf = 0, blendLeft = 0, blendAlpha = 1, readable = true;
+  let stillKey = "", lastColors = 0, vfc = 0, vraf = 0, lastVideoDraw = 0, hardNext = true;
+  let mirror = null, mirrorTimer = 0, drift = 0, seeks = 0, skipKey = "", note = "";
   const neutral = ["#6b6f78", "#3a3d44"];
 
   function applyVars() {
@@ -1466,32 +1614,29 @@ const amb = (() => {
     st.setProperty("--amb-bright", s.bright);
     st.setProperty("--amb-sat", s.sat);
     st.setProperty("--amb-opacity", s.on ? s.opacity : 0);
-    st.setProperty("--amb-fade", s.fade + "%");
     document.body.classList.toggle("no-ambient", !s.on);
     $(".backdrop").style.setProperty("--tint", s.on && s.tint ? 1 : 0);
-    $("#m-ambient-state").textContent = (s.on ? (s.mode === "live" ? "Live" : "Light") : "Off") + " ›";
+    $("#m-ambient-state").textContent = (s.on ? (s.mode === "live" ? "Live copy" : "Calm") : "Off") + " ›";
     $("#a-on").setAttribute("aria-checked", String(s.on));
     $("#a-tint").setAttribute("aria-checked", String(s.tint));
-    $("#a-sync").setAttribute("aria-checked", String(s.sync));
     $$("#ambient .amb-modes button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.mode === s.mode)));
     for (const inp of $$("#amb-sliders input")) {
       const k = inp.dataset.k, v = s[k];
       inp.value = v;
-      $(`#amb-sliders output[data-for="${k}"]`).textContent = k === "blur" ? `${v}px` : k === "fade" ? `${v}%` : k === "scale" ? `+${Math.round((v - 1) * 100)}%` : `${Math.round(v * 100)}%`;
+      $(`#amb-sliders output[data-for="${k}"]`).textContent = k === "blur" ? `${v}px` : k === "scale" ? `+${Math.round((v - 1) * 100)}%` : `${Math.round(v * 100)}%`;
     }
-    $("#amb-note").textContent = s.mode === "live"
-      ? "Live follows the picture. On YouTube and Vimeo it plays a muted, low-quality copy behind the player, which uses more data and battery."
-      : "Light reads preview frames and thumbnails for YouTube and Vimeo by position, which is easy on data. Video files still follow the picture.";
-    $("#amb-note").textContent += " " + sourceText();
+    $("#amb-note").textContent = (s.mode === "live"
+      ? "Live copy plays a muted, low-quality duplicate of YouTube and Vimeo videos behind the player. It only shows while it's on the same frame, and uses more data."
+      : "Calm uses preview frames and thumbnails for YouTube and Vimeo, picked by position. Video files always follow the real picture.") + " " + sourceText();
   }
   // say plainly what the light is following for the current video
   function sourceText() {
     if (!s.on) return "";
-    if (mirror) return "Now: a muted copy of this video.";
+    if (note) return note;
+    if (mirror) return mirror.visible ? "Now: a muted copy, in step with the picture." : "Now: lining up the copy; the calm glow shows until it's in step.";
     const t = source?.type;
-    if (t === "video") return readable ? "Now: the real picture." : "Now: this server doesn't let the page read the picture, so the colours are fixed.";
-    if (t === "sprite") return "Now: YouTube's preview frames, about one every few seconds.";
-    if (t === "frames") return source.frames.length > 1 ? "Now: four stills from YouTube, so it only follows the broad colour." : "Now: the thumbnail, one colour for the whole video.";
+    if (t === "video") return readable ? "Now: the real picture, frame by frame." : "Now: this server doesn't let the page read the picture, so the colours are fixed.";
+    if (t === "sprite" || t === "frames") return source.n > 1 || source.frames?.length > 1 ? "Now: preview frames, picked by position." : "Now: the thumbnail, one colour for the whole video.";
     return "Now: a neutral glow, because this site shares no picture.";
   }
   function save() { store.set("ambient", s); applyVars(); }
@@ -1528,35 +1673,78 @@ const amb = (() => {
     if (source?.type === "sprite") return cur?.thumb || null;
     return null;
   }
-  function sample() {
-    if (!s.on || document.hidden || !cur || mirror?.ready) return;
-    let ok = false;
+  const active = () => s.on && !document.hidden && !!cur;
+
+  /* the real picture: one draw per presented frame, capped at ~30 a second */
+  function drawVideo(hard) {
+    if (!active() || source?.type !== "video" || video.readyState < 2 || !draw(video)) return;
+    lastVideoDraw = performance.now();
+    ctx.globalAlpha = hard || reduceMotion.matches ? 1 : 0.6; // a two-frame ease; never a visible trail
+    ctx.drawImage(tgt, 0, 0);
+    ctx.globalAlpha = 1;
+    if (hard || lastVideoDraw - lastColors > 500) { lastColors = lastVideoDraw; readColors(); }
+  }
+  function stopFollow() {
+    if (vfc) video.cancelVideoFrameCallback?.(vfc);
+    cancelAnimationFrame(vraf);
+    vfc = vraf = 0;
+  }
+  function follow() {
+    stopFollow();
+    if (!active() || source?.type !== "video") return;
+    if (video.requestVideoFrameCallback) {
+      const step = () => {
+        vfc = video.requestVideoFrameCallback(step);
+        if (performance.now() - lastVideoDraw >= 30 || hardNext) { drawVideo(hardNext); hardNext = false; }
+      };
+      vfc = video.requestVideoFrameCallback(step);
+    } else {
+      const step = () => {
+        vraf = requestAnimationFrame(step);
+        if (!video.paused && performance.now() - lastVideoDraw >= 30) drawVideo(false);
+      };
+      vraf = requestAnimationFrame(step);
+    }
+    drawVideo(true);
+  }
+  // a jump in the picture (seek, new source, loop) replaces the glow at once instead of easing
+  for (const ev of ["seeked", "loadeddata", "emptied"]) video.addEventListener(ev, () => { hardNext = true; if (P?.native) drawVideo(true); });
+  video.addEventListener("seeking", () => { hardNext = true; });
+
+  /* stills for YouTube, Vimeo and the rest: chosen by position, crossfaded over about a second */
+  function sampleStill(force) {
+    if (!active() || source?.type === "video" || mirror?.visible) return;
     const t = P?.t || 0, d = P?.d || 0;
-    if (source?.type === "video") ok = video.readyState >= 2 && draw(video);
-    else if (source?.type === "sprite") {
+    let ok = false, key = "";
+    if (source?.type === "sprite") {
       const sp = source;
       if (okImg(sp.img)) {
         const i = clamp(Math.floor(sp.step ? t / sp.step : (d ? t / d : 0) * sp.n), 0, sp.n - 1);
-        ok = draw(sp.img, (i % sp.cols) * sp.w, Math.floor(i / sp.cols) * sp.h, sp.w, sp.h);
+        key = "s" + i;
+        ok = key === stillKey && !force ? null : draw(sp.img, (i % sp.cols) * sp.w, Math.floor(i / sp.cols) * sp.h, sp.w, sp.h);
       }
     } else if (source?.type === "frames") {
       const fr = pickFrame(t, d);
-      if (fr) ok = draw(fr.img);
+      if (fr) { key = fr.img.src; ok = key === stillKey && !force ? null : draw(fr.img); }
     }
-    if (!ok && source?.type !== "video") {
+    if (ok === null) return; // same still as before
+    if (!ok) {
+      key = "c";
+      if (key === stillKey && !force) return;
       const c = colors || neutral, g = tctx.createLinearGradient(0, 0, 64, 36);
       g.addColorStop(0, c[0]); g.addColorStop(1, c[1] || c[0]);
       tctx.fillStyle = g; tctx.fillRect(0, 0, 64, 36);
-      ok = true;
     }
-    if (!ok) return;
-    if (n++ % 4 === 0) readColors();
-    blendLeft = reduceMotion.matches ? 1 : 22;
+    const first = !stillKey;
+    stillKey = key;
+    readColors();
+    blendAlpha = first || reduceMotion.matches ? 1 : 0.05;
+    blendLeft = first || reduceMotion.matches ? 1 : 80;
     if (!blendRaf) blendRaf = requestAnimationFrame(blend);
   }
   function blend() {
     blendRaf = 0;
-    ctx.globalAlpha = reduceMotion.matches ? 1 : 0.16; // eases each new sample in over ~300 ms
+    ctx.globalAlpha = blendAlpha;
     ctx.drawImage(tgt, 0, 0);
     ctx.globalAlpha = 1;
     if (--blendLeft > 0) blendRaf = requestAnimationFrame(blend);
@@ -1564,80 +1752,107 @@ const amb = (() => {
   function schedule() {
     clearInterval(timer);
     timer = 0;
-    if (!s.on || document.hidden) return;
-    const playing = P && !P.paused;
-    timer = setInterval(sample, reduceMotion.matches ? 1000 : playing ? 250 : 1000);
+    stopFollow();
+    if (!active()) return;
+    if (source?.type === "video") { follow(); return; }
+    sampleStill(false);
+    timer = setInterval(() => sampleStill(false), 500);
   }
-  function kick() { sample(); schedule(); mirrorSync(true); }
+  function kick() { schedule(); mirrorTick(true); }
 
   function img(src, cors) {
     const i = new Image();
     if (cors) i.crossOrigin = "anonymous";
     i.decoding = "async";
-    i.addEventListener("load", () => sample(), { once: true });
+    i.addEventListener("load", () => sampleStill(true), { once: true });
     i.src = src;
     return i;
   }
+  function stills(it) {
+    if (it.kind === "youtube" && it.id) {
+      if (it.amb?.sprite) return { type: "sprite", ...it.amb, img: img(it.amb.sprite, false) };
+      const local = it.thumb && !it.remoteThumb;
+      return { type: "frames", frames: [
+        { img: img(local ? it.thumb : `https://i.ytimg.com/vi/${it.id}/mqdefault.jpg`, !local), at: 0 },
+        ...[1, 2, 3].map((k) => ({ img: img(`https://i.ytimg.com/vi/${it.id}/mq${k}.jpg`, true), at: k * 0.25 - 0.125 })),
+      ] };
+    }
+    if (it.thumb) return { type: "frames", frames: [{ img: img(it.thumb, !!it.remoteThumb), at: 0 }] };
+    return null;
+  }
   function setSource(it) {
     stopMirror();
+    note = "";
     readable = true;
     colors = it.colors || null;
-    source = null;
+    stillKey = "";
+    hardNext = true;
     setColors(colors || neutral);
-    if (it.kind === "file" || it.kind === "hls" || it.kind === "dash") source = { type: "video" };
-    else if (it.kind === "youtube" && it.id) {
-      if (it.amb?.sprite) source = { type: "sprite", ...it.amb, img: img(it.amb.sprite, false) };
-      else {
-        const local = it.thumb && !it.remoteThumb;
-        source = { type: "frames", frames: [
-          { img: img(local ? it.thumb : `https://i.ytimg.com/vi/${it.id}/mqdefault.jpg`, !local), at: 0 },
-          ...[1, 2, 3].map((k) => ({ img: img(`https://i.ytimg.com/vi/${it.id}/mq${k}.jpg`, true), at: k * 0.25 - 0.125 })),
-        ] };
-      }
-    } else if (it.thumb) source = { type: "frames", frames: [{ img: img(it.thumb, !!it.remoteThumb), at: 0 }] };
+    source = it.kind === "file" || it.kind === "hls" || it.kind === "dash" ? { type: "video" } : stills(it);
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, 64, 36);
     startMirror(it);
     kick();
     applyVars();
   }
+  // a thumbnail that turns up later (Vimeo's oEmbed) only swaps the stills; the copy keeps running
+  function updateStills(it) {
+    if (it !== cur || source?.type === "video") return;
+    source = stills(it);
+    stillKey = "";
+    sampleStill(true);
+    applyVars();
+  }
 
+  /* ----- Live copy (YouTube and Vimeo only) ----- */
   function wantMirror(it) {
-    return servedFromWeb && s.on && s.mode === "live" && (it.kind === "youtube" || it.kind === "vimeo") && it.id && !prefs.theater;
+    return servedFromWeb && s.on && s.mode === "live" && (it.kind === "youtube" || it.kind === "vimeo") && it.id && !prefs.theater && skipKey !== it.key;
   }
   function mirrorFrame(src) {
     const f = frame(src, "Ambient light (decorative copy)");
     f.className = "mirror";
     f.tabIndex = -1;
     f.setAttribute("aria-hidden", "true");
-    f.setAttribute("loading", "lazy");
     glowBox.append(f);
     return f;
   }
   function startMirror(it) {
     if (!wantMirror(it)) return;
+    const base = { item: it, ready: false, visible: false, okSince: 0, badSince: 0, seekAt: 0, settled: true, lead: 0.2, last: null, mainLast: null };
     if (it.kind === "youtube") {
-      const m = (mirror = { kind: "yt", frame: mirrorFrame(ytSrc(it, true)), ready: false });
+      const m = (mirror = { ...base, kind: "yt", frame: mirrorFrame(ytSrc(it, true)), state: -1 });
       loadYT().then(() => {
         if (mirror !== m) return;
         m.player = new window.YT.Player(m.frame, {
           events: {
-            onReady() { m.ready = true; m.player.mute(); try { m.player.setPlaybackQuality("tiny"); } catch {} glowBox.classList.add("mirroring"); mirrorSync(true); },
-            onError() { if (mirror === m) { stopMirror(); kick(); } },
+            onReady() { if (mirror !== m) return; m.ready = true; m.player.mute(); try { m.player.setPlaybackQuality("tiny"); } catch {} mirrorTick(true); },
+            onStateChange(e) { m.state = e.data; if (e.data !== 3) m.settled = true; mirrorTick(true); },
+            onError() { if (mirror === m) giveUp("Now: the copy can't play here, so preview frames are used."); },
           },
         });
-      }).catch(() => stopMirror());
+      }).catch(() => { if (mirror === m) giveUp(""); });
     } else {
-      const m = (mirror = { kind: "vimeo", frame: mirrorFrame(vimeoSrc(it, true)), ready: false, t: 0, paused: true });
+      const m = (mirror = { ...base, kind: "vimeo", frame: mirrorFrame(vimeoSrc(it, true)), t: 0, tAt: 0, paused: true, buffering: false, rate: 1 });
       m.off = vimeoListen(m.frame, (msg) => {
-        if (msg.event === "ready") { m.ready = true; vimeoPost(m.frame, "setVolume", 0); glowBox.classList.add("mirroring"); mirrorSync(true); }
-        else if (msg.event === "timeupdate") m.t = msg.data?.seconds || 0;
-        else if (msg.event === "play") m.paused = false;
-        else if (msg.event === "pause") m.paused = true;
+        const d = msg.data || {};
+        if (msg.event === "ready") { m.ready = true; vimeoPost(m.frame, "setVolume", 0); mirrorTick(true); }
+        else if (msg.event === "timeupdate") { m.t = d.seconds || 0; m.tAt = performance.now(); }
+        else if (msg.event === "seeked") { m.t = d.seconds ?? m.t; m.tAt = performance.now(); m.settled = true; }
+        else if (msg.event === "play" || msg.event === "playing") { m.paused = false; m.tAt = performance.now(); }
+        else if (msg.event === "pause" || msg.event === "ended") { m.paused = true; }
+        else if (msg.event === "bufferstart") m.buffering = true;
+        else if (msg.event === "bufferend") { m.buffering = false; m.tAt = performance.now(); }
+        else if (msg.event === "playbackratechange") m.rate = d.playbackRate || 1;
+        else return;
+        if (msg.event !== "timeupdate") mirrorTick(true);
       });
     }
+    clearInterval(mirrorTimer);
+    mirrorTimer = setInterval(() => mirrorTick(false), 200);
   }
   function stopMirror() {
+    clearInterval(mirrorTimer);
+    mirrorTimer = 0;
     if (!mirror) return;
     try { mirror.player?.destroy(); } catch {}
     mirror.off?.();
@@ -1646,43 +1861,123 @@ const amb = (() => {
     glowBox.classList.remove("mirroring");
     $$(".glow .mirror").forEach((x) => x.remove());
   }
-  function mirrorSync(force) {
-    if (!mirror?.ready || !P) return;
-    const now = performance.now();
-    if (!force && now - lastSync < (s.sync ? 1000 : 3000)) return;
-    lastSync = now;
-    const playing = !P.paused && !document.hidden, t = P.t, limit = s.sync ? 0.3 : 1.2;
-    if (mirror.kind === "yt") {
-      const m = mirror.player, st = m.getPlayerState?.();
-      if (m.getPlaybackRate?.() !== prefs.rate) m.setPlaybackRate(prefs.rate);
-      drift = (m.getCurrentTime?.() || 0) - t;
-      if (Math.abs(drift) > limit || (force && !playing)) { m.seekTo(t + (playing ? 0.15 : 0), true); seeks++; }
-      if (playing && st !== 1 && st !== 3) m.playVideo();
-      if (!playing && (st === 1 || st === 3)) m.pauseVideo();
-    } else {
-      const f = mirror.frame;
-      drift = mirror.t - t;
-      if (Math.abs(drift) > limit || (force && !playing)) { vimeoPost(f, "setCurrentTime", t + (playing ? 0.15 : 0)); seeks++; }
-      vimeoPost(f, "setPlaybackRate", prefs.rate);
-      if (playing && mirror.paused) vimeoPost(f, "play");
-      if (!playing && !mirror.paused) vimeoPost(f, "pause");
-    }
+  function giveUp(why) {
+    if (!mirror) return;
+    skipKey = mirror.item.key;
+    note = why;
+    stopMirror();
+    stillKey = "";
+    schedule();
+    applyVars();
   }
-  setInterval(() => mirrorSync(false), 500);
-  document.addEventListener("visibilitychange", () => { schedule(); mirrorSync(true); });
+  function show(m, on) {
+    if (m.visible === on) return;
+    m.visible = on;
+    glowBox.classList.toggle("mirroring", on);
+    if (!on) { stillKey = ""; sampleStill(true); }
+    applyVars();
+  }
+  // where each side is: "play", "pause", "buffer" or "end"
+  function mainStatus() {
+    if (!P || P.embed) return "pause";
+    if (P.yt) { const st = P.state; return st === 1 ? "play" : st === 3 ? "buffer" : st === 0 ? "end" : "pause"; }
+    if (P.vimeo) return P.ended ? "end" : P.paused ? "pause" : P.buffering ? "buffer" : "play";
+    return P.paused ? "pause" : "play";
+  }
+  function mirrorStatus(m) {
+    if (m.kind === "yt") return m.state === 1 ? "play" : m.state === 3 || (m.state === -1 && !m.settled) ? "buffer" : m.state === 0 ? "end" : "pause";
+    return m.buffering ? "buffer" : m.paused ? "pause" : "play";
+  }
+  function mirrorTime(m) {
+    if (m.kind === "yt") return m.player.getCurrentTime?.() || 0;
+    return m.t + (!m.paused && !m.buffering && m.tAt ? ((performance.now() - m.tAt) / 1000) * m.rate : 0);
+  }
+  // true when a clock that should be running hasn't moved (buffering the API doesn't report, or an ad)
+  function stalled(rec, t, now) {
+    const prev = rec.last;
+    if (prev && now - prev.now < 150) return rec.stalled || false;
+    rec.last = { t, now };
+    if (!prev) return false;
+    const want = ((now - prev.now) / 1000) * prefs.rate, got = t - prev.t;
+    rec.stalled = want > 0.12 && (got < want * 0.4 || got > want * 3 + 0.5);
+    return rec.stalled;
+  }
+  function seekMirror(m, t) {
+    m.seekAt = performance.now();
+    m.settled = false;
+    m.okSince = 0;
+    m.measured = false;
+    m.last = null;
+    seeks++;
+    if (m.kind === "yt") m.player.seekTo(Math.max(0, t), true);
+    else { m.t = Math.max(0, t); m.tAt = performance.now(); vimeoPost(m.frame, "setCurrentTime", m.t); }
+  }
+  function mirrorTick(force) {
+    const m = mirror;
+    if (!m?.ready || !P || !cur) return;
+    const now = performance.now();
+    const hidden = document.hidden || !glowBox.offsetWidth || !!fsEl();
+    const ms = mainStatus(), mm = mirrorStatus(m);
+    const want = ms === "play" && !hidden ? "play" : "pause";
+    const t = P.t, mt = mirrorTime(m);
+    drift = mt - t;
+    const mainStuck = ms === "play" ? stalled((m.mainLast ||= {}), t, now) : ((m.mainLast = null), false);
+    const copyStuck = mm === "play" ? stalled((m.copyLast ||= {}), mt, now) : ((m.copyLast = null), false);
+
+    // speed first, so the clocks are comparable
+    if (m.kind === "yt") { if (m.player.getPlaybackRate?.() !== prefs.rate) { m.player.setPlaybackRate(prefs.rate); m.okSince = 0; } }
+    else if (m.rate !== prefs.rate) { vimeoPost(m.frame, "setPlaybackRate", prefs.rate); m.rate = prefs.rate; m.okSince = 0; }
+
+    // play and pause follow the main player straight away
+    if (want === "play" && (mm === "pause" || mm === "end")) m.kind === "yt" ? m.player.playVideo() : vimeoPost(m.frame, "play");
+    if (want === "pause" && (mm === "play" || mm === "buffer")) m.kind === "yt" ? m.player.pauseVideo() : vimeoPost(m.frame, "pause");
+
+    // hard seek when it's off by more than a quarter second; leave it alone while a seek is landing
+    if (!m.settled && now - m.seekAt > (mm === "play" ? 400 : 800) && (mm === "play" || mm === "pause")) m.settled = true;
+    const landing = !m.settled && now - m.seekAt < 3000;
+    if (!landing && !mainStuck && ms !== "buffer" && ms !== "end" && Math.abs(drift) > (want === "play" ? LIVE_MAX : 0.05) && now - m.seekAt > 700) {
+      seekMirror(m, t + (want === "play" ? m.lead * prefs.rate : 0));
+    }
+    // learn how long a seek takes to land, so the next one aims a little ahead
+    if (m.settled && m.seekAt && !m.measured && mm === "play" && ms === "play" && now - m.seekAt > 300 && now - m.seekAt < 4000) {
+      m.measured = true;
+      m.lead = clamp(m.lead - drift / prefs.rate, 0, 1.2);
+    }
+
+    // only show the copy while it's provably on the same picture
+    const same = (ms === "play" && mm === "play") || (ms === "pause" && mm === "pause");
+    const good = !hidden && same && !landing && !mainStuck && !copyStuck && now - m.seekAt > 400 && Math.abs(drift) <= (m.visible ? LIVE_MAX : LIVE_SHOW);
+    if (good) {
+      m.badSince = 0;
+      m.okSince ||= now;
+      if (now - m.okSince >= (ms === "play" ? 600 : 300)) show(m, true);
+    } else {
+      m.okSince = 0;
+      show(m, false);
+      // the main picture is moving but the copy can't keep up: give up on it for this video
+      if (ms === "play" && !hidden && !mainStuck) {
+        m.badSince ||= now;
+        if (now - m.badSince > 6000) giveUp("Now: the copy couldn't keep up on this connection, so preview frames are used.");
+      } else m.badSince = 0;
+    }
+    if (force) applyVars();
+  }
+  document.addEventListener("visibilitychange", () => { hardNext = true; schedule(); mirrorTick(true); });
   reduceMotion.addEventListener?.("change", schedule);
 
   $("#a-on").addEventListener("click", () => { s.on = !s.on; save(); if (cur) setSource(cur); });
   $("#a-tint").addEventListener("click", () => { s.tint = !s.tint; save(); });
-  $("#a-sync").addEventListener("click", () => { s.sync = !s.sync; save(); });
-  $$("#ambient .amb-modes button").forEach((b) => b.addEventListener("click", () => { s.mode = b.dataset.mode; save(); if (cur) setSource(cur); }));
+  $$("#ambient .amb-modes button").forEach((b) => b.addEventListener("click", () => { s.mode = b.dataset.mode; skipKey = ""; save(); if (cur) setSource(cur); }));
   $$("#amb-sliders input").forEach((inp) => inp.addEventListener("input", () => { s[inp.dataset.k] = +inp.value; save(); }));
-  $("#a-reset").addEventListener("click", () => { s = { ...AMB_DEFAULTS, mode: lowPower() ? "light" : "live" }; save(); if (cur) setSource(cur); });
+  $("#a-reset").addEventListener("click", () => { s = { ...AMB_DEFAULTS }; skipKey = ""; save(); if (cur) setSource(cur); });
   applyVars();
   return {
-    setSource, kick, stopMirror, mirrorSync, frameAt,
+    setSource, updateStills, kick, stopMirror, frameAt,
+    sync() { mirrorTick(true); },
+    // a seek on the main player hides the copy at once and lines it up again
+    seeked(t) { if (mirror?.ready) { show(mirror, false); seekMirror(mirror, t); } stillKey = ""; },
     refresh() { if (cur && (cur.kind === "youtube" || cur.kind === "vimeo")) setSource(cur); },
-    get stats() { return { mode: s.mode, on: s.on, mirroring: !!mirror?.ready, drift, seeks, source: source?.type || (colors ? "colors" : "neutral") }; },
+    get stats() { return { mode: s.mode, on: s.on, mirroring: !!mirror?.ready, visible: !!mirror?.visible, drift, seeks, lead: mirror?.lead, source: source?.type || (colors ? "colors" : "neutral"), lastDraw: lastVideoDraw }; },
   };
 })();
 
@@ -1742,8 +2037,8 @@ const extras = (() => {
       toast("Chapters added");
     } else {
       store.set("captions", true);
+      store.set("capLang", "und");
       captionsCheck();
-      tt.mode = "showing";
       $("#m-subs-state").textContent = "On ›";
       toast("Subtitles added. Press C to hide them.");
     }
@@ -1756,7 +2051,8 @@ const extras = (() => {
     captionsCheck();
   }
   $("#m-subs").addEventListener("click", () => {
-    $("#subs-note").textContent = P?.native ? "Add a .vtt or .srt file. It stays on your device. Name it with “chapters” to load chapters instead." : "Subtitles can be added to video files and streams. YouTube and Vimeo use their own captions.";
+    $("#subs-note").textContent = P?.native ? "Or add a .vtt or .srt file. It stays on your device. Name it with “chapters” to load chapters instead." : "YouTube and Vimeo captions come from the video. Your own subtitle files work with video files and streams.";
+    renderCapList();
     openPanel("subs", "#subs-file");
   });
   $("#subs-file").addEventListener("change", async (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) addSubs(await f.text(), f.name); });

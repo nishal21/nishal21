@@ -158,20 +158,18 @@
           <button type="button" class="menu-row" role="switch" id="a-on" aria-checked="true"><span>On</span><span class="switch"></span></button>
           <div class="menu-head">Source</div>
           <div class="amb-modes" role="radiogroup" aria-label="Ambient source">
-            <button type="button" role="radio" data-mode="live" aria-checked="true">Live</button>
-            <button type="button" role="radio" data-mode="light" aria-checked="false">Light</button>
+            <button type="button" role="radio" data-mode="light" aria-checked="true">Calm</button>
+            <button type="button" role="radio" data-mode="live" aria-checked="false">Live copy</button>
           </div>
-          <p class="amb-note" id="amb-note">Live follows every frame. On YouTube and Vimeo it plays a muted copy behind the player, which uses more data.</p>
+          <p class="amb-note" id="amb-note">Calm uses preview frames and thumbnails for YouTube and Vimeo, picked by position. Video files always follow the real picture.</p>
           <div class="amb-sliders" id="amb-sliders">
-            <label>Blur <output data-for="blur"></output><input type="range" data-k="blur" min="0" max="120" step="2"></label>
-            <label>Size <output data-for="scale"></output><input type="range" data-k="scale" min="1" max="1.6" step="0.02"></label>
+            <label>Blur <output data-for="blur"></output><input type="range" data-k="blur" min="0" max="80" step="2"></label>
+            <label>Size <output data-for="scale"></output><input type="range" data-k="scale" min="1.04" max="1.4" step="0.02"></label>
             <label>Brightness <output data-for="bright"></output><input type="range" data-k="bright" min="0.4" max="1.6" step="0.05"></label>
             <label>Saturation <output data-for="sat"></output><input type="range" data-k="sat" min="0.5" max="2.5" step="0.05"></label>
             <label>Strength <output data-for="opacity"></output><input type="range" data-k="opacity" min="0.1" max="1" step="0.05"></label>
-            <label>Edge fade <output data-for="fade"></output><input type="range" data-k="fade" min="0" max="60" step="2"></label>
           </div>
           <button type="button" class="menu-row" role="switch" id="a-tint" aria-checked="true"><span>Tint the page</span><span class="switch"></span></button>
-          <button type="button" class="menu-row" role="switch" id="a-sync" aria-checked="true"><span>Tight sync (Live)</span><span class="switch"></span></button>
           <button type="button" class="menu-row" role="menuitem" id="a-reset"><span>Reset to defaults</span></button>
         </div>
         <div class="menu" id="chapters" role="dialog" aria-label="Chapters" hidden>
@@ -180,6 +178,7 @@
         </div>
         <div class="menu" id="subs" role="dialog" aria-label="Subtitles" hidden>
           <div class="menu-head"><button type="button" class="back" data-back="m-subs" aria-label="Back to settings">‹ Subtitles</button></div>
+          <div class="cap-list" id="cap-list" role="group" aria-label="Captions"></div>
           <p class="amb-note" id="subs-note">Add a .vtt or .srt file. It stays on your device.</p>
           <label class="menu-row file-row"><span>Choose a file</span><span class="chev">›</span><input type="file" id="subs-file" accept=".vtt,.srt,text/vtt"></label>
           <form class="subs-url" id="subs-url"><input type="url" id="subs-link" placeholder="Or a link to a .vtt or .srt" aria-label="Subtitle link" autocomplete="off" spellcheck="false"><button type="submit">Add</button></form>

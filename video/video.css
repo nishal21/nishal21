@@ -39,7 +39,7 @@
   --emph: cubic-bezier(0.2, 0, 0, 1);
 
   /* ambient light settings (video.js writes these from the settings panel) */
-  --amb-blur: 60px; --amb-scale: 1.18; --amb-bright: 1; --amb-sat: 1.4; --amb-opacity: 0.8; --amb-fade: 30%;
+  --amb-blur: 36px; --amb-scale: 1.14; --amb-bright: 0.9; --amb-sat: 1.1; --amb-opacity: 0.55;
   --amb1: transparent; --amb2: transparent;
   transition: --amb1 1.4s linear, --amb2 1.4s linear;
 }
@@ -143,21 +143,29 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 }
 
 /* ---------- the stage ---------- */
+/* Ambient light, the way YouTube does it: a blurred copy of the picture sits right behind the player,
+   the same rounded rectangle, and fades out evenly a short way past every edge. It stays behind the page
+   content (z-index -1), so it never sits on top of the header, the title or Up next. */
 .glow {
-  position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  opacity: calc(var(--amb-opacity) * (0.35 + var(--dark) * 0.65)); /* YouTube keeps ambient for dark theme; in light it stays faint */ transition: opacity 0.8s;
-  -webkit-mask-image: radial-gradient(closest-side, #000 calc(100% - var(--amb-fade)), transparent);
-  mask-image: radial-gradient(closest-side, #000 calc(100% - var(--amb-fade)), transparent);
-  scale: calc(var(--amb-scale) * 1.06) calc(var(--amb-scale) * 1.32);
+  --reach: calc((var(--amb-scale) - 1) * 200px); /* how far past the frame the light goes */
+  position: absolute; inset: calc(var(--reach) * -1); z-index: -1; pointer-events: none;
+  opacity: calc(var(--amb-opacity) * (0.4 + var(--dark) * 0.6)); /* faint in light mode, as on YouTube */
+  transition: opacity 0.8s;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--reach), #000 calc(100% - var(--reach)), transparent), linear-gradient(to bottom, transparent, #000 var(--reach), #000 calc(100% - var(--reach)), transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent, #000 var(--reach), #000 calc(100% - var(--reach)), transparent), linear-gradient(to bottom, transparent, #000 var(--reach), #000 calc(100% - var(--reach)), transparent);
+  mask-composite: intersect;
 }
 .glow > canvas, .glow > .mirror {
-  position: absolute; inset: 0; width: 100%; height: 100%; border: 0;
+  /* a little inside the frame, so the light rises softly from behind the edge instead of a bright rim */
+  position: absolute; inset: calc(var(--reach) + 10px); width: calc(100% - 2 * var(--reach) - 20px); height: calc(100% - 2 * var(--reach) - 20px); border: 0; border-radius: 16px;
   filter: blur(var(--amb-blur)) saturate(var(--amb-sat)) brightness(calc(var(--amb-bright) * (0.8 + var(--dark) * 0.2)));
 }
-.glow > .mirror { opacity: 0; transition: opacity 0.6s; }
-.glow.mirroring > .mirror { opacity: 1; }
+/* the live copy leaves quickly (it's only hidden when it's out of step) and arrives gently */
+.glow > .mirror { opacity: 0; transition: opacity 0.15s; }
+.glow.mirroring > .mirror { opacity: 1; transition-duration: 0.5s; }
 .glow.mirroring > canvas { opacity: 0; }
-.glow > canvas { transition: opacity 0.6s; }
+.glow > canvas { transition: opacity 0.3s; }
 .no-ambient .glow, .theater .glow, :fullscreen .glow { opacity: 0; }
 
 .stage {
@@ -176,7 +184,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .stage:not([data-kind="file"]) video#video { visibility: hidden; }
 .embed:empty { display: none; }
 .shield { position: absolute; inset: 0; z-index: 2; }
-.stage[data-kind="embed"] .shield, .stage[data-kind="vimeo"] .shield, .stage[data-kind="none"] .shield,
+.stage[data-kind="embed"] .shield, .stage[data-kind="none"] .shield,
 .stage[data-kind="youtube"]:not(.started) .shield { display: none; }
 .stage.idle { cursor: none; }
 
@@ -199,7 +207,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .big-play .i-replay { display: none; }
 .ended .big-play .i-replay { display: block; }
 .ended .big-play .i-play { display: none; }
-.stage:not(.paused) .big-play, .stage[data-kind="embed"] .big-play, .stage[data-kind="vimeo"] .big-play,
+.stage:not(.paused) .big-play, .stage[data-kind="embed"] .big-play,
 .stage[data-kind="youtube"]:not(.started) .big-play, .stage[data-kind="none"] .big-play, .stage.error .big-play,
 .stage.waiting .big-play { opacity: 0; scale: 0.9; pointer-events: none; }
 
@@ -273,7 +281,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .chrome > * { pointer-events: auto; }
 .stage.idle .chrome { opacity: 0; translate: 0 8px; }
 .stage.idle .chrome > * { pointer-events: none; }
-.stage[data-kind="embed"] .chrome, .stage[data-kind="vimeo"] .chrome, .stage[data-kind="none"] .chrome { display: none; }
+.stage[data-kind="embed"] .chrome, .stage[data-kind="none"] .chrome { display: none; }
 
 .scrub { position: relative; height: 22px; margin: 0 6px; touch-action: pan-y; }
 .track {
@@ -346,7 +354,10 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .rate-tag { position: absolute; top: 4px; right: 2px; padding: 1px 4px; border-radius: 5px; background: var(--g); color: var(--ink); font: 700 0.5625rem/1.2 var(--mono); }
 .i-unfull, :fullscreen .i-full, .pseudo-fs .i-full { display: none; }
 :fullscreen .i-unfull, .pseudo-fs .i-unfull { display: block; }
-.stage[data-kind="youtube"] #pip { display: none; }
+.stage[data-kind="youtube"] #pip, .stage[data-kind="vimeo"] #pip { display: none; }
+.cap-list { display: grid; padding-bottom: 4px; }
+.cap-list:empty { display: none; }
+.cap-list .menu-row[aria-checked="true"]::after { content: "✓"; font-weight: 700; color: var(--g); }
 @container (max-width: 520px) {
   .chrome .wide-only, .chrome #loop-btn { display: none; }
   .time { padding: 0 6px; font-size: 0.75rem; }
@@ -548,11 +559,11 @@ kbd { display: inline-block; min-width: 1.7em; padding: 1px 6px; border-radius: 
 
 /* ---------- small screens ---------- */
 @media (max-width: 699px) {
+  .glow { --reach: calc((var(--amb-scale) - 1) * 120px); } /* the player is edge to edge here: keep the light tight */
   .watch { padding-top: 0; gap: var(--s4); }
   .stage-wrap { margin: 0 calc(var(--pad) * -1); }
   .stage { border-radius: 0; max-height: 72svh; }
   .stage[data-shape="tall"] { aspect-ratio: 9 / 16; }
-  .glow { scale: 1.05 1.5; translate: 0 18%; }
   .tabs a { padding: 0 var(--s3); }
   .link { padding: var(--s4); }
   .field { height: 48px; }

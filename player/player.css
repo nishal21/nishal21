@@ -109,12 +109,23 @@ button, a, summary { -webkit-tap-highlight-color: transparent; }
 /* ---------- top bar ---------- */
 .top {
   position: absolute; inset: 0 0 auto; z-index: 2;
-  display: flex; align-items: center; justify-content: space-between;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--s3);
   padding: max(var(--s4), env(safe-area-inset-top)) var(--pad) 0;
   height: 64px;
 }
-.handle { font: 500 0.8125rem/1 var(--mono); letter-spacing: 0.02em; text-decoration: none; color: var(--fg-2); padding: var(--s2) 0; }
+.handle { font: 500 0.8125rem/1 var(--mono); letter-spacing: 0.02em; text-decoration: none; color: var(--fg-2); padding: var(--s2) 0; justify-self: start; }
 .handle:hover { color: var(--fg); }
+.top .icon-btn { justify-self: end; }
+/* Song / Videos switch, the same pill as on the video page */
+.tabs { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--wash); border: 1px solid var(--line); }
+.tabs a {
+  display: grid; place-items: center; height: 32px; padding: 0 var(--s4); border-radius: 999px;
+  font-size: 0.875rem; font-weight: 600; text-decoration: none; color: var(--fg-2);
+  transition: background-color 0.25s, color 0.25s;
+}
+.tabs a:hover { color: var(--fg); }
+.tabs a[aria-current="page"] { background: var(--fg); color: var(--bg); }
+@media (max-width: 699px) { .tabs a { padding: 0 var(--s3); } }
 .icon-btn {
   display: grid; place-items: center; width: 40px; height: 40px; padding: 0;
   border: 0; border-radius: 50%; background: transparent; cursor: pointer; color: var(--fg-2);
