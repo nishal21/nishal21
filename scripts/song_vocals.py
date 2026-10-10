@@ -1,4 +1,4 @@
-"""Vocals for the contribution song: two Piper TTS voices at their natural pitch.
+"""Vocals for the contribution song: two Piper TTS voices (male verses, female chorus) at their natural pitch.
 
 Every line is one Piper utterance. Timing comes only from Piper's own speed setting (length_scale), so
 there is no pitch shifting, vocoding or time-stretching anywhere. The only processing is resampling to the
@@ -16,18 +16,35 @@ from song_synth import SR, sos
 VOICE_DIR = os.environ.get("PIPER_VOICE_DIR", os.path.expanduser("~/.cache/piper-voices"))
 HF = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/"
 RAP_VOICE = ("en_US-ryan-high", "en_US/ryan/high/")
-SING_VOICE = ("en_US-hfc_male-medium", "en_US/hfc_male/medium/")  # chorus and breakdown: clearest of 8 male voices auditioned
+# chorus and breakdown: LibriTTS-R speaker 534 (female), picked from an audition of every free Piper English
+# female voice for clarity, a warm 180-200 Hz pitch, low 3-6 kHz harshness and a steady, clean tone
+SING_VOICE = ("en_US-libritts_r-medium", "en_US/libritts_r/medium/", "534")
 
 
-def load(name_path):
+class _Speaker:
+    """One speaker of a multi-speaker Piper model, usable wherever a PiperVoice is."""
+
+    def __init__(self, voice, speaker_id):
+        self.voice, self.speaker_id, self.config = voice, speaker_id, voice.config
+
+    def synthesize(self, text, syn_config):
+        syn_config.speaker_id = self.speaker_id
+        return self.voice.synthesize(text, syn_config=syn_config)
+
+
+def load(spec):
+    """spec = (model name, path under the voices repo[, speaker name for multi-speaker models])."""
     from piper import PiperVoice
-    name, sub = name_path
+    name, sub = spec[0], spec[1]
     path = os.path.join(VOICE_DIR, name + ".onnx")
     if not os.path.exists(path):
         os.makedirs(VOICE_DIR, exist_ok=True)
         for ext in (".onnx", ".onnx.json"):
             urllib.request.urlretrieve(HF + sub + name + ext, os.path.join(VOICE_DIR, name + ext))
-    return PiperVoice.load(path)
+    voice = PiperVoice.load(path)
+    if len(spec) > 2:
+        return _Speaker(voice, voice.config.speaker_id_map[spec[2]])
+    return voice
 
 
 def say_name(name):

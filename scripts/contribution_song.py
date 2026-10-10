@@ -6,7 +6,7 @@ Each week's total sets how busy its bar is: hat density and rolls, extra kicks, 
 pad brightness, key and pluck note counts. Every day also triggers the commit-beat rules on top
 (kick 1+, hat 3+, snare 6+, clap 10+), louder on busier days.
 
-Vocals (song_vocals.py): two Piper voices at their natural pitch. One raps the verses; the other chants the
+Vocals (song_vocals.py): two Piper voices at their natural pitch. A male voice raps the verses; a female voice takes the
 chorus and breakdown on the beat while the synth lead carries the hook melody and answers the rap lines.
 Timing comes only from Piper's own speed setting; vocal processing is EQ, compression, de-essing, a short
 room and delay throws. Instruments and mixing live in song_synth.py.
@@ -310,14 +310,15 @@ def vocals(lyrics, n):
             place(st["rap"], S.pan(edge_fade(x), 0) * 0.85, t)
             tl(t, t + len(x) / SR, sec, d)
 
-    # chorus: the second voice chants each line on the downbeat, natural pitch and timing (no retune).
+    # chorus: the female voice delivers each line on the downbeat, natural pitch and timing (no retune),
+    # a touch slower than the verses.
     # The synth lead plays the hook melody under it. Rendered once and placed at both choruses.
     clen = int(8 * BAR * SR) + SR * 2
     lead_v = np.zeros(clen)
     ctl, mel = [], []
     for i, (d, sp, _) in enumerate(lyrics["Chorus"]):
         t = 2 * i * BAR
-        x = V.rap_line(sing_v, sp, 2 * BAR * 0.8)
+        x = V.rap_line(sing_v, sp, 2 * BAR * 0.86)
         x = S.compress(x / (np.max(np.abs(x)) + 1e-9), thr_db=-16, ratio=2.5, attack=0.01, release=0.12)
         S.add(lead_v, edge_fade(x), t)
         ctl.append((t, t + len(x) / SR, d))
@@ -399,7 +400,10 @@ def mixdown(inst, kicks, vox, hook_lead, n, length):
         return np.stack([V.deess(c) for c in x])
 
     rap = norm(clean(vox["rap"], 100), 0.55)
-    sing = clean(vox["sing"], 90)
+    sing = clean(vox["sing"], 120)
+    # gentle warmth (low mids) and air (top shelf) on the female voice
+    sing = (sing + 0.25 * signal.sosfilt(S.sos("bandpass", [180, 450]), sing, axis=1)
+            + 0.2 * signal.sosfilt(S.sos("highpass", 9000), sing, axis=1))
     sing_peak = np.max(np.abs(sing)) + 1e-9
     sing = sing / sing_peak * 0.62
     throws = S.delay(vox["throws"] / sing_peak * 0.5, BEAT * 0.75, feedback=0.4, repeats=4)
