@@ -4,11 +4,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 rm -rf _site
-mkdir -p _site/player
+mkdir -p _site/player/fonts
 cp player/index.html player/player.css player/player.js _site/player/
+cp player/fonts/*.woff2 player/fonts/LICENSE.txt _site/player/fonts/
 for f in contribution-song.mp3 contribution-song.json contribution-song.lrc contribution-song-lyrics.md; do
   cp "assets/$f" _site/player/
 done
+# Cover for link previews and the lock screen (needs Pillow, which the song step already installs).
+python3 player/make_cover.py _site/player || echo "cover not built; the page draws its own"
 cat > _site/index.html <<'HTML'
 <!doctype html><meta charset="utf-8"><title>Contribution song</title>
 <meta http-equiv="refresh" content="0; url=player/"><link rel="canonical" href="player/">
