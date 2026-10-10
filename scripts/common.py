@@ -132,9 +132,14 @@ def _graphql_calendar():
     return {date.fromisoformat(x["date"]): x["contributionCount"] for w in weeks for x in w["contributionDays"]}
 
 
-def _html_calendar():
-    page = http_get(f"https://github.com/users/{USER}/contributions",
+def calendar_page(query=""):
+    """The public contributions fragment (the profile graph). query like "?from=2023-01-01&to=2023-12-31"."""
+    return http_get(f"https://github.com/users/{USER}/contributions{query}",
                     {"X-Requested-With": "XMLHttpRequest"}).decode("utf-8", "replace")
+
+
+def parse_calendar(page):
+    """Daily counts from a contributions fragment, read from each cell's tooltip."""
     ids = dict(re.findall(r'data-date="(\d{4}-\d{2}-\d{2})" id="([^"]+)"', page))
     by_id = {v: k for k, v in ids.items()}
     days = {}
@@ -142,6 +147,11 @@ def _html_calendar():
         if target in by_id:
             m = re.match(r"\s*(\d+|No) contribution", label)
             days[date.fromisoformat(by_id[target])] = 0 if not m or m.group(1) == "No" else int(m.group(1))
+    return days
+
+
+def _html_calendar():
+    days = parse_calendar(calendar_page())
     if len(days) < 300:
         raise RuntimeError(f"contribution calendar looks incomplete ({len(days)} days)")
     return days

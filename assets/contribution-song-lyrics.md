@@ -10,35 +10,35 @@ Every bar is one week of my GitHub contribution calendar, in order. Busier weeks
 
 ## Verse 1
 
-`0:06` 844 contributions since October 2025  
-`0:10` 144 days on the board, 27 on October 6  
+`0:06` 844 contributions in twelve months  
+`0:10` 144 days on the board, best day 27  
 `0:13` February ran hot with 134 on the sheet  
-`0:17` 11 days straight, and I didn't skip a beat  
+`0:17` 11 days straight, no breaks along the way  
 
 ## Chorus
 
-`0:24` Push it to main, let the green squares show  
-`0:27` Every week's a bar, every day's a note  
-`0:30` 844 hits and the loop won't stop  
-`0:34` Build it, ship it, take it from the top  
+`0:24` Light up the grid, let the green glow  
+`0:27` Every week is a bar, every day is a note  
+`0:30` Turn it up loud, let the bass line roll  
+`0:34` Run it back tomorrow, here we go  
 
 ## Verse 2
 
 `0:44` Right now I'm deep in upi-Down and NekoDroid  
-`0:48` 62 repos of my own, mostly JavaScript and TypeScript  
-`0:51` Cut it like an AMV, every frame on time  
+`0:48` 62 repos, JavaScript and TypeScript most of the time  
+`0:51` Cut it like an AMV, every frame in place  
 `0:54` Mix it like a mashup, every verse in rhyme  
 
 ## Breakdown
 
-`0:58` Quiet weeks play soft, busy weeks get loud  
+`0:58` Light weeks play low, heavy weeks play loud  
 
 ## Chorus
 
-`1:08` Push it to main, let the green squares show  
-`1:12` Every week's a bar, every day's a note  
-`1:15` 844 hits and the loop won't stop  
-`1:18` Build it, ship it, take it from the top  
+`1:08` Light up the grid, let the green glow  
+`1:12` Every week is a bar, every day is a note  
+`1:15` Turn it up loud, let the bass line roll  
+`1:18` Run it back tomorrow, here we go  
 
 ## Outro
 

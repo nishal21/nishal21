@@ -16,12 +16,13 @@ import os
 import shutil
 import subprocess
 import tempfile
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 import numpy as np
 from scipy import signal
 
 import song_synth as S
+import song_lyrics as LY
 import song_vocals as V
 from common import (ASSETS, CARD_H, CARD_W, FONT, THEMES, USER, card_open, contribution_calendar, esc, fail,
                     gh_api, write_atomic)
@@ -44,15 +45,13 @@ PROG = {"verse": ["Am7", "Fmaj7", "C", "G"], "chorus": ["Fmaj7", "G", "Em7", "Am
 SCALE = [57, 59, 60, 62, 64, 65, 67]  # A natural minor from A3
 
 # the hook: one contour per sung line (MIDI notes, A minor); syllables are spread across each contour
-HOOK = [[60, 64, 65, 64, 62, 62, 64, 67, 64, 62],      # over F - G, ends on D
-        [64, 62, 60, 59, 60, 59, 57],                  # over Em - Am, resolves to A
-        [60, 64, 65, 64, 62, 64, 67, 69, 67],          # lift to A4
-        [67, 65, 64, 62, 60, 59, 57]]                  # falls home
-BREAK = [64, 64, 62, 60, 62, 64, 67, 64, 62, 60]
-
-
-def contour(c):
-    return lambda i, k: c[round(i * (len(c) - 1) / max(1, k - 1))]
+# the hook: one contour per sung line (MIDI, A minor), sitting low so the voice moves at most a few semitones
+# from where it speaks. Nuclei (syllables) are spread across each contour.
+HOOK = [[57, 60, 62, 60, 57, 60, 62, 62],          # over F - G, ends on D
+        [59, 57, 55, 57, 59, 60, 59, 57, 55, 57],  # over Em - Am, home on A
+        [57, 60, 62, 64, 62, 60, 62, 64, 62],      # lifts to E, ends on D
+        [64, 62, 60, 62, 60, 59, 57, 55, 57]]      # falls home
+BREAK = [60, 60, 59, 57, 59, 57, 55, 57, 55]
 
 
 def third_below(m):
@@ -77,28 +76,6 @@ def bar_sections():
     for name, n in SECTIONS:
         out += [(name, k, n) for k in range(n)]
     return out
-
-
-def year_words(y):
-    """2025 -> 'twenty twenty-five' (Piper reads it as 'two thousand ...' otherwise)."""
-    hi, lo = divmod(y, 100)
-    return f"{say_number(hi)} {say_number(lo) if lo >= 10 else 'oh ' + ONES[lo] if lo else 'hundred'}"
-
-
-def say_number(n):
-    """Sung form of a number: 844 -> 'eight forty-four'."""
-    ones = ONES
-    tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
-    def two(x):
-        if x < 20:
-            return ones[x]
-        return tens[x // 10] + ("-" + ones[x % 10] if x % 10 else "")
-    if n < 100:
-        return two(n)
-    if n < 1000:
-        h, r = divmod(n, 100)
-        return f"{ones[h]} hundred" if r == 0 else f"{ones[h]} {two(r) if r >= 10 else 'oh ' + ones[r]}"
-    return str(n)
 
 
 # ---------- data ----------
@@ -129,63 +106,6 @@ def repo_facts():
     top_langs = sorted(langs, key=lambda k: -langs[k])
     return dict(recent=[r["name"] for r in own[:3]], n_own=len(own), langs=top_langs[:2])
 
-
-
-# ---------- lyrics ----------
-
-ORD = {1: "first", 2: "second", 3: "third", 5: "fifth", 8: "eighth", 9: "ninth", 12: "twelfth", 20: "twentieth",
-       30: "thirtieth"}
-ONES = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
-        "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"]
-TENS = ["", "", "twenty", "thirty"]
-
-
-def ordinal_words(n):
-    if n in ORD:
-        return ORD[n]
-    if n < 20:
-        return ONES[n] + "th"
-    t, o = divmod(n, 10)
-    return TENS[t] + ("-" + ordinal_words(o) if o else "ieth")
-
-
-
-def build_lyrics(s, facts):
-    """Sections with lines: (display text, spoken/sung text, mode). Only real stats go in."""
-    month = date(*s["month"], 1).strftime("%B")
-    best = s["best"]
-    nish = V.PRONOUNCE["nishal"]
-    L = lambda d, sp=None, mode="rap": (d, sp or d, mode)
-    lines = {
-        "Intro": [L(f"{USER}. Twelve months, every week one bar", f"{nish}. Twelve months. Every week, one bar.", "spoken")],
-        "Verse 1": [
-            L(f"{s['total']} contributions since {s['first']:%B %Y}",
-              f"{s['total']} contributions since {s['first']:%B} {year_words(s['first'].year)}"),
-            L(f"{s['active']} days on the board, {s['best_n']} on {best:%B} {best.day}",
-              f"{s['active']} days on the board, {s['best_n']} on {best:%B} {ordinal_words(best.day)}"),
-            L(f"{month} ran hot with {s['month_n']} on the sheet"),
-            L(f"{s['longest']} days straight, and I didn't skip a beat"),
-        ],
-        "Chorus": [
-            L("Push it to main, let the green squares show", mode="sing"),
-            L("Every week's a bar, every day's a note", mode="sing"),
-            L(f"{s['total']} hits and the loop won't stop", f"{say_number(s['total'])} hits and the loop won't stop", "sing"),
-            L("Build it, ship it, take it from the top", mode="sing"),
-        ],
-        "Breakdown": [L("Quiet weeks play soft, busy weeks get loud", mode="sing")],
-        "Outro": [L(f"That was {s['total']} contributions from {USER}", f"That was {s['total']} contributions from {nish}.", "spoken"),
-                  L("Tomorrow the numbers change, and the song does too", mode="spoken")],
-    }
-    if facts and len(facts["recent"]) >= 2 and len(facts["langs"]) >= 2:
-        r = facts["recent"]
-        v2 = [L(f"Right now I'm deep in {r[0]} and {r[1]}", f"Right now I'm deep in {V.say_name(r[0])} and {V.say_name(r[1])}"),
-              L(f"{facts['n_own']} repos of my own, mostly {facts['langs'][0]} and {facts['langs'][1]}")]
-    else:
-        v2 = [L("Commit by commit, line after line"), L("The log is still warm from the last push")]
-    v2 += [L("Cut it like an AMV, every frame on time", f"Cut it like an {V.PRONOUNCE['amv']}, every frame on time"),
-           L("Mix it like a mashup, every verse in rhyme")]
-    lines["Verse 2"] = v2
-    return lines
 
 
 # ---------- instrumental ----------
@@ -342,11 +262,18 @@ def place(buf, x, t):
     S.add(buf, x, t)
 
 
+def edge_fade(y, ms=6):
+    k = min(len(y) // 2, int(ms / 1000 * SR))
+    y = y.copy()
+    y[:k] *= np.linspace(0, 1, k)
+    y[-k:] *= np.linspace(1, 0, k)
+    return y
+
+
 def vocals(lyrics, n):
     """Returns vocal stems (stereo), the instrumental lead that doubles the hook, notes for analysis, timeline."""
     rap_v = V.load(V.RAP_VOICE)
     sing_v = V.load(V.SING_VOICE)
-    cache = {}
     st = {k: np.zeros((2, n)) for k in ("rap", "sing", "harm", "chops", "throws")}
     hook_lead = np.zeros((2, n))
     lead_only = np.zeros(n)
@@ -364,12 +291,12 @@ def vocals(lyrics, n):
     d, sp, _ = lyrics["Intro"][0]
     x = V.tts(rap_v, sp, 1.0)
     x = signal.sosfilt(S.sos("bandpass", [250, 4500]), x)
-    place(st["rap"], S.pan(x, 0) * 0.9, t)
+    place(st["rap"], S.pan(edge_fade(x), 0) * 0.9, t)
     tl(t, t + len(x) / SR, "Intro", d)
     for i, (d, sp, _) in enumerate(lyrics["Outro"]):
         t = starts["Outro"][0] + (0.25 + 2 * i) * BAR
         x = V.tts(rap_v, sp, 0.95)
-        place(st["rap"], S.pan(x, 0) * 0.9, t)
+        place(st["rap"], S.pan(edge_fade(x), 0) * 0.9, t)
         tl(t, t + len(x) / SR, "Outro", d)
 
     # verses: one line per 2 bars, double on the last word region panned out
@@ -378,45 +305,43 @@ def vocals(lyrics, n):
             t = starts[sec][0] + 2 * i * BAR
             x = V.rap_line(rap_v, sp, 2 * BAR * 0.86)
             x = S.compress(x / (np.max(np.abs(x)) + 1e-9), thr_db=-16, ratio=3.5, attack=0.003, release=0.08)
-            place(st["rap"], S.pan(x, 0) * 0.85, t)
+            place(st["rap"], S.pan(edge_fade(x), 0) * 0.85, t)
             # ad-lib double: the last ~0.5s of the line, quieter, panned and slightly delayed
-            tail = x[-int(0.55 * SR):] * np.linspace(0.2, 1, int(0.55 * SR))
+            tail = edge_fade(x[-int(0.55 * SR):] * np.linspace(0, 1, int(0.55 * SR)))
             place(st["rap"], S.pan(tail, -0.6) * 0.22, t + len(x) / SR - 0.55 + 0.018)
             place(st["rap"], S.pan(tail, 0.6) * 0.22, t + len(x) / SR - 0.55 + 0.031)
             tl(t, t + len(x) / SR, sec, d)
 
-    # chorus: render once, place at both choruses
+    # chorus: each line is one Piper utterance, retuned onto the hook with WORLD (song_vocals.Line).
+    # Rendered once and placed at both choruses. Harmony a third below, quiet, from the same timing plan.
     clen = int(8 * BAR * SR) + SR * 2
-    lead_v, harm_l, harm_r, dbl = (np.zeros(clen) for _ in range(4))
+    lead_v, harm_l, harm_r = (np.zeros(clen) for _ in range(3))
     cnotes, ctl = [], []
     for i, (d, sp, _) in enumerate(lyrics["Chorus"]):
         t = 2 * i * BAR
-        c = HOOK[i]
-        y, notes = V.sing_phrase(sing_v, cache, sp, contour(c), t, 2 * BAR, STEP, clen)
-        lead_v += y
-        cnotes += notes
-        hy, _ = V.sing_phrase(sing_v, cache, sp, lambda j, K, c=c: third_below(contour(c)(j, K)), t, 2 * BAR, STEP, clen)
-        (harm_l if i % 2 == 0 else harm_r)[:] += hy
-        dy, _ = V.sing_phrase(sing_v, cache, sp, contour(c), t, 2 * BAR, STEP, clen, transpose=0.07, vib=18)
-        dbl += dy
-        ctl.append((t, notes[-1]["t"] + notes[-1]["dur"], d))
-    # the instrumental hook lead doubles the sung notes an octave up
+        line = V.Line(sing_v, sp)
+        notes = V.contour_notes(HOOK[i], len(line.segs))
+        plan = line.plan(2 * BAR, STEP)
+        y, nts = line.render(notes, 2 * BAR, STEP, plan=plan)
+        hy, _ = line.render([third_below(m) for m in notes], 2 * BAR, STEP, plan=plan, vib=12)
+        S.add(lead_v, edge_fade(y), t)
+        S.add(harm_l if i % 2 == 0 else harm_r, edge_fade(hy), t)
+        cnotes += [dict(t=nn["t"] + t, dur=nn["dur"], midi=nn["midi"]) for nn in nts]
+        ctl.append((t + nts[0]["t"] - 0.05, t + nts[-1]["t"] + nts[-1]["dur"], d))
+    # the instrumental hook lead doubles the sung notes an octave up, tucked under the voice
     lead_line = S.lead([nn["midi"] + 12 for nn in cnotes], clen, [nn["t"] for nn in cnotes],
-                       [nn["dur"] for nn in cnotes], vel=0.11, vibrato=0.2)
-    shift = int(0.016 * SR)
+                       [nn["dur"] for nn in cnotes], vel=0.08, vibrato=0.2)
     for c0 in starts["Chorus"]:
         place(st["sing"], S.pan(lead_v, 0), c0)
         S.add(lead_only, lead_v, c0)
-        place(st["sing"], np.stack([np.r_[np.zeros(shift), dbl[:-shift]] * 0.35, dbl * 0.35 * 0.9]), c0)
-        place(st["harm"], S.pan(harm_l * 0.4, -0.55) + S.pan(harm_r * 0.4, 0.55) + S.pan(harm_l * 0.25, 0.4)
-              + S.pan(harm_r * 0.25, -0.4), c0)
+        place(st["harm"], S.pan(harm_l * 0.3, -0.45) + S.pan(harm_r * 0.3, 0.45), c0)
         place(hook_lead, S.pan(lead_line, -0.1), c0)
         for (a, e, d) in ctl:
             tl(c0 + a, c0 + e, "Chorus", d)
             # delay throw on the last word of each line
             m = int((e - 0.45) * SR)
             thr = np.zeros(clen)
-            thr[m:int(e * SR)] = lead_v[m:int(e * SR)]
+            thr[m:int(e * SR)] = lead_v[m:int(e * SR)] * np.linspace(0, 1, int(e * SR) - m) ** 0.5
             place(st["throws"], S.pan(thr, 0), c0)
         sung_notes += [dict(t=nn["t"] + c0, dur=nn["dur"], midi=nn["midi"]) for nn in cnotes]
 
@@ -425,8 +350,8 @@ def vocals(lyrics, n):
     motif = [nn for nn in cnotes if nn["t"] < 4 * BAR]
     place(hook_lead, S.pan(S.lead([nn["midi"] + 12 for nn in motif], int(4.2 * BAR * SR),
                                   [nn["t"] for nn in motif], [nn["dur"] for nn in motif], vel=0.3, vibrato=0.3), 0.1), h0)
-    show = cache.get("show") or V.Word(sing_v, "show")
-    top = cache.get("top") or V.Word(sing_v, "top")
+    show = V.Word(sing_v, "oh")
+    top = V.Word(sing_v, "go")
     for bi in range(4):
         ch = chord_at("Hook", bi)
         for j, s in enumerate((3, 6, 11, 14)):
@@ -439,7 +364,9 @@ def vocals(lyrics, n):
     # breakdown: one sung line, soft, high in the reverb
     b0 = starts["Breakdown"][0]
     d, sp, _ = lyrics["Breakdown"][0]
-    y, notes = V.sing_phrase(sing_v, cache, sp, contour(BREAK), 0.0, 3.4 * BAR, STEP, int(4.5 * BAR * SR), grid=2)
+    line = V.Line(sing_v, sp, speed=1.25)
+    y, notes = line.render(V.contour_notes(BREAK, len(line.segs)), 3.4 * BAR, STEP)
+    y = edge_fade(y)
     place(st["sing"], S.pan(y * 0.8, 0), b0 + 0.25 * BAR)
     S.add(lead_only, y, b0 + 0.25 * BAR)
     tl(b0 + 0.25 * BAR + notes[0]["t"], b0 + 0.25 * BAR + notes[-1]["t"] + notes[-1]["dur"], "Breakdown", d)
@@ -492,11 +419,11 @@ def mixdown(inst, kicks, vox, hook_lead, n, length):
         return x / (np.max(np.abs(x)) + 1e-9) * peak
     rap = norm(rap, 0.55)
     sing_peak = np.max(np.abs(sing)) + 1e-9
-    sing, harm = sing / sing_peak * 0.68, harm / sing_peak * 0.36
+    sing, harm = sing / sing_peak * 0.76, harm / sing_peak * 0.3
     chops = norm(vox["chops"], 0.22) if np.any(vox["chops"]) else vox["chops"]
     throws = S.delay(vox["throws"] / sing_peak * 0.5, BEAT * 0.75, feedback=0.45, repeats=5)
     vocal_bus = rap + sing + harm * 0.8 + chops
-    verb = S.reverb(vocal_bus * 0.6 + chops, seconds=2.4, decay=0.6) * 0.32
+    verb = S.reverb(vocal_bus * 0.6 + chops, seconds=1.8, decay=0.45) * 0.16
     slap = S.delay(rap, BEAT / 2, feedback=0.25, repeats=2) * 0.35
     mverb = S.reverb(music * 0.5 + fx * 0.3, seconds=2.0, decay=0.5) * 0.25
 
@@ -504,13 +431,18 @@ def mixdown(inst, kicks, vox, hook_lead, n, length):
     venv = np.convolve(np.abs(vocal_bus).max(0), np.ones(int(0.05 * SR)) / int(0.05 * SR), mode="same")
     duck = 1 - 0.45 * np.clip(venv / (np.max(venv) + 1e-9) * 4, 0, 1)
 
+    # carve 1-4 kHz out of the music while words are sung or rapped (about -7 dB at full vocal level)
+    mid = signal.sosfiltfilt(S.sos("bandpass", [1000, 4000]), music, axis=1)
+    carve = 0.55 * np.clip(venv / (np.max(venv) + 1e-9) * 4, 0, 1)
+    music = music - mid * carve
     mbus = norm(music, 1.0) * 0.38 * duck + mverb * 0.3
     out = (drums / (np.max(np.abs(drums)) + 1e-9) * 0.55 + norm(bass, 1.0) * 0.42 + mbus + fx * 0.35
            + vocal_bus + verb + throws * 0.6 + slap)
     out = out[:, :int(SR * length)]
     fade = int(SR * 2.0)
     out[:, -fade:] *= np.linspace(1, 0, fade) ** 1.5
-    return out
+    vox_solo = (vocal_bus + verb + throws * 0.6 + slap)[:, :int(SR * length)]
+    return out, vox_solo
 
 
 def master(x, target=-13.6, ceiling=-1.5):
@@ -621,7 +553,6 @@ def render_card(s, length, wave_peaks, t):
     x0, x1, mid, amp = 25, w - 25, 92, 34
     n = len(wave_peaks)
     bw = (x1 - x0) / n
-    song_bars = sum(nb for _, nb in SECTIONS)
     edges, acc = [], 0
     for name, nb in SECTIONS:
         edges.append((name, acc * BAR / length, (acc + nb) * BAR / length))
@@ -662,12 +593,12 @@ def main():
             # the arrangement expects 53 bars; pad or trim the oldest weeks if GitHub returns a different span
             weeks = ([[]] * max(0, target - len(weeks)) + weeks)[-target:]
         facts = repo_facts()
-        lyrics = build_lyrics(s, facts)
+        lyrics = LY.build_lyrics(s, facts, USER)
         rng = np.random.default_rng(s["total"])
         inst, kicks, n = instrumental(weeks, rng)
         vox, hook_lead, sung_notes, bd_notes, timeline = vocals(lyrics, n)
         length = len(weeks) * BAR + 2.0
-        song = mixdown(inst, kicks, vox, hook_lead, n, length)
+        song, vox_solo = mixdown(inst, kicks, vox, hook_lead, n, length)
         song, lufs = master(song)
     except Exception as e:
         import traceback
@@ -677,6 +608,9 @@ def main():
         os.makedirs(stems_dir, exist_ok=True)
         write_wav(os.path.join(stems_dir, "sing.wav"), vox["lead_only"][None] / (np.max(np.abs(vox["lead_only"])) + 1e-9) * 0.9)
         write_wav(os.path.join(stems_dir, "mix.wav"), song)
+        for k in ("rap", "sing", "harm", "chops"):
+            write_wav(os.path.join(stems_dir, f"stem-{k}.wav"), vox[k] / (np.max(np.abs(vox[k])) + 1e-9) * 0.9)
+        write_wav(os.path.join(stems_dir, "vocals.wav"), vox_solo / (np.max(np.abs(vox_solo)) + 1e-9) * 0.89)
         with open(os.path.join(stems_dir, "notes.json"), "w") as f:
             json.dump(dict(chorus=sung_notes, breakdown=bd_notes, timeline=timeline), f)
     encode_mp3(song, os.path.join(ASSETS, "contribution-song.mp3"))

@@ -113,6 +113,14 @@ More edits and remixes on [my channel](https://www.youtube.com/@DemonKing0.___).
     <img src="assets/year-light.svg" alt="Contributions in the last 12 months: total, best day, busiest month and longest streak" height="155">
   </picture>
   <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/alltime-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/alltime-light.svg">
+    <img src="assets/alltime-light.svg" alt="All-time contributions since joining GitHub: total, best year, best day, longest streak and a bar per year" height="155">
+  </picture>
+</p>
+
+<p align="center">
+  <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/song-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="assets/song-light.svg">
     <img src="assets/song-light.svg" alt="Contribution song: a 90-second track made from the last 12 months of contributions" height="155">

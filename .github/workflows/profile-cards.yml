@@ -49,11 +49,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/piper-voices
-          key: piper-voices-ryan-high-hfc_female-medium-v2
+          key: piper-voices-ryan-high-lessac-high-v3
 
       - name: Last 12 months
         continue-on-error: true
         run: python scripts/year_card.py
+
+      - name: All time
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/alltime_card.py
 
       - name: What I'm building and recent commits
         continue-on-error: true
@@ -64,6 +70,10 @@ jobs:
       - name: Latest YouTube upload
         continue-on-error: true
         run: python scripts/youtube_card.py
+
+      - name: Check the lyric templates
+        continue-on-error: true
+        run: python scripts/test_song_lyrics.py
 
       - name: Contribution song
         id: song
