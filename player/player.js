@@ -307,7 +307,10 @@ waveEl.addEventListener("pointermove", (e) => {
   waveEl.classList.add("hovering");
   drawWave();
 });
-waveEl.addEventListener("pointerleave", () => { hoverP = -1; waveEl.classList.remove("hovering"); drawWave(); });
+const endHover = () => { if (hoverP < 0) return; hoverP = -1; waveEl.classList.remove("hovering"); drawWave(); };
+waveEl.addEventListener("pointerleave", endHover);
+// scrolling moves the waveform out from under a still pointer without a pointerleave
+addEventListener("scroll", endHover, { passive: true });
 
 /* ---------- build the page from the song data ---------- */
 const sectionAt = (t) => { let s = song.sections[0]; for (const x of song.sections) if (t >= x.start - 0.01) s = x; return s; };
@@ -478,6 +481,7 @@ function eventText(e) {
 function level(c) { return c === 0 ? 0 : Math.min(4, 1 + Math.floor((c / dmax) * 4)); }
 function buildGrid(data) {
   const wrap = $("#weeks"), months = $("#months");
+  $("#grid-scroll").style.setProperty("--cols", data.weeks.length);
   let lastMonth = -1, lastLabel = -9;
   data.weeks.forEach((w, i) => {
     const b = document.createElement("button");
@@ -512,7 +516,7 @@ function buildGrid(data) {
     const mo = new Date(w.start + "T00:00:00").getMonth();
     if (mo !== lastMonth) {
       // label the first week that starts in a new month, if there's room
-      if (i - lastLabel >= 3 && i < data.weeks.length - 2) {
+      if (i - lastLabel >= 4 && i < data.weeks.length - 2) {
         const sp = document.createElement("span");
         sp.style.setProperty("--i", i);
         sp.textContent = day(w.start, { month: "short" });

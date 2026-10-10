@@ -193,12 +193,14 @@ h1 {
 }
 .wave:hover .thumb, .wave:has(input:active) .thumb { height: 42px; width: 6px; }
 .hover-tip {
-  position: absolute; bottom: calc(100% + 6px); left: calc(var(--h, 0) * 100%); translate: -50% 4px;
+  /* follows the pointer but stays inside the waveform's width */
+  position: absolute; bottom: calc(100% + 6px); left: calc(var(--h, 0) * 100%); translate: calc(var(--h, 0) * -100%) 4px;
+  visibility: hidden;
   padding: 3px 8px; border-radius: 6px; background: var(--fg); color: var(--bg);
   font: 500 0.75rem/1.4 var(--mono); white-space: nowrap; pointer-events: none;
   opacity: 0; transition: opacity 0.15s, translate 0.25s var(--emph);
 }
-.wave.hovering .hover-tip { opacity: 1; translate: -50% 0; }
+.wave.hovering:hover .hover-tip { opacity: 1; visibility: visible; translate: calc(var(--h, 0) * -100%) 0; }
 .times {
   display: grid; grid-template-columns: auto 1fr auto; gap: var(--s3); align-items: baseline;
   margin-top: var(--s2); font: 500 0.75rem/1.4 var(--mono); color: var(--fg-2); font-variant-numeric: tabular-nums;
@@ -334,18 +336,18 @@ h1 {
 .block-head p { margin: 0; color: var(--fg-2); font-size: 0.9375rem; max-width: 46ch; }
 
 .grid-scroll {
-  --gap: 3px;
-  --cell: max(9px, (100cqi - 52 * var(--gap)) / 53);
+  /* 53 equal columns that always fit the width: no horizontal scrolling at any size */
   container-type: inline-size;
-  overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin;
-  padding-bottom: var(--s2);
+  padding: 0 4px var(--s2);
+  min-width: 0;
 }
-.months { position: relative; height: 18px; width: calc(53 * var(--cell) + 52 * var(--gap)); font: 500 0.6875rem/1 var(--mono); color: var(--fg-3); }
-.months span { position: absolute; left: calc(var(--i) * (var(--cell) + var(--gap))); top: 0; }
-.weeks { display: flex; gap: var(--gap); width: max-content; }
+.months, .weeks { display: grid; grid-template-columns: repeat(var(--cols, 53), minmax(0, 1fr)); column-gap: var(--gap); }
+.months, .weeks, .wk { --gap: clamp(1px, 0.4cqi, 3px); }
+.months { height: 18px; font: 500 clamp(0.625rem, 0.5rem + 0.5cqi, 0.6875rem)/1 var(--mono); color: var(--fg-3); }
+.months span { grid-column: calc(var(--i) + 1) / span 5; grid-row: 1; white-space: nowrap; }
 .wk {
   display: flex; flex-direction: column; gap: var(--gap); padding: 0; border: 0; background: none; cursor: pointer;
-  border-radius: 3px; position: relative;
+  border-radius: 3px; position: relative; min-width: 0;
 }
 .wk::after {
   content: ""; position: absolute; inset: -4px calc(var(--gap) / -2 - 1px); border-radius: 5px;
@@ -354,7 +356,7 @@ h1 {
 .wk.now::after { opacity: 1; }
 @media (hover: hover) { .wk:hover .c { filter: brightness(1.15); } }
 .c {
-  width: var(--cell); height: var(--cell); border-radius: calc(var(--cell) * 0.28);
+  width: 100%; aspect-ratio: 1; border-radius: 28%;
   background: var(--wash);
 }
 .c[data-l="1"] { background: color-mix(in oklch, var(--mark) 30%, var(--bg)); }
@@ -427,7 +429,6 @@ kbd {
 
 /* ---------- small screens: lyrics take over the cover's spot ---------- */
 @media (max-width: 899px) {
-  .grid-scroll { mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 24px), transparent); padding-inline: 12px 24px; margin-inline: -12px -24px; }
   .lyrics-mode .np {
     grid-template-columns: 64px 1fr;
     grid-template-rows: auto minmax(0, 1fr) auto auto;
@@ -450,30 +451,38 @@ kbd {
 /* ---------- wide screens: cover and controls left, lyrics right ---------- */
 @media (min-width: 900px) {
   .np {
-    max-width: 1440px; height: 100svh; min-height: 640px;
-    grid-template-columns: minmax(300px, min(520px, 100svh - 460px)) minmax(0, 1fr);
+    /* grows with its content on short windows instead of spilling into the notes below */
+    max-width: 1440px; min-height: 100svh;
+    grid-template-columns: clamp(320px, 34vw, 500px) minmax(0, 1fr);
     grid-template-rows: 1fr auto auto auto auto auto 1fr;
     grid-template-areas: ". lyrics" "art lyrics" "meta lyrics" "scrub lyrics" "controls lyrics" "downloads lyrics" ". lyrics";
     column-gap: clamp(var(--s7), 7vw, 128px);
     padding: 72px var(--pad) var(--s5);
   }
   .lyrics-toggle { display: none; }
-  .lyrics-pane { display: block; }
-  .art { margin-bottom: var(--s5); }
+  /* the lyrics stay in view while the left column scrolls on short windows */
+  .lyrics-pane { display: block; position: sticky; top: 0; align-self: start; height: 100svh; margin-top: -72px; }
+  /* out of flow so the long lyric sheet doesn't stretch the grid row */
+  .lyrics { position: absolute; inset: 0 0 auto; }
+  .art { margin-bottom: var(--s5); width: min(100%, max(240px, 100svh - 440px)); justify-self: center; }
   .meta { margin-bottom: var(--s4); }
   .controls { margin-top: var(--s4); }
   .downloads { margin-top: var(--s5); }
-  .bar-now {
-    grid-template-columns: minmax(12rem, 18rem) auto; grid-template-areas: "label pads" "rule pads";
-    justify-content: space-between; align-content: center; column-gap: var(--s7); padding: var(--s6);
-  }
-  .bar-label { grid-area: label; align-self: end; }
-  .bar-now .rule { grid-area: rule; align-self: start; }
-  .pads { grid-area: pads; }
+  .bar-now { padding: var(--s6); }
   .pads { grid-template-columns: 3.6rem repeat(7, minmax(0, 56px)); gap: 8px; }
   .pad { border-radius: 12px; }
   .notes { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--s8); }
   .notes .year { grid-column: 1 / -1; }
+}
+/* label beside the pads only when there is room for both */
+@media (min-width: 1100px) {
+  .bar-now {
+    grid-template-columns: minmax(12rem, 18rem) auto; grid-template-areas: "label pads" "rule pads";
+    justify-content: space-between; align-content: center; column-gap: var(--s7);
+  }
+  .bar-label { grid-area: label; align-self: end; }
+  .bar-now .rule { grid-area: rule; align-self: start; }
+  .pads { grid-area: pads; }
 }
 @media (min-width: 1400px) {
   .lyrics-pane { --ly: clamp(2.5rem, 1.2rem + 1.9vw, 3.5rem); }
