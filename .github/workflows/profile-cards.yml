@@ -45,11 +45,11 @@ jobs:
           pip install --quiet -r scripts/requirements.txt
           command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg)
 
-      - name: Cache the Piper voice model
+      - name: Cache the Piper voice models
         uses: actions/cache@v4
         with:
           path: ~/.cache/piper-voices
-          key: piper-voice-en_US-ryan-medium-v1
+          key: piper-voices-ryan-high-hfc_female-medium-v2
 
       - name: Last 12 months
         continue-on-error: true
