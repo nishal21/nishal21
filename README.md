@@ -1,135 +1,149 @@
 <div align="center">
 
-# 🚀 Nishal K | Digital Architect & Innovation Catalyst
+# Nishal K
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=28&duration=3000&pause=1000&color=00D9FF&center=true&vCenter=true&width=600&lines=Full-Stack+Developer;UI%2FUX+Designer;Video+Production+Specialist;AI+%26+ML+Enthusiast;Digital+Content+Creator" alt="Typing SVG" />
-
-<br>
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
-</div>
-
-
-
-<div align="center">
-
-###   Highlights
-
- **Years** of crafting digital experiences  
- **50+ Projects** delivered across multiple domains  
- **Pixel-perfect** designs with seamless functionality  
- **Performance-driven** solutions that scale
-
-</div>
-
----
-
-<div align="center">
-
-## 🌐 **Connect & Collaborate**
+Full-stack developer · AMV editor · Music producer · Malappuram, Kerala
 
 [![Portfolio](https://img.shields.io/badge/Portfolio-FF5722?style=for-the-badge&logo=google-chrome&logoColor=white)](https://nishal.dev)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/nishal-k-167b1a328)
-[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/demonking.___)
+[![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@DemonKing0.___)
+[![dev.to](https://img.shields.io/badge/dev.to-0A0A0A?style=for-the-badge&logo=devdotto&logoColor=white)](https://dev.to/nishal21)
 [![Instagram](https://img.shields.io/badge/Instagram-E4405F?style=for-the-badge&logo=instagram&logoColor=white)](https://instagram.com/demonking.___)
 [![X](https://img.shields.io/badge/X-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/Etainment2)
 
 </div>
 
+## About me
 
+I'm a full-stack developer from Kerala. I build web, desktop and terminal apps with TypeScript, React, Rust and Python, and I put most of them online with a live link so people can use them. Right now most of my time goes into NekoDroid, an Android emulator that runs in the browser. Away from code, I edit AMVs and produce remixes in FL Studio.
 
-<div align="center">
+> A beat has to land on time. Your code should too. I put the same care into both.
 
-## 📊 **Performance Analytics**
+## Current focus: NekoDroid
 
-![GitHub Stats](https://github-readme-stats-fast.vercel.app/api?username=nishal21&show_icons=true&theme=tokyonight)
-<br><br>
-<br>
+[NekoDroid](https://github.com/nishal21/NekoDroid) is an Android emulator that runs entirely in a browser tab. I'm writing it from scratch in Rust and compiling it to WebAssembly, so there is no server or remote VM involved.
 
-![GitHub Stats](https://github-readme-stats-fast.vercel.app/api/streak?username=nishal21&theme=tokyonight)
-<br><br>
-<br>
+- ARMv7 CPU core (ARM and Thumb) with CP15 and an MMU
+- Dalvik interpreter that loads and runs a small test APK
+- Linux boot path that is partway through bringing up an Android goldfish kernel
+- MIT licensed, 140 passing tests, and a [development log](https://github.com/nishal21/NekoDroid/blob/main/DEVLOG.md) covering every work session
 
-![GitHub Stats](https://github-readme-stats-fast.vercel.app/api/top-langs/?username=nishal21&layout=compact&theme=tokyonight)
-<br><br>
-<br>
+It does not run Play Store apps yet. The [project README](https://github.com/nishal21/NekoDroid#what-works-today) lists what works today.
 
+## What I'm building
 
-<img src="https://github-readme-activity-graph.vercel.app/graph?username=nishal21&bg_color=0D1117&color=00D9FF&line=00D9FF&point=FF6B6B&area=true&area_color=00D9FF&hide_border=true" width="95%" alt="Contribution Graph" />
+My most recently active public repos and their latest commits. A GitHub Action refreshes both cards every night.
 
-</div>
-
----
-
-<div align="center">
-
-## 🏆 **Achievements & Recognition**
-
-<br><br>
-![Github Stats](https://github-trophies.vercel.app/?username=nishal21&theme=darkhub&no-frame=true)
-</div>
-
----
-
-<div align="center">
-
-## 📝 **Latest Blog Posts**
-
-<!-- BLOG:START --><tr><td><a href="https://dev.to/nishal21/i-built-a-full-screen-news-reader-that-lives-in-the-terminal-jmp">I built a full-screen news reader that lives in the terminal</a></td><td>Jul 31, 2026</td></tr><tr><td><a href="https://dev.to/nishal21/i-built-a-zero-config-100-serverless-portfolio-generator-so-you-never-have-to-update-yours-again-14a1">I built a zero-config, 100% serverless portfolio generator so you never have to update yours again.</a></td><td>Apr 13, 2026</td></tr><tr><td><a href="https://dev.to/nishal21/how-i-built-a-memory-safe-steganography-engine-in-rust-to-protect-data-from-ai-scrapers-4cch">How I Built a Memory-Safe Steganography Engine in Rust to Protect Data from AI Scrapers</a></td><td>Mar 28, 2026</td></tr><tr><td><a href="https://dev.to/nishal21/i-built-an-open-source-neo-brutalist-network-diagnostic-tool-react-python-cli-2gbg">I built an open-source, Neo-Brutalist network diagnostic tool &lpar;React + Python CLI&rpar;</a></td><td>Mar 27, 2026</td></tr><tr><td><a href="https://dev.to/nishal21/i-built-a-carbon-footprint-tracker-for-my-code-using-electron-2llo">I built a Carbon Footprint tracker for my code &lpar;using Tauri?!&rpar; 🍃</a></td><td>Feb 8, 2026</td></tr><!-- BLOG:END -->
-
----
-
-## ⏳ **WakaTime Stats**
-
-<!-- WAKATIME-STATS:START -->
-<!-- WAKATIME-STATS:END -->
-
----
-
-  <!-- Contribution Snake Animation - Requires workflow setup -->
+<p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nishal21/nishal21/output/github-contribution-grid-snake-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/nishal21/nishal21/output/github-contribution-grid-snake.svg">
-    <img alt="github-snake" src="https://raw.githubusercontent.com/nishal21/nishal21/output/github-contribution-grid-snake-dark.svg">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/building-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/building-light.svg">
+    <img src="assets/building-light.svg" alt="Recently active repositories with their latest commit and CI status" height="155">
   </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/commits-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/commits-light.svg">
+    <img src="assets/commits-light.svg" alt="Recent commits across my public repositories" height="155">
+  </picture>
+</p>
 
+## Selected projects
 
+| Project | Description | Stack | Link |
+|:--|:--|:--|:--|
+| [NekoBeat](https://github.com/nishal21/NekoBeat) | Finds and plays music from several sources in one app. | Tauri, React, Rust | [Website](https://nishal21.github.io/NekoBeat-Website/) |
+| [Publicolio](https://github.com/nishal21/Publicolio) | Turns a GitHub profile into a portfolio site you can theme and share. | React, TypeScript | [App](https://app.publicolio.qzz.io/) |
+| [World News CLI](https://github.com/nishal21/News-CLI) | Full-screen terminal news reader with optional AI summaries and text-to-speech. | Python, Textual | [PyPI](https://pypi.org/project/worldnews-cli/) |
+| [Extracto](https://github.com/nishal21/Extracto) | Returns structured data from a URL and a plain description of what you want. | Python, Playwright | [Website](https://nishal21.github.io/Extracto/) |
+| [Sigil-extractor](https://github.com/nishal21/Sigil-extractor) | Hides license proofs inside datasets with cryptographic steganography and verifies them later. | Rust, Tauri, Svelte | [Website](https://nishal21.github.io/Sigil-extractor/) |
+| [CarbonLint](https://github.com/nishal21/CarbonLint) | Tracks your system's energy use in real time and estimates its carbon footprint. | JavaScript | [Website](https://nishal21.github.io/CarbonLint/) |
+| [UPI Down](https://github.com/nishal21/upi-Down) | Shows which banks and UPI apps people are reporting as down. No login. | TypeScript | [App](https://upidown.nishal.dev) |
+| [Weather](https://github.com/nishal21/weather) | Hourly and 7-day forecasts, rain, UV and air quality for cities in India and abroad. | Next.js, TypeScript | [App](https://weather.nishal.dev/) |
 
-<div align="center">
+More projects are on my portfolio at [nishal.dev](https://nishal.dev).
 
-## 💖 **Support My Work**
+## Tech I use
 
-*If you find my projects helpful, consider supporting my work!*
+I mostly write TypeScript and JavaScript, plus Rust, Python and Go for systems work, CLIs and side projects. On the web that means React, Next.js, Vite and Tailwind CSS. I use Tauri for desktop apps, WebAssembly for NekoDroid, and Textual and Playwright on the Python side.
 
+## Latest blog posts
+
+<table>
+<thead><tr><th align="left">Post on dev.to</th><th align="left" width="120">Published</th></tr></thead>
+<tbody>
+<!-- BLOG:START --><tr><td><a href="https://dev.to/nishal21/i-built-a-full-screen-news-reader-that-lives-in-the-terminal-jmp">I built a full-screen news reader that lives in the terminal</a></td><td>Jul 31, 2026</td></tr><tr><td><a href="https://dev.to/nishal21/i-built-a-zero-config-100-serverless-portfolio-generator-so-you-never-have-to-update-yours-again-14a1">I built a zero-config, 100% serverless portfolio generator so you never have to update yours again.</a></td><td>Apr 13, 2026</td></tr><tr><td><a href="https://dev.to/nishal21/how-i-built-a-memory-safe-steganography-engine-in-rust-to-protect-data-from-ai-scrapers-4cch">How I Built a Memory-Safe Steganography Engine in Rust to Protect Data from AI Scrapers</a></td><td>Mar 28, 2026</td></tr><tr><td><a href="https://dev.to/nishal21/i-built-an-open-source-neo-brutalist-network-diagnostic-tool-react-python-cli-2gbg">I built an open-source, Neo-Brutalist network diagnostic tool (React + Python CLI)</a></td><td>Mar 27, 2026</td></tr><tr><td><a href="https://dev.to/nishal21/i-built-a-carbon-footprint-tracker-for-my-code-using-electron-2llo">I built a Carbon Footprint tracker for my code (using Tauri?!) 🍃</a></td><td>Feb 8, 2026</td></tr><!-- BLOG:END -->
+</tbody>
+</table>
+
+More posts at [dev.to/nishal21](https://dev.to/nishal21).
+
+## Latest on YouTube
+
+<p align="center">
+<!--YOUTUBE:START-->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/youtube-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/youtube-light.svg">
+  <img alt="Latest YouTube upload: Full on Channel | Majboor x Saal Late Night Mashup | @Demonking.___" src="assets/youtube-light.svg" height="155">
+</picture>
+<br>
+<a href="https://www.youtube.com/shorts/wWYIMp2VEH8">Watch: Full on Channel | Majboor x Saal Late Night Mashup | @Demonking.___</a>
+<!--YOUTUBE:END-->
+</p>
+
+More edits and remixes on [my channel](https://www.youtube.com/@DemonKing0.___).
+
+## GitHub stats
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://github-readme-stats-fast.vercel.app/api?username=nishal21&show_icons=true&disable_animations=true&theme=tokyonight">
+    <img src="https://github-readme-stats-fast.vercel.app/api?username=nishal21&show_icons=true&disable_animations=true&theme=default" alt="Nishal's GitHub stats" height="165">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://github-readme-stats-fast.vercel.app/api/top-langs?username=nishal21&layout=compact&card_width=395&disable_animations=true&theme=tokyonight">
+    <img src="https://github-readme-stats-fast.vercel.app/api/top-langs?username=nishal21&layout=compact&card_width=395&disable_animations=true&theme=default" alt="Most used languages" height="165">
+  </picture>
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/year-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/year-light.svg">
+    <img src="assets/year-light.svg" alt="Contributions in the last 12 months: total, best day, busiest month and longest streak" height="155">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/commit-beat-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/commit-beat-light.svg">
+    <img src="assets/commit-beat-light.svg" alt="Commit beat: the last 16 days of contributions as a drum pattern" height="155">
+  </picture>
+</p>
+
+<p align="center"><a href="https://raw.githubusercontent.com/nishal21/nishal21/main/assets/commit-beat.mp3">Listen to the commit beat</a>: an 8-second loop made from the last 16 days of contributions.</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://github-profile-summary-cards.vercel.app/api/cards/productive-time?username=nishal21&theme=tokyonight&utcOffset=5.5">
+    <img src="https://github-profile-summary-cards.vercel.app/api/cards/productive-time?username=nishal21&theme=github&utcOffset=5.5" alt="Commits by hour of day (IST)" height="155">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://github-profile-summary-cards.vercel.app/api/cards/most-commit-language?username=nishal21&theme=tokyonight">
+    <img src="https://github-profile-summary-cards.vercel.app/api/cards/most-commit-language?username=nishal21&theme=github" alt="Top languages by commit" height="155">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://github-profile-summary-cards.vercel.app/api/cards/repos-per-language?username=nishal21&theme=tokyonight">
+    <img src="https://github-profile-summary-cards.vercel.app/api/cards/repos-per-language?username=nishal21&theme=github" alt="Top languages by repo" height="155">
+  </picture>
+</p>
+
+## Support my work
+
+If my projects are useful to you, you can support them here:
+
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub_Sponsors-EA4AAA?style=for-the-badge&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/nishal21)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/kingtanjiro)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/demon_king)
 [![Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://patreon.com/DemonKing08)
-[![Ko-Fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/demon_king)
-[![Github Sponsorship](https://img.shields.io/badge/github-sponsors-EA4AAA?style=for-the-badge&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/nishal21)
+[![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/nishal21)
 
-
-</div>
-
----
-
-<div align="center">
-
-## 📈 **Profile Analytics**
-
-<img src="https://img.shields.io/github/followers/nishal21?label=Followers&style=for-the-badge&color=00D9FF&labelColor=0D1117" alt="GitHub Followers" />
-<img src="https://img.shields.io/github/stars/nishal21?label=Stars&style=for-the-badge&color=FF6B6B&labelColor=0D1117" alt="GitHub Stars" /><br>
-<a href="https://u8views.com/github/nishal21"><img src="https://u8views.com/api/v1/github/profiles/104292450/views/day-week-month-total-count.svg"></a>
-
-</div>
-
----
-
-<div align="center">
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
-**"Code is poetry written in logic, design is emotion expressed in pixels."** ✨
-
-*Made with 💙 and lots of ☕*
-
-</div>
+I'm open to collaborations and freelance work. You can reach me through [nishal.dev](https://nishal.dev).

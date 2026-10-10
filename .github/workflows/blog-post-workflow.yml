@@ -28,6 +28,7 @@ jobs:
           template: '<tr><td><a href="$url">$title</a></td><td>$date</td></tr>'
           date_format: "mmm d, yyyy"
           commit_message: "Updated README with latest blog posts"
+          disable_html_encoding: true
 
 # SETUP INSTRUCTIONS:
 # 1. Add this marker in your README.md where you want the blog posts to appear:
