@@ -2,7 +2,4 @@ numpy
 pillow
 scipy
 piper-tts>=1.3,<2
-pyworld==0.3.5
 pyloudnorm==0.2.0
-# pyworld imports pkg_resources, which setuptools 81 drops
-setuptools<81
