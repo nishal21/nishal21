@@ -1,2 +1,5 @@
 __pycache__/
 *.tmp
+_site/
+# the song MP3 is published to GitHub Pages, not committed, so the repo does not grow every night
+assets/contribution-song.mp3

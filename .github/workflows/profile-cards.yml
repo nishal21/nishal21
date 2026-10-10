@@ -1,7 +1,10 @@
-# Profile cards: commit beat (SVG + MP3), what I'm building, recent commits,
-# latest YouTube upload and the last-12-months card. All images are written to assets/.
-# Each generator runs on its own; if one fails, its previous image stays in place.
+# Profile cards and the contribution song.
+# Cards: what I'm building, recent commits, latest YouTube upload, last 12 months, contribution song.
+# The song MP3 and its player page are published to GitHub Pages (https://nishal21.github.io/nishal21/player/)
+# instead of being committed, so the repo doesn't grow by 1.5 MB every night.
+# Each generator runs on its own; if one fails, its previous image stays in place and Pages keeps the last song.
 # Uses only the built-in GITHUB_TOKEN and public endpoints. No extra secrets.
+# One-time setting: Settings > Pages > Build and deployment > Source: GitHub Actions.
 
 name: Profile cards
 
@@ -9,9 +12,12 @@ on:
   schedule:
     - cron: "30 18 * * *"  # 00:00 IST every night
   workflow_dispatch:
-
-permissions:
-  contents: write
+  push:
+    branches: [main]
+    paths:
+      - "player/**"
+      - "scripts/**"
+      - ".github/workflows/profile-cards.yml"
 
 concurrency:
   group: profile-cards
@@ -20,22 +26,30 @@ concurrency:
 jobs:
   cards:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    outputs:
+      song: ${{ steps.song.outcome }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
 
       - name: Install dependencies
         run: |
           pip install --quiet -r scripts/requirements.txt
           command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg)
 
-      - name: Commit beat
-        continue-on-error: true
-        run: python scripts/commit_beat.py
+      - name: Cache the Piper voice model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/piper-voices
+          key: piper-voice-en_US-ryan-medium-v1
 
       - name: Last 12 months
         continue-on-error: true
@@ -50,6 +64,13 @@ jobs:
       - name: Latest YouTube upload
         continue-on-error: true
         run: python scripts/youtube_card.py
+
+      - name: Contribution song
+        id: song
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/contribution_song.py
 
       - name: Commit changes
         run: |
@@ -67,3 +88,27 @@ jobs:
             sleep 10
           done
           exit 1
+
+      - name: Build the player site
+        if: steps.song.outcome == 'success'
+        run: bash scripts/build_site.sh
+
+      - name: Upload the site
+        if: steps.song.outcome == 'success'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  pages:
+    needs: cards
+    if: needs.cards.outputs.song == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}player/
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

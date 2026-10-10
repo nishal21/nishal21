@@ -113,13 +113,13 @@ More edits and remixes on [my channel](https://www.youtube.com/@DemonKing0.___).
     <img src="assets/year-light.svg" alt="Contributions in the last 12 months: total, best day, busiest month and longest streak" height="155">
   </picture>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/commit-beat-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="assets/commit-beat-light.svg">
-    <img src="assets/commit-beat-light.svg" alt="Commit beat: the last 16 days of contributions as a drum pattern" height="155">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/song-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/song-light.svg">
+    <img src="assets/song-light.svg" alt="Contribution song: a 90-second track made from the last 12 months of contributions" height="155">
   </picture>
 </p>
 
-<p align="center"><a href="https://raw.githubusercontent.com/nishal21/nishal21/main/assets/commit-beat.mp3">Listen to the commit beat</a>: an 8-second loop made from the last 16 days of contributions.</p>
+<p align="center"><a href="https://nishal21.github.io/nishal21/player/">Listen to the contribution song</a> · <a href="assets/contribution-song-lyrics.md">Lyrics</a> · <a href="https://nishal21.github.io/nishal21/player/contribution-song.mp3">Download MP3</a><br>Every bar is one week of my contribution calendar, and the lyrics come from the same numbers.</p>
 
 <p align="center">
   <picture>

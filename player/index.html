@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem("color-scheme")??"light dark"}catch(e){}</script>
+<title>Contribution song · Nishal K</title>
+<meta name="description" content="A song made from Nishal K's GitHub contributions over the last 12 months. One bar per week, rebuilt every night.">
+<meta property="og:title" content="Contribution song · Nishal K">
+<meta property="og:description" content="Twelve months of GitHub contributions, one bar per week, with lyrics written from the real numbers.">
+<link rel="preload" href="contribution-song.json" as="fetch" crossorigin="anonymous">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%231a1b27%22/%3E%3Cpath d=%22M6 4v8l6-4z%22 fill=%22%2370a5fd%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="player.css">
+<script src="player.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#player">Skip to player</a>
+<header class="top">
+  <p class="who"><a href="https://github.com/nishal21">nishal21</a> · <span id="range">last 12 months</span></p>
+  <button type="button" id="theme" class="theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/></svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+    <span class="to-dark visually-hidden">Switch to dark theme</span>
+    <span class="to-light visually-hidden">Switch to light theme</span>
+  </button>
+</header>
+
+<main id="player" tabindex="-1">
+  <section class="card hero" aria-labelledby="title">
+    <div class="hero-head">
+      <div>
+        <h1 id="title">Contribution song</h1>
+        <p class="meta" id="meta">Loading…</p>
+      </div>
+      <div class="downloads">
+        <a class="btn" href="contribution-song.mp3" download="nishal-contribution-song.mp3">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>
+          Download MP3
+        </a>
+        <a class="btn ghost" href="contribution-song.lrc" download="nishal-contribution-song.lrc">Lyrics (.lrc)</a>
+      </div>
+    </div>
+
+    <div class="stage">
+      <canvas id="viz" aria-hidden="true"></canvas>
+      <button type="button" id="play" class="play" aria-label="Play" disabled>
+        <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+        <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+      </button>
+      <p class="now" id="now" aria-hidden="true"></p>
+    </div>
+
+    <div class="transport">
+      <span class="time" id="cur">0:00</span>
+      <div class="seekwrap">
+        <canvas id="wave" aria-hidden="true"></canvas>
+        <label for="seek" class="visually-hidden">Seek</label>
+        <input type="range" id="seek" min="0" max="100" step="0.1" value="0" disabled>
+      </div>
+      <span class="time" id="dur">0:00</span>
+    </div>
+    <ol class="sections" id="sections" aria-label="Song sections"></ol>
+    <p class="keys">Keyboard: <kbd>Space</kbd> play or pause, <kbd>←</kbd> <kbd>→</kbd> 5 seconds, <kbd>Home</kbd> restart.</p>
+    <audio id="audio" src="contribution-song.mp3" preload="metadata"></audio>
+  </section>
+
+  <div class="grid">
+    <section class="card" aria-labelledby="lyrics-h">
+      <h2 id="lyrics-h">Lyrics</h2>
+      <p class="hint">Click a line to jump to it.</p>
+      <div class="lyrics" id="lyrics"></div>
+    </section>
+
+    <div class="side">
+      <section class="card" aria-labelledby="seq-h">
+        <h2 id="seq-h">Step sequencer</h2>
+        <p class="hint">Each column is one week and one bar of the song. The lit column is playing now.</p>
+        <div class="seq" id="seq" role="group" aria-label="Weeks of the year"></div>
+        <h3 class="sub" id="bar-h">This bar</h3>
+        <div class="pads" id="pads" aria-labelledby="bar-h"></div>
+        <p class="hint" id="rules"></p>
+      </section>
+
+      <section class="card" aria-labelledby="stats-h">
+        <h2 id="stats-h">The numbers</h2>
+        <dl class="stats" id="stats"></dl>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <p>Made from my <a href="https://github.com/nishal21">GitHub contribution calendar</a>. Drums follow the daily counts, busier weeks get more bass and melody, and the lyrics are filled in from the same numbers. A GitHub Action rebuilds it every night. <span id="gen"></span></p>
+  <p><a href="https://github.com/nishal21/nishal21/blob/main/scripts/contribution_song.py">How it's made</a> · <a href="https://github.com/nishal21">Back to my profile</a></p>
+</footer>
+</body>
+</html>
