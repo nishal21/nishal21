@@ -52,14 +52,15 @@ HOOK = [[57, 60, 62, 60, 57, 60, 62, 62],          # over F - G, ends on D
         [57, 60, 62, 64, 62, 60, 62, 64, 62],      # lifts to E, ends on D
         [64, 62, 60, 62, 60, 59, 57, 55, 57]]      # falls home
 BREAK = [60, 60, 59, 57, 59, 57, 55, 57, 55]
+VOX = -12  # the sung voice takes the hook an octave down (A2-E3), within a few semitones of where he speaks
 
 
-def third_below(m):
-    """Diatonic third below in A minor (two scale steps down)."""
+def third_above(m):
+    """Diatonic third above in A minor (two scale steps up)."""
     pc = {x % 12 for x in SCALE}
     x, found = int(round(m)), 0
     while found < 2:
-        x -= 1
+        x += 1
         if x % 12 in pc:
             found += 1
     return x
@@ -315,26 +316,31 @@ def vocals(lyrics, n):
     # chorus: each line is one Piper utterance, retuned onto the hook with WORLD (song_vocals.Line).
     # Rendered once and placed at both choruses. Harmony a third below, quiet, from the same timing plan.
     clen = int(8 * BAR * SR) + SR * 2
-    lead_v, harm_l, harm_r = (np.zeros(clen) for _ in range(3))
+    lead_v, harm_l, harm_r, dbl = (np.zeros(clen) for _ in range(4))
     cnotes, ctl = [], []
     for i, (d, sp, _) in enumerate(lyrics["Chorus"]):
         t = 2 * i * BAR
         line = V.Line(sing_v, sp)
-        notes = V.contour_notes(HOOK[i], len(line.segs))
+        notes = [n + VOX for n in V.contour_notes(HOOK[i], len(line.segs))]
         plan = line.plan(2 * BAR, STEP)
         y, nts = line.render(notes, 2 * BAR, STEP, plan=plan)
-        hy, _ = line.render([third_below(m) for m in notes], 2 * BAR, STEP, plan=plan, vib=12)
+        hy, _ = line.render([third_above(m) for m in notes], 2 * BAR, STEP, plan=plan, vib=12)
+        # double: a second take of the same line on the same notes (real double-tracking, not a copy)
+        take2 = V.Line(sing_v, sp)
+        dy, _ = take2.render(V.contour_notes([n + VOX for n in HOOK[i]], len(take2.segs)), 2 * BAR, STEP, vib=10)
+        S.add(dbl, edge_fade(dy), t)
         S.add(lead_v, edge_fade(y), t)
         S.add(harm_l if i % 2 == 0 else harm_r, edge_fade(hy), t)
         cnotes += [dict(t=nn["t"] + t, dur=nn["dur"], midi=nn["midi"]) for nn in nts]
         ctl.append((t + nts[0]["t"] - 0.05, t + nts[-1]["t"] + nts[-1]["dur"], d))
     # the instrumental hook lead doubles the sung notes an octave up, tucked under the voice
-    lead_line = S.lead([nn["midi"] + 12 for nn in cnotes], clen, [nn["t"] for nn in cnotes],
+    lead_line = S.lead([nn["midi"] + 12 - VOX for nn in cnotes], clen, [nn["t"] for nn in cnotes],
                        [nn["dur"] for nn in cnotes], vel=0.08, vibrato=0.2)
     for c0 in starts["Chorus"]:
         place(st["sing"], S.pan(lead_v, 0), c0)
         S.add(lead_only, lead_v, c0)
         place(st["harm"], S.pan(harm_l * 0.3, -0.45) + S.pan(harm_r * 0.3, 0.45), c0)
+        place(st["harm"], S.pan(dbl * 0.32, -0.7) + S.pan(np.r_[np.zeros(int(0.012 * SR)), dbl[:-int(0.012 * SR)]] * 0.3, 0.7), c0)
         place(hook_lead, S.pan(lead_line, -0.1), c0)
         for (a, e, d) in ctl:
             tl(c0 + a, c0 + e, "Chorus", d)
@@ -348,7 +354,7 @@ def vocals(lyrics, n):
     # hook: the synth lead plays the motif (chorus lines 1-2) and vocal chops answer on the off-beats
     h0 = starts["Hook"][0]
     motif = [nn for nn in cnotes if nn["t"] < 4 * BAR]
-    place(hook_lead, S.pan(S.lead([nn["midi"] + 12 for nn in motif], int(4.2 * BAR * SR),
+    place(hook_lead, S.pan(S.lead([nn["midi"] + 12 - VOX for nn in motif], int(4.2 * BAR * SR),
                                   [nn["t"] for nn in motif], [nn["dur"] for nn in motif], vel=0.3, vibrato=0.3), 0.1), h0)
     show = V.Word(sing_v, "oh")
     top = V.Word(sing_v, "go")
@@ -357,7 +363,7 @@ def vocals(lyrics, n):
         for j, s in enumerate((3, 6, 11, 14)):
             if (j + bi) % 4 == 3:
                 continue
-            note = ch[(j + bi) % 4] + 12
+            note = ch[(j + bi) % 4] + 12 + VOX
             y = V.chop(show if j % 2 == 0 else top, note, STEP * 1.4)
             place(st["chops"], S.pan(y, -0.5 if j % 2 else 0.5) * 0.45, h0 + bi * BAR + sw(s))
 
@@ -365,12 +371,12 @@ def vocals(lyrics, n):
     b0 = starts["Breakdown"][0]
     d, sp, _ = lyrics["Breakdown"][0]
     line = V.Line(sing_v, sp, speed=1.25)
-    y, notes = line.render(V.contour_notes(BREAK, len(line.segs)), 3.4 * BAR, STEP)
+    y, notes = line.render([n + VOX for n in V.contour_notes(BREAK, len(line.segs))], 3.4 * BAR, STEP)
     y = edge_fade(y)
     place(st["sing"], S.pan(y * 0.8, 0), b0 + 0.25 * BAR)
     S.add(lead_only, y, b0 + 0.25 * BAR)
     tl(b0 + 0.25 * BAR + notes[0]["t"], b0 + 0.25 * BAR + notes[-1]["t"] + notes[-1]["dur"], "Breakdown", d)
-    bl = S.lead([nn["midi"] + 12 for nn in notes], int(4.5 * BAR * SR), [nn["t"] for nn in notes],
+    bl = S.lead([nn["midi"] + 12 - VOX for nn in notes], int(4.5 * BAR * SR), [nn["t"] for nn in notes],
                 [nn["dur"] for nn in notes], vel=0.08, vibrato=0.4)
     place(hook_lead, S.pan(bl, 0.2), b0 + 0.25 * BAR)
     breakdown_notes = [dict(t=nn["t"] + b0 + 0.25 * BAR, dur=nn["dur"], midi=nn["midi"]) for nn in notes]
@@ -378,7 +384,7 @@ def vocals(lyrics, n):
     # outro: lead plays the first chorus line once more, quietly
     o0 = starts["Outro"][0]
     first = [nn for nn in cnotes if nn["t"] < 2 * BAR]
-    place(hook_lead, S.pan(S.lead([nn["midi"] + 12 for nn in first], int(2.5 * BAR * SR), [nn["t"] + 0.0 for nn in first],
+    place(hook_lead, S.pan(S.lead([nn["midi"] + 12 - VOX for nn in first], int(2.5 * BAR * SR), [nn["t"] + 0.0 for nn in first],
                                   [nn["dur"] for nn in first], vel=0.14), 0), o0 + 3 * BAR)
 
     timeline.sort(key=lambda l: l["start"])
@@ -411,10 +417,10 @@ def mixdown(inst, kicks, vox, hook_lead, n, length):
     fx = inst["fx"]
 
     rap = signal.sosfilt(S.sos("highpass", 110), vox["rap"], axis=1)
-    sing = signal.sosfilt(S.sos("highpass", 150), vox["sing"], axis=1)
+    sing = signal.sosfilt(S.sos("highpass", 80), vox["sing"], axis=1)
     sing = S.compress(sing, thr_db=-20, ratio=3, attack=0.004, release=0.1)
     sing = sing + 0.6 * signal.sosfilt(S.sos("bandpass", [1800, 5000]), sing, axis=1)  # presence for the words
-    harm = signal.sosfilt(S.sos("highpass", 200), vox["harm"], axis=1)
+    harm = signal.sosfilt(S.sos("highpass", 120), vox["harm"], axis=1)
     def norm(x, peak):
         return x / (np.max(np.abs(x)) + 1e-9) * peak
     rap = norm(rap, 0.55)

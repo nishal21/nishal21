@@ -24,7 +24,7 @@ import pyworld as pw  # noqa: E402
 VOICE_DIR = os.environ.get("PIPER_VOICE_DIR", os.path.expanduser("~/.cache/piper-voices"))
 HF = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/"
 RAP_VOICE = ("en_US-ryan-high", "en_US/ryan/high/")
-SING_VOICE = ("en_US-lessac-high", "en_US/lessac/high/")  # clearest of 4 female voices when retuned
+SING_VOICE = ("en_US-hfc_male-medium", "en_US/hfc_male/medium/")  # sung parts: clearest of 8 male voices auditioned when retuned
 FRAME = 5.0  # ms
 
 from song_lyrics import say_name as _say_name  # noqa: E402
