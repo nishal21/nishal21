@@ -1,6 +1,6 @@
 # Contribution song
 
-1:32 · 140 BPM · A minor · 844 contributions from Oct 5, 2025 to Oct 10, 2026
+1:32 · 140 BPM · A minor · 852 contributions from Oct 5, 2025 to Oct 10, 2026
 
 Every bar is one week of my GitHub contribution calendar, in order. Busier weeks get more hats, kicks, 808 notes and keys, and every day still triggers its own drum hit. The verses are rapped, the chorus is sung on the hook melody, and the lyrics are filled in from the same numbers. A GitHub Action rebuilds it every night.
 
@@ -10,7 +10,7 @@ Every bar is one week of my GitHub contribution calendar, in order. Busier weeks
 
 ## Verse 1
 
-`0:06` 844 contributions in twelve months  
+`0:06` 852 contributions in twelve months  
 `0:10` 144 days on the board, best day 27  
 `0:13` February ran hot with 134 on the sheet  
 `0:17` 11 days straight, no breaks along the way  
@@ -42,7 +42,7 @@ Every bar is one week of my GitHub contribution calendar, in order. Busier weeks
 
 ## Outro
 
-`1:22` That was 844 contributions from nishal21  
+`1:22` That was 852 contributions from nishal21  
 `1:26` Tomorrow the numbers change, and the song does too  
 
 [Play it in the browser](https://nishal21.github.io/nishal21/player/) or [download the MP3](https://nishal21.github.io/nishal21/player/contribution-song.mp3).
