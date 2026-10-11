@@ -4,7 +4,7 @@
    The build stamps BUILD with a hash of the files, so every deploy gets fresh cache names. */
 const BUILD = "dev";
 const SHELL = "vp-shell-" + BUILD, THUMBS = "vp-thumbs-v1";
-const FILES = ["./", "video.css", "video.js", "menu.css", "menu.js", "vendor/ambilight/ambilight.js", "videos.json", "manifest.webmanifest", "icons/icon-192.png",
+const FILES = ["./", "video.css", "video.js", "menu.css", "menu.js", "gestures.js", "vendor/ambilight/ambilight.js", "videos.json", "manifest.webmanifest", "icons/icon-192.png",
   "../player/fonts/bricolage-grotesque.woff2", "../player/fonts/jetbrains-mono.woff2"];
 
 self.addEventListener("install", (e) => {

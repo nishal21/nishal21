@@ -34,6 +34,7 @@ sed -i -e "s/video\.css?v=dev/video.css?v=$(h _site/video/video.css)/" \
        -e "s/video\.js?v=dev/video.js?v=$(h _site/video/video.js)/" \
        -e "s/menu\.css?v=dev/menu.css?v=$(h _site/video/menu.css)/" \
        -e "s/menu\.js?v=dev/menu.js?v=$(h _site/video/menu.js)/" \
+       -e "s/gestures\.js?v=dev/gestures.js?v=$(h _site/video/gestures.js)/" \
        -e "s/videos\.json?v=dev/videos.json?v=$(h _site/video/videos.json)/" _site/video/index.html
 sed -i -e "s/player\.css?v=dev/player.css?v=$(h _site/player/player.css)/" \
        -e "s/player\.js?v=dev/player.js?v=$(h _site/player/player.js)/" \
