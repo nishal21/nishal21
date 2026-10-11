@@ -1,4 +1,4 @@
-/* Video player: the nightly share clip, Nishal's YouTube uploads, and any link or file.
+/* Video player: the nightly year trailer and share clip, Nishal's YouTube uploads, and any link or file.
    One <video> element plays files, HLS (hls.js, loaded on demand) and DASH (dash.js, on demand).
    YouTube runs through the IFrame Player API and Vimeo through its postMessage API, both under
    our controls where the provider allows it; other sites play in a sandboxed embed with their own
@@ -293,6 +293,14 @@ const CLIP = {
   download: { href: "../player/share-clip.mp4", name: "nishal-contribution-clip.mp4", label: "Download clip" },
   share: "clip", artist: "Nishal K",
 };
+// the year trailer, cut to the song each night by scripts/year_trailer.py; first in the library when it exists
+const TRAILER = {
+  key: "trailer", kind: "file", src: new URL("trailer.mp4", SITE).href, shape: "wide",
+  eyebrow: "Year trailer · rebuilt every night", title: "My year on GitHub, cut to the contribution song", thumb: "trailer-poster.jpg",
+  download: { href: "trailer.mp4", name: "nishal-year-trailer.mp4", label: "Download trailer" },
+  share: "trailer", artist: "Nishal K",
+};
+const OWN = (it) => it === CLIP || it === TRAILER;
 let library = [];
 let channel = { handle: "@DemonKing0.___", url: "https://www.youtube.com/@DemonKing0.___", name: "DemonKing" };
 const nf = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
@@ -316,6 +324,7 @@ function ytItem(v) {
 }
 function metaLine(it) {
   if (it === CLIP) return CLIP.metaText || "15 seconds from the contribution song";
+  if (it === TRAILER) return TRAILER.metaText || "45 seconds, cut to the contribution song";
   const bits = [];
   if (it.views != null) bits.push(`${nf.format(it.views)} views`);
   if (it.duration && !it.short) bits.unshift(fmt(it.duration));
@@ -328,11 +337,11 @@ function thumbEl(it) {
     const tall = it.shape === "tall";
     box.append(el("img", { src: it.thumb, alt: "", loading: "lazy", decoding: "async", width: tall ? 360 : 640, height: tall ? 640 : 360 }));
   }
-  const len = it === CLIP ? "0:15" : it.duration ? fmt(it.duration) : it.short ? "Short" : "";
+  const len = it === CLIP ? "0:15" : it === TRAILER ? fmt(TRAILER.length || 45) : it.duration ? fmt(it.duration) : it.short ? "Short" : "";
   if (len) box.append(el("span", { className: "badge", textContent: len }));
   return box;
 }
-const hrefFor = (it) => (it === CLIP ? "./" : "?v=" + encodeURIComponent(it.share));
+const hrefFor = (it) => (it === library[0] ? "./" : "?v=" + encodeURIComponent(it.share));
 function itemLink(it, sub) {
   const a = el("a", { href: hrefFor(it) }, thumbEl(it), el("div", {}, el("h3", { textContent: it.title }), el("p", { textContent: sub })));
   a.addEventListener("click", (e) => {
@@ -380,7 +389,7 @@ function upNext() {
 function renderQueue() {
   const list = upNext().slice(0, 8);
   $("#queue").replaceChildren(...list.map((it) => {
-    const li = el("li", { className: "qi" }, itemLink(it, it === CLIP ? "Share clip" : metaLine(it)));
+    const li = el("li", { className: "qi" }, itemLink(it, it === CLIP ? "Share clip" : it === TRAILER ? "Year trailer" : metaLine(it)));
     li.dataset.key = it.key;
     li.append(el("button", { type: "button", className: "grip", ariaLabel: `Move “${it.title}” (arrow keys)`, innerHTML: '<svg aria-hidden="true"><use href="#i-grip"/></svg>' }));
     return li;
@@ -854,7 +863,7 @@ function updateInfo(it) {
   const meta = $("#meta");
   meta.replaceChildren();
   if (it.kind === "youtube" && it.views != null) meta.append(el("a", { href: channel.url, textContent: channel.name || channel.handle }), " · " + metaLine(it));
-  else meta.textContent = it === CLIP ? metaLine(it) : it.metaText || "";
+  else meta.textContent = OWN(it) ? metaLine(it) : it.metaText || "";
   const dl = $("#download");
   dl.hidden = !it.download;
   if (it.download) { dl.href = it.download.href; dl.download = it.download.name || ""; $("span", dl).textContent = it.download.label || "Download"; }
@@ -951,7 +960,7 @@ function load(it, { play = false, push = true, focus = false } = {}) {
     if (location.search) history.replaceState(null, "", SITE);
   } else if (push) {
     const url = new URL(SITE);
-    if (it !== CLIP && it.share) url.searchParams.set("v", it.share);
+    if (it !== library[0] && it.share) url.searchParams.set("v", it.share);
     if (it.start) url.searchParams.set("t", String(Math.floor(it.start)));
     if (url.href !== location.href) history.pushState(null, "", url);
   }
@@ -1435,7 +1444,7 @@ document.addEventListener("pointerdown", (e) => {
 function shareUrl(withTime) {
   if (cur?.local) return null;
   const u = new URL(SITE);
-  if (cur && cur !== CLIP && cur.share) u.searchParams.set("v", cur.share);
+  if (cur && cur !== library[0] && cur.share) u.searchParams.set("v", cur.share);
   if (withTime && P?.t > 1) u.searchParams.set("t", String(Math.floor(P.t)));
   return u.href;
 }
@@ -2206,7 +2215,7 @@ const extras = (() => {
 
   /* continue watching (videos over a minute, on this device only) */
   function remember() {
-    if (!P || P.embed || !cur?.key || cur.local || !cur.share && cur !== CLIP) return;
+    if (!P || P.embed || !cur?.key || cur.local || !cur.share && !OWN(cur)) return;
     const d = P.d, t = P.t;
     if (!(d >= 60)) return;
     let h = store.get("hist", []).filter((x) => x.key !== cur.key);
@@ -2310,10 +2319,11 @@ const extras = (() => {
 async function boot() {
   syncVolUI(); syncRateUI(); syncToggles();
   $("#time").setAttribute("aria-label", prefs.remaining ? "Show elapsed time" : "Show time remaining");
-  const [vids, hasClip, song] = await Promise.all([
+  const [vids, hasClip, song, trailer] = await Promise.all([
     fetch(document.querySelector('link[rel="preload"][href^="videos.json"]')?.getAttribute("href") || "videos.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
     fetch(CLIP.src, { method: "HEAD" }).then((r) => r.ok).catch(() => false),
     fetch("../player/contribution-song.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch("trailer.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]);
   if (vids?.channel) channel = { ...channel, ...vids.channel };
   $("#channel-link").href = channel.url;
@@ -2326,7 +2336,17 @@ async function boot() {
     const d = new Date(song.weeks[b].start + "T00:00:00Z");
     CLIP.metaText = `15 seconds · week of ${d.toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}, ${tot[b]} contributions`;
   }
-  library = hasClip ? [CLIP, ...yts] : yts;
+  if (trailer?.length) {
+    const v = encodeURIComponent(trailer.generated || "");
+    TRAILER.length = trailer.length;
+    TRAILER.src += `?v=${v}`;
+    TRAILER.thumb += `?v=${v}`;
+    const y = song?.year;
+    TRAILER.metaText = y?.commits ? `${fmt(trailer.length)} · ${y.commits} commits, ${y.prs} merged PRs, ${y.releases?.length ?? 0} releases` : `${fmt(trailer.length)} · cut on the beat of the contribution song`;
+    // phones get the vertical cut
+    if (matchMedia("(max-aspect-ratio: 3/4)").matches) TRAILER.download = { href: "trailer-vertical.mp4", name: "nishal-year-trailer-vertical.mp4", label: "Download vertical" };
+  }
+  library = [...(trailer?.length ? [TRAILER] : []), ...(hasClip ? [CLIP] : []), ...yts];
   renderLibrary();
   route();
 }
@@ -2334,13 +2354,13 @@ function route() {
   const q = new URLSearchParams(location.search);
   const v = q.get("v"), t = +q.get("t") || 0;
   let it = null;
-  if (v && v !== "clip") {
+  if (v && v !== "clip" && v !== "trailer") {
     const x = parseLink(v);
     if (x.error) say(`The shared link couldn't be played. ${x.error}`, true);
     else it = itemFromParsed(x);
     if (it && x.guessed && !x.via) probeLink(x).then((y) => { if (y.error) onError(y.error, x.src); else if (y.kind !== x.kind && cur?.src === x.src) load(itemFromParsed({ ...y, start: t || y.start }), { push: false }); });
   }
-  it ||= library[0];
+  it ||= library.find((x) => OWN(x) && x.share === v) || library[0];
   if (!it) { $("#title").textContent = "Paste a video link below"; $("#eyebrow").textContent = ""; return; }
   if (t) it = { ...it, start: t };
   load(it, { play: false, push: false });

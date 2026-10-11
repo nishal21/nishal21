@@ -94,6 +94,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/contribution_song.py
 
+      - name: Year trailer card
+        if: steps.song.outcome == 'success'
+        continue-on-error: true
+        run: python scripts/year_trailer.py poster
+
       - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
