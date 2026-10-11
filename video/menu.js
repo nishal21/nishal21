@@ -230,11 +230,6 @@
       return null;
     }
     const escAttr = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-    function embedCode() {
-      const it = V.item, src = V.shareUrl(true);
-      const tall = V.stage.dataset.shape === "tall";
-      return `<iframe width="${tall ? 315 : 560}" height="${tall ? 560 : 315}" src="${escAttr(src)}" title="${escAttr(it?.title || "Video")}" frameborder="0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>`;
-    }
 
     function items() {
       const it = V.item, P = V.adapter, local = !it || !!it.local || !V.shareUrl(false);
@@ -244,7 +239,7 @@
       const list = [
         { label: "Copy video link", icon: "link", disabled: local, run: () => V.copy(V.shareUrl(false), "Link copied") },
         { label: timed ? `Copy link at ${V.fmt(t)}` : "Copy link at current time", icon: "clock", disabled: !timed, run: () => V.copy(V.shareUrl(true), `Link at ${V.fmt(t)} copied`) },
-        { label: "Copy embed code", icon: "code", disabled: local, run: () => V.copy(embedCode(), "Embed code copied") },
+        { label: "Copy embed code", icon: "code", disabled: local || !V.embedCode(), run: () => V.copy(V.embedCode(), "Embed code copied") },
         "-",
         { label: "Loop", icon: "loop", checked: V.loop, switch: true, disabled: !playable, run: () => { V.setLoop(!V.loop); V.bezel(V.loop ? "Loop on" : "Loop off"); } },
         { label: "Playback speed", icon: "speed", hint: RATE_NAME(V.rate), disabled: !playable || rates.length < 2,

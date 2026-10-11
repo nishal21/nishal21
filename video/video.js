@@ -11,9 +11,12 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const root = document.documentElement;
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const coarse = matchMedia("(pointer: coarse)");
+// ?embed=1 is the player alone, for other sites' iframes (the class is set in the page head, before paint)
+const EMBED = root.classList.contains("embed-mode");
 const store = {
   get(k, d) { try { const v = localStorage.getItem("vp:" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem("vp:" + k, JSON.stringify(v)); } catch {} },
+  // an embed reads the viewer's settings but never writes them, so no history or positions are kept from other sites
+  set(k, v) { if (EMBED) return; try { localStorage.setItem("vp:" + k, JSON.stringify(v)); } catch {} },
 };
 function fmt(s) {
   if (!isFinite(s) || s < 0) s = 0;
@@ -414,7 +417,7 @@ let cur = null;        // item playing
 let P = null;          // adapter for the current item
 const prefs = {
   volume: store.get("volume", 1), muted: store.get("muted", false), rate: 1,
-  autoplay: store.get("autoplay", true), theater: store.get("theater", false), remaining: store.get("remaining", false),
+  autoplay: !EMBED && store.get("autoplay", true), theater: store.get("theater", false), remaining: store.get("remaining", false),
 };
 let loop = false;
 const RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -960,7 +963,7 @@ function load(it, { play = false, push = true, focus = false } = {}) {
   try {
   if (it.local) {
     if (location.search) history.replaceState(null, "", SITE);
-  } else if (push) {
+  } else if (push && !EMBED) {
     const url = new URL(SITE);
     if (it !== library[0] && it.share) url.searchParams.set("v", it.share);
     if (it.start) url.searchParams.set("t", String(Math.floor(it.start)));
@@ -1228,7 +1231,7 @@ function savePos(force) {
   store.set("pos", all);
 }
 function resumeCheck() {
-  if (!P || !cur?.key || cur.start || P.d < 60) return;
+  if (EMBED || !P || !cur?.key || cur.start || P.d < 60) return;
   const t = store.get("pos", {})[cur.key];
   if (!t || t > P.d - 10) return;
   P.seek(t, true);
@@ -1450,6 +1453,23 @@ function shareUrl(withTime) {
   if (withTime && P?.t > 1) u.searchParams.set("t", String(Math.floor(P.t)));
   return u.href;
 }
+// the embed URL and a responsive snippet for it; links inside an embed still point at the full page
+function embedUrl(withTime) {
+  if (cur?.local || !cur?.share) return null;
+  const u = new URL(SITE);
+  u.searchParams.set("embed", "1");
+  u.searchParams.set("v", cur.share);
+  if (withTime && P?.t > 1) u.searchParams.set("t", String(Math.floor(P.t)));
+  return u.href;
+}
+function embedCode() {
+  const src = embedUrl(true);
+  if (!src) return null;
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  const tall = stage.dataset.shape === "tall";
+  const box = tall ? "position:relative;width:100%;max-width:360px;aspect-ratio:9/16" : "position:relative;width:100%;aspect-ratio:16/9";
+  return `<div style="${box}"><iframe src="${esc(src)}" title="${esc(cur.title || "Video")}" style="position:absolute;inset:0;width:100%;height:100%;border:0" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
+}
 async function copy(text, msg) {
   try { await navigator.clipboard.writeText(text); toast(msg); }
   catch { prompt("Copy this link", text); }
@@ -1470,6 +1490,7 @@ $("#share").addEventListener("click", () => {
 });
 $("#s-native").addEventListener("click", async () => { closeMenus(); if (cur?.local) return; try { await navigator.share({ title: cur?.title || "Video", url: shareUrl(false) }); } catch {} });
 $("#s-copy").addEventListener("click", () => { closeMenus(); if (cur?.local) return; copy(shareUrl(false), "Link copied"); });
+$("#s-embed").addEventListener("click", () => { closeMenus(); const c = embedCode(); if (c) copy(c, "Embed code copied"); });
 $("#s-copy-t").addEventListener("click", () => { closeMenus(); if (cur?.local) return; copy(shareUrl(true), `Link at ${fmt(P?.t || 0)} copied`); });
 $("#download").addEventListener("click", async (e) => {
   const d = cur?.download;
@@ -1623,6 +1644,7 @@ const AMB_EDGE = 12, AMB_INNER = 2, AMB_FADE_START = 0.25, AMB_FADE_CURVE = 35;
 const LIVE_MAX = 0.25, LIVE_SHOW = 0.15;
 const amb = (() => {
   let s = tidy(store.get("ambient", null));
+  if (EMBED) s.on = false; // no room around an embed for the light
   // version 5 changed what every slider means, so older saves keep only on/off, Tint and the source;
   // version 6 raised the default size, so a version 5 save that still had the old default moves to the new one
   function tidy(o) {
@@ -2412,7 +2434,7 @@ const extras = (() => {
   video.addEventListener("loadedmetadata", () => { drawMarks(); abUI(); });
 
   /* offline shell: the page, styles, script, fonts and library work without a connection */
-  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
+  if (!EMBED && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
     addEventListener("load", () => navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {}));
   }
 
@@ -2426,7 +2448,7 @@ window.videoPage = {
   rates: () => (P?.rates() || RATES).filter((r) => r >= 0.25),
   engines: () => ({ hls, dash }),
   pipOk: () => !$("#pip").hidden,
-  shareUrl, copy, toast, bezel, poke, toggle, setRate, setLoop, togglePiP, openKeys, closeMenus, fmt,
+  shareUrl, embedUrl, embedCode, embed: EMBED, copy, toast, bezel, poke, toggle, setRate, setLoop, togglePiP, openKeys, closeMenus, fmt,
   snapshot: () => extras.snapshot(),
 };
 
@@ -2467,7 +2489,7 @@ async function boot() {
 }
 function route() {
   const q = new URLSearchParams(location.search);
-  const v = q.get("v"), t = +q.get("t") || 0;
+  const v = q.get("v") || (EMBED ? q.get("src") : null), t = parseTime(q.get("t") || q.get("start") || "") || 0;
   let it = null;
   if (v && v !== "clip" && v !== "trailer") {
     const x = parseLink(v);
@@ -2478,7 +2500,36 @@ function route() {
   it ||= library.find((x) => OWN(x) && x.share === v) || library[0];
   if (!it) { $("#title").textContent = "Paste a video link below"; $("#eyebrow").textContent = ""; return; }
   if (t) it = { ...it, start: t };
+  if (EMBED) return embedStart(it, q);
   load(it, { play: false, push: false });
+}
+
+/* embed mode: the player alone, with a title bar and a link to the full page; URL options as on YouTube:
+   autoplay=1 (starts muted, as browsers require), mute=1, loop=1, controls=0 */
+function embedStart(it, q) {
+  const on = (k) => q.get(k) === "1" || q.get(k) === "true";
+  if (on("loop")) it = { ...it, loop: true };
+  if (on("mute") || on("autoplay")) { prefs.muted = true; syncVolUI(); }
+  if (q.get("controls") === "0") root.classList.add("no-controls");
+  load(it, { play: on("autoplay"), push: false });
+}
+if (EMBED) {
+  document.body.classList.add("no-ambient");
+  const bar = el("div", { className: "embed-top" });
+  const name = el("p", { className: "embed-title" });
+  const mark = el("a", { className: "embed-mark", target: "_blank", rel: "noopener", textContent: "nishal21" });
+  mark.setAttribute("aria-label", "Watch on nishal21 (opens in a new tab)");
+  mark.title = "Watch on nishal21";
+  // the full page with the same video, at the moment the link is used
+  const fresh = () => { const u = new URL(shareUrl(true) || SITE); if (cur?.share && !u.searchParams.get("v")) u.searchParams.set("v", cur.share); mark.href = u.href; };
+  for (const ev of ["pointerdown", "focus", "mouseenter"]) mark.addEventListener(ev, fresh);
+  for (const ev of ["pointerdown", "pointerup", "dblclick"]) mark.addEventListener(ev, (e) => e.stopPropagation());
+  mark.addEventListener("click", (e) => { e.stopPropagation(); fresh(); P?.pause(); });
+  bar.append(name, mark);
+  stage.append(bar);
+  const sync = () => { name.textContent = $("#title").textContent; fresh(); };
+  new MutationObserver(sync).observe($("#title"), { childList: true, characterData: true, subtree: true });
+  sync();
 }
 addEventListener("popstate", route);
 boot();

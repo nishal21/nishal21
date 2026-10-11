@@ -691,3 +691,52 @@ kbd { display: inline-block; min-width: 1.7em; padding: 1px 6px; border-radius: 
 .stage[data-kind="external"] .chrome, .stage[data-kind="external"] .big-play { display: none; }
 .stage.calm #notice-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 18px; border-radius: 999px; background: #fff; color: #000; font-weight: 650; text-decoration: none; }
 .stage.calm #notice-link svg { width: 16px; height: 16px; color: currentColor; }
+
+/* ---------- embed mode (?embed=1): only the player, edge to edge, for other sites' iframes ---------- */
+.embed-mode, .embed-mode body { height: 100%; margin: 0; overflow: hidden; background: #000; }
+.embed-mode :is(.backdrop, .skip, .top, .library, .foot, .queue, .glow),
+.embed-mode .primary > :not(.stage-wrap) { display: none !important; }
+.embed-mode .watch { display: block; max-width: none; margin: 0; padding: 0; }
+.embed-mode .stage-wrap { position: fixed; inset: 0; margin: 0; }
+.embed-mode .stage, .embed-mode .stage[data-shape] {
+  position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; max-height: none; min-height: 0;
+  border-radius: 0; box-shadow: none; background: #000;
+}
+.embed-mode .stage:focus-visible { outline-offset: -2px; }
+.embed-mode :is(#next, #theater, #m-mini, #m-ambient, #m-autoplay, .drop) { display: none !important; }
+.no-controls .chrome { display: none !important; }
+.embed-top {
+  position: absolute; z-index: 6; inset: 0 0 auto; display: none; align-items: center; gap: 12px;
+  padding: clamp(8px, 2.2cqi, 16px) clamp(10px, 2.4cqi, 18px) 28px;
+  background: linear-gradient(rgb(0 0 0 / 0.66), rgb(0 0 0 / 0.3) 60%, transparent);
+  transition: opacity 0.3s, translate 0.35s var(--emph); pointer-events: none;
+}
+.embed-mode .embed-top { display: flex; }
+.stage.idle:not(.paused) .embed-top { opacity: 0; translate: 0 -6px; }
+.stage.idle:not(.paused) .embed-top > * { pointer-events: none; }
+.stage.holding .embed-top { opacity: 0; } /* the 2× pill takes the top while held */
+.embed-title {
+  flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: clamp(0.8125rem, 0.7rem + 1cqi, 1.125rem); font-weight: 650; color: #fff; text-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+}
+.embed-mark {
+  flex: none; pointer-events: auto; display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 999px;
+  background: rgb(255 255 255 / 0.14); color: #fff; text-decoration: none; font: 600 0.8125rem/1 var(--mono);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background-color 0.2s, color 0.2s;
+}
+.embed-mark:hover, .embed-mark:focus-visible { background: var(--g); color: var(--ink); }
+/* touch: the ⋮ button sits at the top right too */
+@media (hover: none), (pointer: coarse) { .embed-mode .embed-top { padding-right: 56px; } }
+/* small frames: drop the less important parts of the bar */
+@container (max-width: 420px) {
+  .embed-mode .chrome { padding-top: 32px; }
+  .embed-mode #volume, .embed-mode #loop-btn { display: none; }
+  .embed-mode .embed-title { font-size: 0.8125rem; }
+}
+@container (max-width: 360px) { .embed-mode .chap { display: none !important; } .embed-mode .cb { width: 34px; } }
+@media (max-height: 240px) {
+  .embed-mode .chrome { padding-top: 24px; }
+  .embed-mode .embed-top { padding-bottom: 12px; }
+  .embed-mode .big-play { scale: 0.75; }
+  .embed-mode .menu { bottom: 52px; max-height: calc(100% - 60px); }
+}
