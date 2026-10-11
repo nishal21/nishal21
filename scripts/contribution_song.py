@@ -26,12 +26,14 @@ import song_data as SD
 import song_events as EV
 import song_synth as S
 import song_lyrics as LY
+import song_stems as STEMS
 import song_timbres as TB
 import song_vocals as V
 from common import (ASSETS, CARD_H, CARD_W, FONT, THEMES, USER, card_open, contribution_calendar, esc, fail,
                     gh_api, write_atomic)
 
 LANG_TIMBRES = True   # each week's dominant language colours the bass, keys and arp (song_timbres.py)
+REMIX_STEMS = True    # per-stem files and two extra drum kits for the remix in the player (song_stems.py)
 EVENT_ACCENTS = True  # releases, big PRs, new repos and the peak day as one-shot accents (song_events.py)
 
 SR = S.SR
@@ -122,6 +124,12 @@ def instrumental(weeks, rng):
     lead_n, lead_t, lead_d = [], [], []
     bass_n, bass_t, bass_d = [], [], []
     tone_ev = {"keys": [], "pluck": []}  # the same notes, for the language tones (song_timbres)
+    drum_hits = []  # every drum hit, so the remix stems can replay them on another kit (song_stems.py)
+
+    def hit(kind, p, gain, t, vel, open_=False):
+        x = S.hat(vel, open_=True) if open_ else getattr(S, kind)(vel)
+        S.add(st["drums"], S.pan(x, p) * gain, t)
+        drum_hits.append((kind, float(vel), p, float(gain), float(t), open_))
     for b, (sec, k, secn) in enumerate(bars):
         t0 = b * BAR
         wk = weeks[b] if b < len(weeks) else []
@@ -132,7 +140,6 @@ def instrumental(weeks, rng):
             root += 12
         hv = lambda: float(rng.uniform(0.85, 1.05))
         lvl = LEVEL[sec]
-        drums = st["drums"]
         full = sec in ("Chorus", "Hook")
         verse = sec.startswith("Verse")
         nbar = int(BAR * SR) + int(SR * 0.6)
@@ -144,49 +151,49 @@ def instrumental(weeks, rng):
                 kpat += [3] if verse else [14]
             for s in kpat:
                 v = (1.0 if s == 0 else 0.85) * hv()
-                S.add(drums, S.pan(S.kick(v), 0) * lvl, t0 + s * STEP)
+                hit("kick", 0, lvl, t0 + s * STEP, v)
                 kicks.append(t0 + s * STEP)
-            S.add(drums, S.pan(S.snare(0.9 * hv()), 0.05) * lvl, t0 + 8 * STEP)
+            hit("snare", 0.05, lvl, t0 + 8 * STEP, 0.9 * hv())
             if full:
-                S.add(drums, S.pan(S.clap(0.8 * hv()), -0.1) * lvl, t0 + 8 * STEP + 0.008)
+                hit("clap", -0.1, lvl, t0 + 8 * STEP + 0.008, 0.8 * hv())
             # hats: 8ths when quiet, 16ths when busy, a 32nd roll on busy weeks at the end of the bar
             hs = range(0, 16, 2) if w < 0.25 else range(16)
             for s in hs:
                 v = (0.55 if s % 4 == 0 else 0.4 if s % 2 == 0 else 0.28) * hv()
-                S.add(drums, S.pan(S.hat(v), 0.3) * lvl, t0 + sw(s))
+                hit("hat", 0.3, lvl, t0 + sw(s), v)
             if w > 0.6 or (k == secn - 1 and full):
                 for r in range(6):
-                    S.add(drums, S.pan(S.hat(0.25 + 0.04 * r), 0.3) * lvl, t0 + 13 * STEP + r * STEP / 2)
+                    hit("hat", 0.3, lvl, t0 + 13 * STEP + r * STEP / 2, 0.25 + 0.04 * r)
             if k == secn - 1 and verse:  # fill into the next section
                 for r, s in enumerate((12, 13, 14, 15)):
-                    S.add(drums, S.pan(S.snare(0.35 + 0.12 * r), 0.05) * lvl, t0 + s * STEP)
+                    hit("snare", 0.05, lvl, t0 + s * STEP, 0.35 + 0.12 * r)
         elif sec == "Build":
             # quarter kicks, snare roll speeding up from 8ths to 32nds over the 2 bars
             for s in range(0, 16, 4):
-                S.add(drums, S.pan(S.kick(0.8), 0) * lvl, t0 + s * STEP)
+                hit("kick", 0, lvl, t0 + s * STEP, 0.8)
             div = 2 if k == 0 else 4
             cnt = 8 * div // 2 if k == 0 else 28  # the last 1/8 is left empty before the drop
             for r in range(cnt):
                 tt = t0 + r * BAR / (8 * div // 2 if k == 0 else 32)
-                S.add(drums, S.pan(S.snare(0.25 + 0.6 * (k * cnt + r) / (2 * cnt)), 0.05) * lvl, tt)
+                hit("snare", 0.05, lvl, tt, 0.25 + 0.6 * (k * cnt + r) / (2 * cnt))
         elif sec in ("Intro", "Outro"):
             if (sec == "Intro" and k >= 2) or (sec == "Outro" and k < 2):
                 for s in range(0, 16, 2):
-                    S.add(drums, S.pan(S.hat(0.3 * hv()), 0.3) * lvl, t0 + sw(s))
-                S.add(drums, S.pan(S.rim(0.5), -0.2) * lvl, t0 + 8 * STEP)
+                    hit("hat", 0.3, lvl, t0 + sw(s), 0.3 * hv())
+                hit("rim", -0.2, lvl, t0 + 8 * STEP, 0.5)
         # daily rule layer (quiet): each day of the week = 2 steps
         if sec != "Breakdown":
             for d, (_, c) in enumerate(wk):
                 v = min(1.0, 0.25 + c / 20)
                 tt = t0 + sw(2 * d + 1)
                 if c >= 1:
-                    S.add(drums, S.pan(S.kick(0.35 * v), 0) * lvl, tt)
+                    hit("kick", 0, lvl, tt, 0.35 * v)
                 if c >= 3:
-                    S.add(drums, S.pan(S.hat(0.5 * v, open_=True), -0.35) * lvl, tt)
+                    hit("hat", -0.35, lvl, tt, 0.5 * v, open_=True)
                 if c >= 6:
-                    S.add(drums, S.pan(S.rim(0.5 * v), 0.25) * lvl, tt)
+                    hit("rim", 0.25, lvl, tt, 0.5 * v)
                 if c >= 10:
-                    S.add(drums, S.pan(S.clap(0.45 * v), 0.1) * lvl, tt)
+                    hit("clap", 0.1, lvl, tt, 0.45 * v)
 
         # --- 808 ---
         if verse or full or (sec == "Build" and k == 0):
@@ -256,6 +263,7 @@ def instrumental(weeks, rng):
     st["lead"] = S.pan(S.lead(lead_n, n, lead_t, lead_d, vel=0.32), 0.15)
     tone_ev["bass"] = (bass_n, bass_t, bass_d, 0.6)
     st["_tones"] = tone_ev
+    st["_hits"] = drum_hits
     return st, kicks, n
 
 
@@ -394,7 +402,10 @@ def vocals(lyrics, n):
 
 # ---------- mix / master ----------
 
-def mixdown(inst, kicks, vox, hook_lead, n, length):
+def mixdown(inst, kicks, vox, hook_lead, n, length, stems=False):
+    """The mix before mastering. With stems=True it also returns the remix stems (drums, bass, keys,
+    synths, vocals, fx): each one goes through the same (linear) bus processing as in the mix, so
+    they add up to the mix exactly."""
     pump = S.sidechain(n, kicks, depth=0.55, release=0.16)
     pump_soft = S.sidechain(n, kicks, depth=0.3, release=0.12)
     # only pump in the chorus/hook bars
@@ -415,6 +426,11 @@ def mixdown(inst, kicks, vox, hook_lead, n, length):
              + inst["lead"] * 0.9 + hook_lead * 0.9)
     music = signal.sosfilt(S.sos("highpass", 120), music, axis=1)
     fx = inst["fx"]
+    # remix stems: keys and plucks carry the language tones, synths are pad, chords and leads
+    groups = {"keys": inst["keys"] * 0.9 + inst["pluck"] * p * 0.6,
+              "synths": inst["pad"] * 0.8 + inst["chords"] * p * 0.65 + inst["lead"] * 0.9 + hook_lead * 0.9}
+    if stems:
+        groups = {k: signal.sosfilt(S.sos("highpass", 120), g, axis=1) for k, g in groups.items()}
 
     # vocals: EQ, gentle compression, de-ess, short room, delay throws. No pitch or time processing.
     def norm(x, peak):
@@ -447,6 +463,7 @@ def mixdown(inst, kicks, vox, hook_lead, n, length):
     mid = signal.sosfiltfilt(S.sos("bandpass", [1000, 4000]), music, axis=1)
     carve = 0.55 * np.clip(venv / (np.max(venv) + 1e-9) * 4, 0, 1)
     music = music - mid * carve
+    mscale = 1 / (np.max(np.abs(music)) + 1e-9)
     mbus = norm(music, 1.0) * 0.38 * duck + mverb * 0.3
     out = (drums / (np.max(np.abs(drums)) + 1e-9) * 0.55 + norm(bass, 1.0) * 0.42 + mbus + fx * 0.35
            + vocal_bus + verb + throws * 0.6 + slap)
@@ -454,19 +471,38 @@ def mixdown(inst, kicks, vox, hook_lead, n, length):
     fade = int(SR * 2.0)
     out[:, -fade:] *= np.linspace(1, 0, fade) ** 1.5
     vox_solo = (vocal_bus + verb + throws * 0.6 + slap)[:, :int(SR * length)]
-    return out, vox_solo
+    if not stems:
+        return out, vox_solo, None
+
+    def bus(g):
+        g = g - signal.sosfiltfilt(S.sos("bandpass", [1000, 4000]), g, axis=1) * carve
+        return g * mscale * 0.38 * duck
+
+    st = {"drums": drums / (np.max(np.abs(drums)) + 1e-9) * 0.55,
+          "bass": norm(bass, 1.0) * 0.42,
+          "keys": bus(groups["keys"]) + S.reverb(groups["keys"] * 0.5, seconds=2.0, decay=0.5) * 0.25 * 0.3,
+          "synths": bus(groups["synths"]) + S.reverb(groups["synths"] * 0.5, seconds=2.0, decay=0.5) * 0.25 * 0.3,
+          "vocals": vocal_bus + verb + throws * 0.6 + slap,
+          "fx": fx * 0.35 + S.reverb(fx * 0.3, seconds=2.0, decay=0.5) * 0.25 * 0.3}
+    for k in st:
+        st[k] = st[k][:, :int(SR * length)]
+        st[k][:, -fade:] *= np.linspace(1, 0, fade) ** 1.5
+    return out, vox_solo, st
 
 
 def master(x, target=-13.6, ceiling=-1.5):
     import pyloudnorm as pyln
     meter = pyln.Meter(SR)
     # gentle glue compression (slow, low ratio) so the quiet sections stay quiet
-    x = S.compress(x / (np.max(np.abs(x)) + 1e-9) * 0.5, thr_db=-16, ratio=1.6, attack=0.02, release=0.25)
+    peak = np.max(np.abs(x)) + 1e-9
+    x, g = S.compress(x / peak * 0.5, thr_db=-16, ratio=1.6, attack=0.02, release=0.25, gain=True)
+    g = g * 0.5 / peak  # the whole master as one gain curve, so the stems can get exactly the same treatment
     for _ in range(4):
         lu = meter.integrated_loudness(x.T)
-        x = x * 10 ** ((target - lu) / 20)
-        x = S.limit(x, ceiling_db=ceiling)
-    return x, meter.integrated_loudness(x.T)
+        k = 10 ** ((target - lu) / 20)
+        x, lg = S.limit(x * k, ceiling_db=ceiling, gain=True)
+        g = g * k * lg
+    return x, meter.integrated_loudness(x.T), g
 
 
 # ---------- output ----------
@@ -522,7 +558,7 @@ def lrc(timeline, s):
     return "\n".join(out) + "\n"
 
 
-def song_json(s, facts, weeks, timeline, length, song, langs=None, events=None):
+def song_json(s, facts, weeks, timeline, length, song, langs=None, events=None, year=None, stems=None):
     """Everything the player page needs: timing, lyrics, stats, the weekly grid and a waveform."""
     langs = langs or [None] * len(weeks)
     events = events or [[] for _ in weeks]
@@ -543,6 +579,10 @@ def song_json(s, facts, weeks, timeline, length, song, langs=None, events=None):
         lines=[dict(t=round(l["start"], 3), end=round(l["end"], 3), section=l["section"], text=l["text"])
                for l in timeline],
         peaks=[round(float(p), 3) for p in peaks(song, 400)])
+    if year:
+        data["year"] = year
+    if stems:
+        data["stems"] = stems
     return json.dumps(data, separators=(",", ":"))
 
 
@@ -596,16 +636,17 @@ def render_card(s, length, wave_peaks, t):
 
 
 def week_facts(weeks):
-    """Dominant language and notable events per week (None / [] when the data can't be had)."""
+    """Dominant language and notable events per week (None / [] when the data can't be had), and the
+    year summary the trailer uses (None without data)."""
     langs, events = [None] * len(weeks), [[] for _ in weeks]
     dated = [w for w in weeks if w]
     if not dated:
-        return langs, events
+        return langs, events, None
     data = SD.load_data(dated)
     off = len(weeks) - len(dated)
     for i, (l, e) in enumerate(zip(SD.week_langs(dated, data), SD.week_events(dated, data))):
         langs[off + i], events[off + i] = l, e
-    return langs, events
+    return langs, events, SD.year_summary(dated, data)
 
 
 def colour(inst, weeks, langs, events, timeline, n):
@@ -638,12 +679,13 @@ def main():
         lyrics = LY.build_lyrics(s, facts, USER)
         rng = np.random.default_rng(s["total"])
         inst, kicks, n = instrumental(weeks, rng)
+        hits = inst.pop("_hits")
         vox, hook_lead, timeline = vocals(lyrics, n)
-        langs, events = week_facts(weeks)
+        langs, events, year = week_facts(weeks)
         inst = colour(inst, weeks, langs, events, timeline, n)
         length = len(weeks) * BAR + 2.0
-        song, vox_solo = mixdown(inst, kicks, vox, hook_lead, n, length)
-        song, lufs = master(song)
+        song, vox_solo, stems = mixdown(inst, kicks, vox, hook_lead, n, length, stems=REMIX_STEMS)
+        song, lufs, gain = master(song)
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -658,13 +700,21 @@ def main():
         with open(os.path.join(stems_dir, "notes.json"), "w") as f:
             json.dump(dict(timeline=timeline), f)
     encode_mp3(song, os.path.join(ASSETS, "contribution-song.mp3"))
+    stem_info = None
+    if REMIX_STEMS:
+        try:  # the song still ships if the stems fail; the player then just hides the remix
+            stem_info = STEMS.export(stems, gain, hits, length, os.path.join(ASSETS, "stems"))
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"remix stems failed: {e}")
     write_atomic(os.path.join(ASSETS, "contribution-song-lyrics.md"), lyrics_md(timeline, s, length))
     wp = peaks(song, 96)
     for name, t in THEMES.items():
         write_atomic(os.path.join(ASSETS, f"song-{name}.svg"), render_card(s, length, wp, t))
     write_atomic(os.path.join(ASSETS, "contribution-song.lrc"), lrc(timeline, s))
     write_atomic(os.path.join(ASSETS, "contribution-song.json"),
-                 song_json(s, facts, weeks, timeline, length, song, langs, events))
+                 song_json(s, facts, weeks, timeline, length, song, langs, events, year, stem_info))
     print(f"song: {mmss(length)} ({length:.1f}s), {len(weeks)} bars, {len(timeline)} vocal lines, {lufs:.1f} LUFS")
 
 

@@ -5,11 +5,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 rm -rf _site
 mkdir -p _site/player/fonts
-cp player/index.html player/player.css player/player.js _site/player/
+cp player/index.html player/player.css player/player.js player/remix.js player/remix-worklet.js _site/player/
 cp player/fonts/*.woff2 player/fonts/LICENSE.txt _site/player/fonts/
 for f in contribution-song.mp3 contribution-song.json contribution-song.lrc contribution-song-lyrics.md; do
   cp "assets/$f" _site/player/
 done
+# Stems for the remix desk (written by the song step; the page hides the Remix button without them)
+if [ -d assets/stems ]; then mkdir -p _site/player/stems && cp assets/stems/* _site/player/stems/; fi
 # Cover for link previews and the lock screen (needs Pillow, which the song step already installs).
 python3 player/make_cover.py _site/player || echo "cover not built; the page draws its own"
 # 15 s vertical video of the busiest week, for sharing (optional: the player hides the link without it)
@@ -30,7 +32,9 @@ sed -i -e "s/video\.css?v=dev/video.css?v=$(h _site/video/video.css)/" \
        -e "s/video\.js?v=dev/video.js?v=$(h _site/video/video.js)/" \
        -e "s/videos\.json?v=dev/videos.json?v=$(h _site/video/videos.json)/" _site/video/index.html
 sed -i -e "s/player\.css?v=dev/player.css?v=$(h _site/player/player.css)/" \
-       -e "s/player\.js?v=dev/player.js?v=$(h _site/player/player.js)/" _site/player/index.html
+       -e "s/player\.js?v=dev/player.js?v=$(h _site/player/player.js)/" \
+       -e "s/remix\.js?v=dev/remix.js?v=$(h _site/player/remix.js)/" _site/player/index.html
+sed -i "s/remix-worklet\.js?v=dev/remix-worklet.js?v=$(h _site/player/remix-worklet.js)/" _site/player/remix.js
 sed -i "s/^const BUILD = \"dev\";/const BUILD = \"$(cat _site/video/index.html _site/video/sw.js | sha1sum | cut -c1-10)\";/" _site/video/sw.js
 cat > _site/index.html <<'HTML'
 <!doctype html><meta charset="utf-8"><title>Contribution song</title>

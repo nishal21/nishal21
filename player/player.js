@@ -6,6 +6,8 @@
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const audio = $("#audio");
+// what is playing: the <audio> element, or the remix engine once the stems are loaded (same interface)
+let media = audio;
 const playBtn = $("#play");
 const seek = $("#seek");
 const root = document.documentElement;
@@ -186,7 +188,7 @@ function mix(a, b, t) {
   return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(" ")})`;
 }
 
-function drawSleeve(t = audio.currentTime) {
+function drawSleeve(t = media.currentTime) {
   if (!song) return;
   const [x, S] = fitCanvas(sleeve, 2.5);
   if (S !== sleeveSize || !discImg) { sleeveSize = S; discImg = renderDisc(S); }
@@ -216,7 +218,7 @@ function drawSleeve(t = audio.currentTime) {
   x.drawImage(discImg, -D / 2, -D / 2, D, D);
   // light up the week that's playing
   const bar = clamp(Math.floor(pos), 0, n - 1);
-  if (t > 0 || !audio.paused) {
+  if (t > 0 || !media.paused) {
     const a = ((-90 + ((bar + 0.5) * 360) / n) * Math.PI) / 180;
     const frac = pos - Math.floor(pos);
     for (let d = 0; d < 7; d++) {
@@ -224,7 +226,7 @@ function drawSleeve(t = audio.currentTime) {
       const rr = R * (r0 + (d * (r1 - r0)) / 6);
       const room = dotRoom(R, rr, n, r0, r1);
       const since = frac - d * DAY_STEP;
-      const hit = !audio.paused && cnt && since >= 0 && since < 0.12 ? 1 - since / 0.12 : 0;
+      const hit = !media.paused && cnt && since >= 0 && since < 0.12 ? 1 - since / 0.12 : 0;
       const dr = (cnt ? room * (0.38 + 0.62 * Math.sqrt(cnt / dmax)) : room * 0.2) * (1 + hit * 0.7);
       x.fillStyle = cnt ? "#fff" : "rgba(255,255,255,0.45)";
       x.beginPath(); x.arc(rr * Math.cos(a), rr * Math.sin(a), dr, 0, Math.PI * 2); x.fill();
@@ -274,8 +276,8 @@ function drawWave() {
   const [x, w, h, dpr] = fitCanvas(c);
   x.clearRect(0, 0, w, h);
   const peaks = song.peaks;
-  const d = audio.duration || song.length;
-  const p = clamp(audio.currentTime / d, 0, 1);
+  const d = media.duration || song.length;
+  const p = clamp(media.currentTime / d, 0, 1);
   const barW = 3 * dpr, gap = 2 * dpr;
   const count = Math.max(10, Math.floor((w + gap) / (barW + gap)));
   const step = (w + gap) / count;
@@ -301,7 +303,7 @@ waveEl.addEventListener("pointermove", (e) => {
   if (!song || e.pointerType === "touch") return;
   const r = waveEl.getBoundingClientRect();
   hoverP = clamp((e.clientX - r.left) / r.width, 0, 1);
-  const t = hoverP * (audio.duration || song.length);
+  const t = hoverP * (media.duration || song.length);
   waveEl.style.setProperty("--h", hoverP);
   $("#tip").textContent = `${fmt(t)} · ${sectionAt(t).name}`;
   waveEl.classList.add("hovering");
@@ -599,18 +601,36 @@ function buildTracklist(data) {
 }
 
 /* ---------- playback ---------- */
-async function play() {
-  try { await audio.play(); } catch (e) { if (e.name !== "AbortError") console.warn("Playback was blocked:", e.message); }
+const mediaHandlers = [];
+function onMedia(ev, fn) {
+  mediaHandlers.push([ev, fn]);
+  audio.addEventListener(ev, (e) => { if (media === audio) fn(e); });
 }
-function toggle() { audio.paused ? play() : audio.pause(); }
+// hand playback over to another source (the remix engine), keeping the position and play state
+function useMedia(next) {
+  if (next === media) return;
+  const t = media.currentTime, wasPlaying = !media.paused;
+  if (next !== audio) for (const [ev, fn] of mediaHandlers) next.addEventListener(ev, (e) => { if (media === next) fn(e); });
+  const prev = media;
+  media = next;
+  prev.pause();
+  media.currentTime = t;
+  lastT = t;
+  if (wasPlaying) play();
+  update(true);
+}
+async function play() {
+  try { await media.play(); } catch (e) { if (e.name !== "AbortError") console.warn("Playback was blocked:", e.message); }
+}
+function toggle() { media.paused ? play() : media.pause(); }
 function jump(t) {
-  const d = audio.duration || song?.length || 0;
-  audio.currentTime = clamp(t, 0, Math.max(0, d - 0.05));
-  lastT = audio.currentTime;
+  const d = media.duration || song?.length || 0;
+  media.currentTime = clamp(t, 0, Math.max(0, d - 0.05));
+  lastT = media.currentTime;
   update(true);
 }
 function skipSection(dir) {
-  const t = audio.currentTime, k = sectionIndex(t);
+  const t = media.currentTime, k = sectionIndex(t);
   if (dir < 0 && t - song.sections[k].start > 2) return jump(song.sections[k].start + 0.01);
   const j = clamp(k + dir, 0, song.sections.length - 1);
   jump(song.sections[j].start + 0.01);
@@ -633,61 +653,73 @@ playBtn.style.setProperty("--shape", SQUIRCLE);
 playBtn.addEventListener("click", toggle);
 $("#prev").addEventListener("click", () => skipSection(-1));
 $("#next").addEventListener("click", () => skipSection(1));
-audio.addEventListener("play", () => {
+onMedia("play", () => {
   document.body.classList.add("playing");
   playBtn.setAttribute("aria-label", "Pause");
   playBtn.style.setProperty("--shape", COOKIE);
-  lastT = audio.currentTime;
-  requestAnimationFrame(loop);
+  lastT = media.currentTime;
+  if (!looping) { looping = true; requestAnimationFrame(loop); }
 });
-audio.addEventListener("pause", () => {
+onMedia("pause", () => {
   document.body.classList.remove("playing");
   playBtn.setAttribute("aria-label", "Play");
   playBtn.style.setProperty("--shape", SQUIRCLE);
   setKick(0);
   update(true);
 });
-audio.addEventListener("ended", () => { audio.currentTime = 0; update(true); });
-audio.addEventListener("timeupdate", () => { if (audio.paused) update(); });
-audio.addEventListener("seeked", () => { lastT = audio.currentTime; update(true); });
-audio.addEventListener("loadedmetadata", () => update(true));
+onMedia("ended", () => { media.currentTime = 0; update(true); });
+onMedia("timeupdate", () => { if (media.paused) update(); });
+onMedia("seeked", () => { lastT = media.currentTime; update(true); });
+onMedia("loadedmetadata", () => update(true));
 // the share clip is built nightly; hide its link if this build doesn't have one
 fetch("share-clip.mp4", { method: "HEAD" }).then((r) => { if (!r.ok) $("#clip-dl").hidden = true; })
   .catch(() => { $("#clip-dl").hidden = true; });
 audio.addEventListener("error", () => { $("#where").textContent = "Couldn't load the audio. The MP3 download may still work."; });
-seek.addEventListener("input", () => jump((seek.value / 1000) * (audio.duration || song.length)));
+seek.addEventListener("input", () => jump((seek.value / 1000) * (media.duration || song.length)));
 
 document.addEventListener("keydown", (e) => {
   if (!song || e.altKey || e.ctrlKey || e.metaKey) return;
   const t = e.target;
   if (t.closest("textarea, select, [contenteditable]")) return;
+  if (t !== seek && t.closest('input, [role="slider"], [role="radio"]') && /^(Arrow|Home|End|Page)/.test(e.key)) return;
   if (t.closest("button, a, summary") && (e.key === " " || e.key === "Enter")) return; // let controls act normally
   const k = e.key.toLowerCase();
   if (k === " " || k === "k") { e.preventDefault(); toggle(); }
-  else if (e.key === "ArrowLeft" && t !== seek) { e.preventDefault(); e.shiftKey ? skipSection(-1) : jump(audio.currentTime - 5); }
-  else if (e.key === "ArrowRight" && t !== seek) { e.preventDefault(); e.shiftKey ? skipSection(1) : jump(audio.currentTime + 5); }
+  else if (e.key === "ArrowLeft" && t !== seek) { e.preventDefault(); e.shiftKey ? skipSection(-1) : jump(media.currentTime - 5); }
+  else if (e.key === "ArrowRight" && t !== seek) { e.preventDefault(); e.shiftKey ? skipSection(1) : jump(media.currentTime + 5); }
   else if (e.key === "Home" && t !== seek) { e.preventDefault(); jump(0); }
   else if (k === "y" && !e.shiftKey) { toggleLyricsView(); }
 });
 
-/* small screens: lyrics replace the cover, with the cover shrinking into the header row */
+/* small screens: lyrics (or the remix desk) replace the cover, with the cover shrinking into the header row.
+   On wide screens the lyrics are always shown and the remix desk takes their place while it's open. */
 const lyricsBtn = $("#lyrics-toggle");
-function toggleLyricsView(force) {
-  if (wide.matches) return;
-  const on = force ?? !document.body.classList.contains("lyrics-mode");
+const panelWatchers = [];
+let panel = null;
+function setPanel(which) {
+  if (which === "lyrics" && wide.matches) which = null;
+  if (which === panel) return;
+  panel = which;
   const apply = () => {
-    document.body.classList.toggle("lyrics-mode", on);
-    lyricsBtn.setAttribute("aria-pressed", String(on));
+    document.body.classList.toggle("lyrics-mode", which === "lyrics");
+    document.body.classList.toggle("remix-open", which === "remix");
+    lyricsBtn.setAttribute("aria-pressed", String(which === "lyrics"));
     discImg = null;
     drawSleeve();
     layoutLyrics(true);
+    panelWatchers.forEach((fn) => fn(which));
   };
   if (document.startViewTransition && !reduceMotion.matches) document.startViewTransition(apply);
   else apply();
-  if (on) scrollTo({ top: 0, behavior: reduceMotion.matches ? "auto" : "smooth" });
+  if (which && !wide.matches) scrollTo({ top: 0, behavior: reduceMotion.matches ? "auto" : "smooth" });
+}
+function toggleLyricsView(force) {
+  if (wide.matches) return;
+  const on = force ?? panel !== "lyrics";
+  setPanel(on ? "lyrics" : panel === "lyrics" ? null : panel);
 }
 lyricsBtn.addEventListener("click", () => toggleLyricsView());
-wide.addEventListener("change", () => { if (wide.matches) toggleLyricsView(false); layoutLyrics(true); });
+wide.addEventListener("change", () => { if (wide.matches && panel === "lyrics") setPanel(null); layoutLyrics(true); });
 
 /* ---------- per-frame updates ---------- */
 function setKick(v) {
@@ -718,8 +750,8 @@ function fireHits(from, to) {
 
 function update(force) {
   if (!song) return;
-  const t = audio.currentTime;
-  const d = audio.duration || song.length;
+  const t = media.currentTime;
+  const d = media.duration || song.length;
   const p = clamp(t / d, 0, 1);
   $("#cur").textContent = fmt(t);
   $("#left").textContent = `-${fmt(d - t)}`;
@@ -734,7 +766,7 @@ function update(force) {
   const gap = idx < 0 || (t > L[idx].end + 0.6 && (!next || next.t - t > 1));
   const on = gap ? -1 : idx;
   const anchor = gap ? Math.min(idx + 1, L.length - 1) : idx;
-  const waiting = gap && next && !audio.paused ? idx + 1 : -1;
+  const waiting = gap && next && !media.paused ? idx + 1 : -1;
   if (on !== curOn || anchor !== curLine || force) {
     lineEls.forEach((el, i) => {
       el.classList.toggle("on", i === on);
@@ -763,7 +795,7 @@ function update(force) {
   const n = song.weeks.length;
   const bar = clamp(Math.floor(t / song.bar), 0, n - 1);
   if (bar !== curBar || force) {
-    weekEls.forEach((el, i) => { el.classList.toggle("now", i === bar && (t > 0 || !audio.paused)); el.classList.toggle("ahead", i > bar); });
+    weekEls.forEach((el, i) => { el.classList.toggle("now", i === bar && (t > 0 || !media.paused)); el.classList.toggle("ahead", i > bar); });
     curBar = bar;
     const w = song.weeks[bar];
     const total = w.days.reduce((a, c) => a + c, 0);
@@ -775,17 +807,17 @@ function update(force) {
     const label = `Week of ${day(w.start)} · ${total} contribution${total === 1 ? "" : "s"}`;
     $("#bar-week").textContent = `Bar ${bar + 1} of ${n}. ${label}`;
     $("#pads").setAttribute("aria-label", label);
-    if (t > 0 || !audio.paused) $("#where").textContent = `${sectionAt(t).name} · ${day(w.start, { month: "short", day: "numeric", year: "numeric" })}`;
+    if (t > 0 || !media.paused) $("#where").textContent = `${sectionAt(t).name} · ${day(w.start, { month: "short", day: "numeric", year: "numeric" })}`;
     // keep the playing week in view in the scrollable grid, unless the reader is using it
     const gs = $("#grid-scroll");
-    if (!audio.paused && gs.scrollWidth > gs.clientWidth && !gs.matches(":hover, :focus-within")) {
+    if (!media.paused && gs.scrollWidth > gs.clientWidth && !gs.matches(":hover, :focus-within")) {
       const el = weekEls[bar];
       const target = el.offsetLeft - gs.clientWidth / 2;
       gs.scrollTo({ left: target, behavior: reduceMotion.matches ? "auto" : "smooth" });
     }
   }
   const step = Math.floor(((t / song.bar) % 1) / DAY_STEP);
-  padEls.forEach((row) => row.forEach((pad, dd) => pad.classList.toggle("step", !audio.paused && dd === step)));
+  padEls.forEach((row) => row.forEach((pad, dd) => pad.classList.toggle("step", !media.paused && dd === step)));
 
   const sec = sectionIndex(t);
   if (sec !== curSec || force) {
@@ -796,13 +828,14 @@ function update(force) {
   drawSleeve(t);
 }
 
+let looping = false;
 function loop() {
-  if (audio.paused) return;
-  const t = audio.currentTime;
+  if (media.paused) { looping = false; return; }
+  const t = media.currentTime;
   fireHits(lastT, t);
   lastT = t;
   if (!reduceMotion.matches) {
-    const pk = song.peaks[Math.min(song.peaks.length - 1, Math.floor((t / (audio.duration || song.length)) * song.peaks.length))] ?? 0;
+    const pk = song.peaks[Math.min(song.peaks.length - 1, Math.floor((t / (media.duration || song.length)) * song.peaks.length))] ?? 0;
     pulse *= 0.88;
     setKick(Math.min(1, pulse * 0.75 + pk * 0.25));
   }
@@ -819,19 +852,19 @@ function setupMediaSession(data) {
   });
   const handlers = {
     play: () => play(),
-    pause: () => audio.pause(),
+    pause: () => media.pause(),
     seekto: (e) => jump(e.seekTime),
-    seekbackward: (e) => jump(audio.currentTime - (e.seekOffset || 5)),
-    seekforward: (e) => jump(audio.currentTime + (e.seekOffset || 5)),
+    seekbackward: (e) => jump(media.currentTime - (e.seekOffset || 5)),
+    seekforward: (e) => jump(media.currentTime + (e.seekOffset || 5)),
     previoustrack: () => skipSection(-1),
     nexttrack: () => skipSection(1),
   };
   for (const [k, fn] of Object.entries(handlers)) { try { navigator.mediaSession.setActionHandler(k, fn); } catch {} }
   const pos = () => {
-    if (!audio.duration || !navigator.mediaSession.setPositionState) return;
-    try { navigator.mediaSession.setPositionState({ duration: audio.duration, position: audio.currentTime, playbackRate: audio.playbackRate }); } catch {}
+    if (!media.duration || !navigator.mediaSession.setPositionState) return;
+    try { navigator.mediaSession.setPositionState({ duration: media.duration, position: media.currentTime, playbackRate: media.playbackRate }); } catch {}
   };
-  ["loadedmetadata", "seeked", "play", "pause", "ratechange"].forEach((ev) => audio.addEventListener(ev, pos));
+  ["loadedmetadata", "seeked", "play", "pause", "ratechange"].forEach((ev) => onMedia(ev, pos));
 }
 
 /* ---------- misc ---------- */
@@ -846,7 +879,19 @@ new ResizeObserver(() => {
 }).observe(document.body);
 reduceMotion.addEventListener("change", () => { discImg = null; update(true); });
 
+let songReady;
+// what remix.js uses to plug into the player
+window.songPlayer = {
+  ready: new Promise((r) => (songReady = r)),
+  get song() { return song; },
+  get media() { return media; },
+  use: (m) => useMedia(m),
+  setPanel,
+  get panel() { return panel; },
+  onPanel: (fn) => panelWatchers.push(fn),
+};
+
 fetch("contribution-song.json", { credentials: "same-origin" })
   .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-  .then(build)
+  .then((data) => { build(data); songReady(song); })
   .catch((e) => { $("#where").textContent = "Couldn't load the song data. The MP3 download still works."; console.error(e); });

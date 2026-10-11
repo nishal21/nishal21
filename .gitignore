@@ -3,3 +3,5 @@ __pycache__/
 _site/
 # the song MP3 is published to GitHub Pages, not committed, so the repo does not grow every night
 assets/contribution-song.mp3
+# remix stems are published to Pages with the song, not committed
+assets/stems/

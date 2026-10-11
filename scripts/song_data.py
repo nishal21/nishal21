@@ -176,3 +176,32 @@ def week_events(weeks, data):
     for ev in out:
         ev.sort(key=lambda e: order[e["type"]])
     return out
+
+
+def year_summary(weeks, data):
+    """The year in one dict, for the trailer: commits per repo and language, merged pull requests,
+    releases and new repos inside the song's window. Only his own public, non-fork repos count
+    (data["repos"] comes from the public repo list), so nothing private can show up."""
+    if not data or not data.get("repos"):
+        return None
+    idx = _week_index(weeks)
+    repos = data["repos"]
+    per_repo, per_lang = {}, {}
+    for repo, day in data["commits"].values():
+        if day in idx and repo in repos:
+            per_repo[repo] = per_repo.get(repo, 0) + 1
+            lang = repos[repo].get("language")
+            if lang:
+                per_lang[lang] = per_lang.get(lang, 0) + 1
+    top = sorted(per_repo, key=lambda r: (-per_repo[r], r.lower()))
+    prs = [p for p in data["prs"].values() if p["merged"] in idx and p["repo"] in repos]
+    releases = sorted((day, repo, title) for repo, rel in data["releases"].items() if repo in repos
+                      for day, title in rel["items"] if day in idx)
+    created = sorted((r["created"], name) for name, r in repos.items() if r["created"] in idx)
+    return dict(
+        commits=sum(per_repo.values()),
+        repos=[dict(name=r, commits=per_repo[r], lang=repos[r].get("language")) for r in top[:12]],
+        langs=[dict(name=l, commits=c) for l, c in sorted(per_lang.items(), key=lambda x: (-x[1], x[0]))[:6]],
+        prs=len(prs), pr_repos=len({p["repo"] for p in prs}),
+        releases=[dict(date=d, repo=r, title=t) for d, r, t in releases],
+        created=[dict(date=d, repo=r, lang=repos[r].get("language")) for d, r in created])

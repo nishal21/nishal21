@@ -250,8 +250,8 @@ def bass808(notes, starts, durs, n_total, glide=0.06, drive=2.5, lp=900):
 
 # ---------- mix tools ----------
 
-def compress(x, thr_db=-18, ratio=3.0, attack=0.005, release=0.12, makeup_db=0.0):
-    """Feed-forward RMS compressor on mono or stereo (linked)."""
+def compress(x, thr_db=-18, ratio=3.0, attack=0.005, release=0.12, makeup_db=0.0, gain=False):
+    """Feed-forward RMS compressor on mono or stereo (linked). gain=True also returns the gain curve."""
     mono = np.abs(x).max(axis=0) if x.ndim == 2 else np.abs(x)
     k = max(1, int(SR * attack))
     lvl = np.sqrt(np.convolve(mono ** 2, np.ones(k) / k, mode="same") + 1e-12)
@@ -262,7 +262,7 @@ def compress(x, thr_db=-18, ratio=3.0, attack=0.005, release=0.12, makeup_db=0.0
     a = np.exp(-1 / (SR * release))
     gr = signal.lfilter([1 - a], [1, -a], gr)
     g = 10 ** ((makeup_db - gr) / 20)
-    return x * g
+    return (x * g, g) if gain else x * g
 
 
 def sidechain(n, hits, depth=0.6, release=0.18):
@@ -314,8 +314,8 @@ def true_peak(stereo, os_factor=4):
     return float(np.max(np.abs(up)))
 
 
-def limit(stereo, ceiling_db=-1.5, lookahead=0.005, release=0.08, os_factor=4):
-    """Look-ahead limiter on true (oversampled) peaks."""
+def limit(stereo, ceiling_db=-1.5, lookahead=0.005, release=0.08, os_factor=4, gain=False):
+    """Look-ahead limiter on true (oversampled) peaks. gain=True also returns the gain curve."""
     ceiling = 10 ** (ceiling_db / 20)
     up = np.abs(signal.resample_poly(stereo, os_factor, 1, axis=1)).max(axis=0)
     pk = up[: (len(up) // os_factor) * os_factor].reshape(-1, os_factor).max(axis=1)
@@ -334,4 +334,4 @@ def limit(stereo, ceiling_db=-1.5, lookahead=0.005, release=0.08, os_factor=4):
         m = blk.min()
         cur = min(m, cur * a ** 64 + (1 - a ** 64) * 1.0) if m < cur else min(1.0, cur + (1 - a ** 64) * (1 - cur))
         out[i:i + 64] = np.minimum(blk, cur)
-    return stereo * out
+    return (stereo * out, out) if gain else stereo * out

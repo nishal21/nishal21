@@ -22,6 +22,7 @@
 <link rel="preload" href="fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="player.css?v=dev">
 <script src="player.js?v=dev" defer></script>
+<script src="remix.js?v=dev" defer></script>
 </head>
 <body>
 <div class="backdrop" aria-hidden="true"><canvas id="bg" width="40" height="40"></canvas></div>
@@ -52,10 +53,16 @@
         <h1 id="title">Contribution song</h1>
         <p class="artist"><a href="https://github.com/nishal21">Nishal K</a></p>
       </div>
-      <button type="button" class="pill lyrics-toggle" id="lyrics-toggle" aria-pressed="false" aria-controls="lyrics-pane">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h11M4 11h16M4 16h9"/><circle cx="18.5" cy="17" r="2.5"/><path d="M21 17V9"/></svg>
-        Lyrics
-      </button>
+      <div class="meta-actions">
+        <button type="button" class="pill lyrics-toggle" id="lyrics-toggle" aria-pressed="false" aria-controls="lyrics-pane">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h11M4 11h16M4 16h9"/><circle cx="18.5" cy="17" r="2.5"/><path d="M21 17V9"/></svg>
+          <span class="pill-text">Lyrics</span>
+        </button>
+        <button type="button" class="pill remix-toggle" id="remix-toggle" aria-pressed="false" aria-controls="remix-pane" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v16M12 4v16M18 4v16"/><path d="M4 15h4M10 8h4M16 13h4" class="knob"/></svg>
+          <span class="pill-text">Remix</span>
+        </button>
+      </div>
     </div>
 
     <div class="scrub" id="scrub">
@@ -111,6 +118,58 @@
     <p class="visually-hidden">Select a line to play from there.</p>
     <div class="lyrics" id="lyrics"></div>
   </section>
+
+  <section class="remix-pane" id="remix-pane" aria-labelledby="remix-h">
+    <header class="rx-head">
+      <div>
+        <h2 id="remix-h">Remix</h2>
+        <p>Mute, solo and reshape the song. The lyrics and the grid stay in time.</p>
+      </div>
+      <button type="button" class="icon-btn" id="rx-close" aria-label="Close remix">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+    <div class="rx-bar" id="rx-bar" aria-hidden="true"></div>
+
+    <ul class="rx-stems" id="rx-stems" aria-label="Stems"></ul>
+
+    <div class="rx-tempo">
+      <div class="rx-line">
+        <label for="rx-tempo" class="rx-cap">Tempo</label>
+        <output id="rx-tempo-out" for="rx-tempo">140 BPM · 100%</output>
+        <button type="button" class="rx-link" id="rx-tempo-reset" hidden>Reset</button>
+        <button type="button" class="rx-switch" id="rx-pitch" role="switch" aria-checked="true"><span class="rx-sw" aria-hidden="true"></span>Keep pitch</button>
+      </div>
+      <input type="range" id="rx-tempo" class="rx-fader" min="70" max="140" step="1" value="100">
+      <div class="rx-scale" aria-hidden="true"><span>70%</span><span>100%</span><span>140%</span></div>
+    </div>
+
+    <div class="rx-sound">
+      <div class="rx-kitbox">
+        <span class="rx-cap" id="rx-kit-l">Drum kit</span>
+        <div class="rx-seg" id="rx-kit" role="radiogroup" aria-labelledby="rx-kit-l"></div>
+      </div>
+      <div class="rx-knobs">
+        <div class="rx-k"><div class="rx-knob" role="slider" tabindex="0" aria-label="Filter" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="0" data-key="filter" data-min="-100" data-max="100"></div><span class="rx-cap">Filter</span><span class="rx-kv"></span></div>
+        <div class="rx-k"><div class="rx-knob" role="slider" tabindex="0" aria-label="Echo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-key="echo" data-min="0" data-max="100"></div><span class="rx-cap">Echo</span><span class="rx-kv"></span></div>
+        <div class="rx-k"><div class="rx-knob" role="slider" tabindex="0" aria-label="Space" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-key="space" data-min="0" data-max="100"></div><span class="rx-cap">Space</span><span class="rx-kv"></span></div>
+      </div>
+    </div>
+
+    <div class="rx-actions">
+      <button type="button" class="dl" id="rx-reset">Reset</button>
+      <button type="button" class="dl" id="rx-share">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+        <span>Copy link</span>
+      </button>
+      <button type="button" class="dl" id="rx-export">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+        <span>WAV</span>
+      </button>
+    </div>
+    <p class="rx-status" id="rx-status" role="status" aria-live="polite"></p>
+    <p class="rx-length" id="rx-length"></p>
+  </section>
 </main>
 
 <div class="notes" id="notes">
@@ -164,6 +223,7 @@
           <div><dt><kbd>Shift</kbd> + <kbd>←</kbd> <kbd>→</kbd></dt><dd>Previous or next section</dd></div>
           <div><dt><kbd>Home</kbd></dt><dd>Back to the start</dd></div>
           <div><dt><kbd>Y</kbd></dt><dd>Show or hide lyrics on small screens</dd></div>
+          <div><dt><kbd>R</kbd></dt><dd>Open or close the remix desk</dd></div>
         </dl>
       </details>
     </div>

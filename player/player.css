@@ -164,7 +164,7 @@ button, a, summary { -webkit-tap-highlight-color: transparent; }
   box-shadow: 0 1px 0 color-mix(in oklab, white 25%, transparent) inset, 0 30px 60px -24px rgb(0 0 0 / calc(0.35 + var(--dark) * 0.25)), 0 12px 24px -12px rgb(0 0 0 / 0.3);
 }
 
-.meta { grid-area: meta; display: flex; align-items: end; justify-content: space-between; gap: var(--s4); margin-bottom: var(--s5); view-transition-name: meta; }
+.meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--s3) var(--s4); margin-bottom: var(--s5); view-transition-name: meta; }
 .titles { min-width: 0; }
 h1 {
   margin: 0; font-size: clamp(1.75rem, 1.2rem + 2vw, 2.25rem); line-height: 1.02; font-weight: 800; letter-spacing: -0.03em;
@@ -185,6 +185,8 @@ h1 {
 .pill:active { scale: 0.94; }
 .pill svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
 .pill[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.pill[hidden] { display: none; }
+.meta-actions { display: flex; gap: var(--s2); flex: none; }
 
 /* scrubber: the song's waveform is the track */
 .scrub { grid-area: scrub; view-transition-name: scrub; }
@@ -438,6 +440,123 @@ kbd {
 }
 .foot p { margin: 0; }
 
+
+/* ---------- remix desk ---------- */
+.remix-pane { grid-area: remix; display: none; min-height: 0; container-type: inline-size; }
+.remix-open .remix-pane { display: flex; flex-direction: column; gap: var(--s5); }
+.rx-head { display: flex; align-items: start; justify-content: space-between; gap: var(--s4); }
+.rx-head h2 { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+.rx-head p { margin: var(--s1) 0 0; color: var(--fg-2); font-size: 0.9375rem; text-wrap: pretty; }
+.rx-head .icon-btn { margin: -6px -8px 0 0; }
+.rx-bar { height: 2px; margin-top: calc(var(--s5) * -1 + var(--s2)); border-radius: 2px; background: var(--line); overflow: hidden; visibility: hidden; }
+.rx-bar::before { content: ""; display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: var(--fg); transition: width 0.2s linear; }
+.loading .rx-bar { visibility: visible; }
+.rx-cap { font: 600 0.6875rem/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-3); }
+
+.rx-stems { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.rx-stem {
+  display: grid; grid-template-columns: minmax(5.5rem, 1.1fr) minmax(5rem, 2fr) 36px 36px; align-items: center; gap: var(--s2) var(--s3);
+  padding: var(--s2) 0; border-bottom: 1px solid var(--line);
+}
+.rx-name { display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: var(--s2); min-width: 0; }
+.rx-label { font-weight: 650; font-size: 0.9375rem; transition: opacity 0.2s; }
+.rx-hint { font-size: 0.75rem; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity 0.2s; }
+.rx-meter { grid-column: 1 / -1; height: 3px; margin-top: 6px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.rx-meter i { display: block; height: 100%; width: 100%; background: var(--mark); transform-origin: left; transform: scaleX(var(--l, 0)); transition: transform 0.06s linear; }
+.rx-stem.silent .rx-label, .rx-stem.silent .rx-hint { opacity: 0.4; }
+.rx-stem.silent .rx-meter i { background: var(--fg-3); }
+.loading .rx-stem { opacity: 0.6; }
+@container (max-width: 420px) { .rx-hint { display: none; } }
+
+.rx-ms {
+  width: 36px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: transparent; cursor: pointer;
+  font: 600 0.75rem/1 var(--mono); color: var(--fg-2);
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, scale 0.35s var(--bounce);
+}
+.rx-ms:hover { border-color: var(--fg-3); color: var(--fg); }
+.rx-ms:active { scale: 0.9; }
+.rx-m[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.rx-s[aria-pressed="true"] { background: var(--g); border-color: var(--g); color: var(--ink); }
+
+/* faders: a thin track that fills up to the handle */
+.rx-fader {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 28px; margin: 0; background: transparent; cursor: pointer; touch-action: pan-y;
+  --fill: color-mix(in oklab, var(--fg) 80%, transparent);
+}
+.rx-fader::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: linear-gradient(to right, var(--fill) calc(var(--v, 1) * 100%), var(--line) 0); }
+.rx-fader::-moz-range-track { height: 4px; border-radius: 4px; background: linear-gradient(to right, var(--fill) calc(var(--v, 1) * 100%), var(--line) 0); }
+.rx-fader::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6px; border-radius: 50%; background: var(--fg); border: 0; box-shadow: 0 0 0 3px var(--bg); transition: scale 0.3s var(--bounce); }
+.rx-fader::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--fg); border: 0; box-shadow: 0 0 0 3px var(--bg); transition: scale 0.3s var(--bounce); }
+.rx-fader:active::-webkit-slider-thumb { scale: 1.2; }
+.rx-fader:active::-moz-range-thumb { scale: 1.2; }
+.rx-fader:focus-visible { outline: none; }
+.rx-fader:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--fg); }
+.rx-fader:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--fg); }
+.rx-stem.silent .rx-fader { --fill: var(--fg-3); }
+
+.rx-tempo .rx-line { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.rx-tempo output { font: 500 0.875rem/1 var(--mono); font-variant-numeric: tabular-nums; }
+.rx-tempo .rx-fader { margin-top: var(--s1); }
+.rx-scale { display: flex; justify-content: space-between; font: 500 0.6875rem/1 var(--mono); color: var(--fg-3); }
+/* 100% sits at 30/70 of the track */
+.rx-scale span:nth-child(2) { position: relative; left: calc(30% / 0.7 - 50%); }
+.rx-link { border: 0; background: none; padding: 4px 2px; cursor: pointer; font-size: 0.8125rem; color: var(--fg-2); text-decoration: underline; text-decoration-color: var(--fg-3); text-underline-offset: 0.2em; }
+.rx-link:hover { color: var(--fg); }
+.rx-link[hidden] { display: none; }
+.rx-switch {
+  margin-left: auto; display: inline-flex; align-items: center; gap: var(--s2); padding: 6px 0; border: 0; background: none; cursor: pointer;
+  font-size: 0.875rem; font-weight: 600; color: var(--fg-2);
+}
+.rx-switch:hover { color: var(--fg); }
+.rx-sw { position: relative; width: 32px; height: 20px; border-radius: 10px; background: var(--line); transition: background-color 0.2s; }
+.rx-sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--fg); transition: translate 0.35s var(--bounce); }
+.rx-switch[aria-checked="true"] .rx-sw { background: var(--mark); }
+.rx-switch[aria-checked="true"] .rx-sw::after { translate: 12px 0; background: var(--bg); }
+
+.rx-sound { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: var(--s5); }
+.rx-kitbox { display: grid; gap: var(--s3); }
+.rx-seg { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--wash); border: 1px solid var(--line); width: max-content; }
+.rx-seg button {
+  height: 32px; padding: 0 var(--s3); border: 0; border-radius: 999px; background: transparent; cursor: pointer;
+  font-size: 0.875rem; font-weight: 600; color: var(--fg-2); transition: background-color 0.2s, color 0.2s;
+}
+.rx-seg button:hover { color: var(--fg); }
+.rx-seg button[aria-checked="true"] { background: var(--fg); color: var(--bg); }
+
+.rx-knobs { display: flex; gap: var(--s5); }
+.rx-k { display: grid; justify-items: center; gap: 6px; width: 64px; }
+.rx-knob {
+  position: relative; width: 48px; height: 48px; border-radius: 50%; cursor: ns-resize; touch-action: none;
+  --from: 0; --len: 0;
+}
+.rx-knob::before {
+  /* 270° track with the active arc, a ring cut out of a conic gradient */
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 225deg, var(--line) calc(var(--from) * 1deg), var(--mark) 0 calc((var(--from) + var(--len)) * 1deg), var(--line) 0 270deg, transparent 0);
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
+  mask: radial-gradient(closest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
+}
+.rx-knob::after {
+  /* the cap, with a pointer line */
+  content: ""; position: absolute; inset: 8px; border-radius: 50%;
+  background: linear-gradient(var(--fg), var(--fg)) 50% 3px / 2px 10px no-repeat, var(--wash);
+  border: 1px solid var(--line); rotate: var(--rot, -135deg);
+  transition: rotate 0.08s linear;
+}
+.rx-knob.on::after { border-color: var(--fg-3); }
+.rx-knob:focus-visible { outline-offset: 2px; border-radius: 50%; }
+.rx-kv { font: 500 0.6875rem/1.2 var(--mono); color: var(--fg-2); text-align: center; min-height: 2.4em; }
+
+.rx-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.rx-actions .dl { background: transparent; cursor: pointer; }
+.rx-actions .dl:disabled { opacity: 0.45; cursor: default; }
+.rx-actions .dl:disabled:hover { border-color: var(--line); background: transparent; }
+#rx-reset { padding-left: var(--s4); }
+.rx-status { margin: calc(var(--s5) * -1 + var(--s2)) 0 0; min-height: 1.4em; font-size: 0.8125rem; color: var(--fg-2); overflow-wrap: anywhere; }
+.rx-status[data-kind="error"] { color: light-dark(#a3260f, #ff9f87); }
+.rx-length { margin: calc(var(--s5) * -1) 0 0; font: 500 0.75rem/1.4 var(--mono); color: var(--fg-3); }
+.rx-length:empty, .rx-status:empty { display: none; }
+
 /* ---------- small screens: lyrics take over the cover's spot ---------- */
 @media (max-width: 899px) {
   .lyrics-mode .np {
@@ -457,6 +576,34 @@ kbd {
   .lyrics-mode .downloads { display: none; }
   .lyrics-mode .controls { margin-top: var(--s3); }
   .lyrics-mode .lyrics { padding-block: 22vh 50vh; }
+
+  /* the remix desk takes the same spot and scrolls on its own */
+  .remix-open .np {
+    grid-template-columns: 64px 1fr;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "art meta" "remix remix" "scrub scrub" "controls controls";
+    column-gap: var(--s4);
+    height: 100svh;
+    padding-bottom: max(var(--s4), env(safe-area-inset-bottom));
+  }
+  .remix-open .art { margin: 0; }
+  .remix-open #sleeve { border-radius: 4px; }
+  .remix-open .meta { margin: 0; align-items: center; flex-wrap: nowrap; }
+  .remix-open h1 { font-size: 1.25rem; }
+  .remix-open .artist { font-size: 0.9375rem; margin: 0; }
+  .remix-open .downloads { display: none; }
+  .remix-open .controls { margin-top: var(--s2); }
+  .remix-open .play { width: 72px; height: 72px; }
+  .remix-open .remix-pane {
+    margin: var(--s3) calc(var(--pad) * -1) var(--s3); padding: var(--s3) var(--pad) var(--s5);
+    overflow-y: auto; overscroll-behavior: contain;
+    border-block: 1px solid var(--line);
+  }
+  .remix-open .rx-head h2 { font-size: 1.25rem; }
+  .remix-open .rx-head p { font-size: 0.875rem; }
+  /* side panels open: the pills shrink to icons so the header row fits */
+  :is(.lyrics-mode, .remix-open) .meta-actions .pill { width: 40px; padding: 0; justify-content: center; }
+  :is(.lyrics-mode, .remix-open) .pill-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 
 /* ---------- wide screens: cover and controls left, lyrics right ---------- */
@@ -471,6 +618,12 @@ kbd {
     padding: 72px var(--pad) var(--s5);
   }
   .lyrics-toggle { display: none; }
+  .remix-open .lyrics-pane { display: none; }
+  .remix-open .remix-pane {
+    grid-area: lyrics; position: sticky; top: 0; align-self: start; max-height: 100svh; overflow-y: auto; margin-top: -72px;
+    padding: 96px 0 var(--s7); width: min(100%, 640px); justify-self: start; justify-content: center; min-height: 100svh;
+    scrollbar-width: thin;
+  }
   /* the lyrics stay in view while the left column scrolls on short windows */
   .lyrics-pane { display: block; position: sticky; top: 0; align-self: start; height: 100svh; margin-top: -72px; }
   /* out of flow so the long lyric sheet doesn't stretch the grid row */
