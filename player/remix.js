@@ -495,6 +495,7 @@
 
   // share
   const shareUrl = () => location.origin + location.pathname + encode(state);
+  P.remixLink = shareUrl; // for the cover's right-click menu
   $("#rx-share").addEventListener("click", async () => {
     const url = shareUrl();
     try { history.replaceState(null, "", encode(state)); } catch {}

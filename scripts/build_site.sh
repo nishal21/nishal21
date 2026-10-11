@@ -32,10 +32,14 @@ fi
 h() { if [ -f "$1" ]; then sha1sum "$1" | cut -c1-10; else echo none; fi; }
 sed -i -e "s/video\.css?v=dev/video.css?v=$(h _site/video/video.css)/" \
        -e "s/video\.js?v=dev/video.js?v=$(h _site/video/video.js)/" \
+       -e "s/menu\.css?v=dev/menu.css?v=$(h _site/video/menu.css)/" \
+       -e "s/menu\.js?v=dev/menu.js?v=$(h _site/video/menu.js)/" \
        -e "s/videos\.json?v=dev/videos.json?v=$(h _site/video/videos.json)/" _site/video/index.html
 sed -i -e "s/player\.css?v=dev/player.css?v=$(h _site/player/player.css)/" \
        -e "s/player\.js?v=dev/player.js?v=$(h _site/player/player.js)/" \
-       -e "s/remix\.js?v=dev/remix.js?v=$(h _site/player/remix.js)/" _site/player/index.html
+       -e "s/remix\.js?v=dev/remix.js?v=$(h _site/player/remix.js)/" \
+       -e "s/menu\.css?v=dev/menu.css?v=$(h _site/video/menu.css)/" \
+       -e "s/menu\.js?v=dev/menu.js?v=$(h _site/video/menu.js)/" _site/player/index.html
 sed -i "s/remix-worklet\.js?v=dev/remix-worklet.js?v=$(h _site/player/remix-worklet.js)/" _site/player/remix.js
 sed -i "s/^const BUILD = \"dev\";/const BUILD = \"$(cat _site/video/index.html _site/video/sw.js | sha1sum | cut -c1-10)\";/" _site/video/sw.js
 cat > _site/index.html <<'HTML'

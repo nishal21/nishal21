@@ -893,5 +893,11 @@ window.songPlayer = {
 
 fetch("contribution-song.json", { credentials: "same-origin" })
   .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-  .then((data) => { build(data); songReady(song); })
+  .then((data) => {
+    build(data);
+    // ?t=42 starts the song there (the cover's "Copy link at" uses it)
+    const t0 = parseFloat(new URLSearchParams(location.search).get("t"));
+    if (t0 > 0) jump(t0);
+    songReady(song);
+  })
   .catch((e) => { $("#where").textContent = "Couldn't load the song data. The MP3 download still works."; console.error(e); });

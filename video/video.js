@@ -2419,6 +2419,17 @@ const extras = (() => {
   return { onLoad, chapterAt, abSet, snapshot, sleepAtEnd, get state() { return { chapters: chapters.length, ab: [abA, abB], sleep: SLEEP[sleepIdx], boost, mini: wrap.classList.contains("mini"), fill: stage.classList.contains("fill"), subs: !!userTrack, queue: customQueue?.slice(0, 3).map((x) => x.key) }; } };
 })();
 
+/* what menu.js (right-click menu, stats) and gestures.js (hold for 2×) plug into */
+window.videoPage = {
+  stage, video, shield,
+  get item() { return cur; }, get adapter() { return P; }, get rate() { return prefs.rate; }, get loop() { return loop; },
+  rates: () => (P?.rates() || RATES).filter((r) => r >= 0.25),
+  engines: () => ({ hls, dash }),
+  pipOk: () => !$("#pip").hidden,
+  shareUrl, copy, toast, bezel, poke, toggle, setRate, setLoop, togglePiP, openKeys, closeMenus, fmt,
+  snapshot: () => extras.snapshot(),
+};
+
 /* ---------- boot ---------- */
 async function boot() {
   syncVolUI(); syncRateUI(); syncToggles();
