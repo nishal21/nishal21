@@ -827,7 +827,20 @@ function embedAdapter(it) {
 }
 
 /* ---------- load an item ---------- */
-function setShape(s) { stage.dataset.shape = s; glowBox.dataset.shape = s; }
+function setShape(s) { stage.dataset.shape = s; glowBox.dataset.shape = s; fitYT(); }
+/* YouTube draws its own title bar along the top and a "More videos" strip along the bottom whenever the video
+   is paused, and the embed API has no switch for them. The frame is made taller than the stage, with the picture
+   exactly filling it, so those bars land in the part the stage clips off. The picture itself isn't cropped. */
+function fitYT() {
+  const W = stage.clientWidth, H = stage.clientHeight;
+  if (!W || !H) return;
+  const a = stage.dataset.shape === "tall" ? 9 / 16 : 16 / 9;
+  const vw = Math.min(W, H * a), vh = vw / a;
+  stage.style.setProperty("--yt-w", vw.toFixed(1) + "px");
+  stage.style.setProperty("--yt-h", vh.toFixed(1) + "px");
+  stage.style.setProperty("--yt-cut", clamp(Math.round(vh * 0.16), 56, 140) + "px");
+}
+if ("ResizeObserver" in window) new ResizeObserver(fitYT).observe(stage); else addEventListener("resize", fitYT);
 function setTitle(title, author) {
   $("#title").textContent = title;
   if (cur && !cur.title) cur.title = title;
@@ -1592,14 +1605,32 @@ $("#link").addEventListener("focus", () => {
    (within a quarter of a second, both playing or both paused). While either side buffers, seeks, plays
    an ad or changes speed the copy is hidden and the calm glow shows instead, and if the copy can't
    catch up within a few seconds it is dropped for that video. */
-const AMB_DEFAULTS = { v: 2, on: true, mode: "light", blur: 36, scale: 1.14, bright: 0.9, sat: 1.1, opacity: 0.55, tint: true };
+const AMB_DEFAULTS = { v: 4, on: true, mode: "live", reach: 180, blur: 36, bright: 1, sat: 1.25, opacity: 0.85, tint: true };
+// every slider's range; saved values are pulled back inside these so an old or edited setting can't blow the light up
+const AMB_RANGE = { reach: [16, 480], blur: [8, 80], bright: [0.4, 1.6], sat: [0.5, 2.5], opacity: [0.1, 1] };
 const LIVE_MAX = 0.25, LIVE_SHOW = 0.15;
 const amb = (() => {
   const saved = store.get("ambient", null);
-  let s = { ...AMB_DEFAULTS, ...(saved || {}) };
-  // the first version defaulted to a live copy that drifted and a much stronger, oval glow: start calm again
-  if (saved && saved.v !== 2) s = { ...AMB_DEFAULTS, on: saved.on !== false, tint: saved.tint !== false };
-  const ctx = glow.getContext("2d", { alpha: false });
+  let s = tidy(saved);
+  // the first version defaulted to a live copy that drifted and a much stronger, oval glow, so its values are dropped;
+  // version 2 had a Size slider that did nothing, so only its size is reset
+  function tidy(o) {
+    if (!o || typeof o !== "object") return { ...AMB_DEFAULTS };
+    const keep = { on: o.on !== false, tint: o.tint !== false };
+    if (o.v !== 2 && o.v !== 3 && o.v !== 4) return { ...AMB_DEFAULTS, ...keep };
+    // live copy became the default in version 4, so earlier saves move to it once
+    const t = { ...AMB_DEFAULTS, ...keep, mode: o.v === 4 && o.mode === "light" ? "light" : "live" };
+    for (const [k, [lo, hi]] of Object.entries(AMB_RANGE)) {
+      if (k === "reach" && o.v === 2) continue;
+      const v = Number(o[k]);
+      if (Number.isFinite(v)) t[k] = clamp(v, lo, hi);
+    }
+    return t;
+  }
+  // several copies of the same small frame, each scaled further out and blurred more (see .glow in video.css);
+  // they're 64x36 each, so drawing all of them costs next to nothing
+  const layers = [glow, ...[1, 2, 3].map(() => glow.parentNode.insertBefore(el("canvas", { width: 64, height: 36 }), glow.nextSibling))];
+  const ctxs = layers.map((c) => c.getContext("2d", { alpha: false })), ctx = ctxs[0];
   const tgt = el("canvas", { width: 64, height: 36 });
   const tctx = tgt.getContext("2d", { willReadFrequently: true });
   let source = null, colors = null, timer = 0, blendRaf = 0, blendLeft = 0, blendAlpha = 1, readable = true;
@@ -1610,7 +1641,7 @@ const amb = (() => {
   function applyVars() {
     const st = root.style;
     st.setProperty("--amb-blur", s.blur + "px");
-    st.setProperty("--amb-scale", s.scale);
+    st.setProperty("--amb-reach", s.reach + "px");
     st.setProperty("--amb-bright", s.bright);
     st.setProperty("--amb-sat", s.sat);
     st.setProperty("--amb-opacity", s.on ? s.opacity : 0);
@@ -1623,7 +1654,7 @@ const amb = (() => {
     for (const inp of $$("#amb-sliders input")) {
       const k = inp.dataset.k, v = s[k];
       inp.value = v;
-      $(`#amb-sliders output[data-for="${k}"]`).textContent = k === "blur" ? `${v}px` : k === "scale" ? `+${Math.round((v - 1) * 100)}%` : `${Math.round(v * 100)}%`;
+      $(`#amb-sliders output[data-for="${k}"]`).textContent = k === "blur" || k === "reach" ? `${v}px` : `${Math.round(v * 100)}%`;
     }
     $("#amb-note").textContent = (s.mode === "live"
       ? "Live copy plays a muted, low-quality duplicate of YouTube and Vimeo videos behind the player. It only shows while it's on the same frame, and uses more data."
@@ -1656,6 +1687,10 @@ const amb = (() => {
     };
     setColors([avg(0, 32), avg(32, 64)]);
   }
+  // the light is the current picture, drawn whole; CSS scales it out past the player, blurs it and fades its edges
+  function put(alpha) {
+    for (const c of ctxs) { c.globalAlpha = alpha; c.drawImage(tgt, 0, 0); c.globalAlpha = 1; }
+  }
   function draw(img, sx = 0, sy = 0, sw = img.naturalWidth || img.videoWidth, sh = img.naturalHeight || img.videoHeight) {
     if (!sw || !sh) return false;
     try { tctx.drawImage(img, sx, sy, sw, sh, 0, 0, 64, 36); return true; } catch { return false; }
@@ -1679,9 +1714,7 @@ const amb = (() => {
   function drawVideo(hard) {
     if (!active() || source?.type !== "video" || video.readyState < 2 || !draw(video)) return;
     lastVideoDraw = performance.now();
-    ctx.globalAlpha = hard || reduceMotion.matches ? 1 : 0.6; // a two-frame ease; never a visible trail
-    ctx.drawImage(tgt, 0, 0);
-    ctx.globalAlpha = 1;
+    put(hard || reduceMotion.matches ? 1 : 0.6); // a two-frame ease; never a visible trail
     if (hard || lastVideoDraw - lastColors > 500) { lastColors = lastVideoDraw; readColors(); }
   }
   function stopFollow() {
@@ -1744,9 +1777,7 @@ const amb = (() => {
   }
   function blend() {
     blendRaf = 0;
-    ctx.globalAlpha = blendAlpha;
-    ctx.drawImage(tgt, 0, 0);
-    ctx.globalAlpha = 1;
+    put(blendAlpha);
     if (--blendLeft > 0) blendRaf = requestAnimationFrame(blend);
   }
   function schedule() {
@@ -1789,8 +1820,7 @@ const amb = (() => {
     hardNext = true;
     setColors(colors || neutral);
     source = it.kind === "file" || it.kind === "hls" || it.kind === "dash" ? { type: "video" } : stills(it);
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, 64, 36);
+    for (const c of ctxs) { c.fillStyle = "#000"; c.fillRect(0, 0, 64, 36); }
     startMirror(it);
     kick();
     applyVars();
@@ -1968,7 +1998,7 @@ const amb = (() => {
   $("#a-on").addEventListener("click", () => { s.on = !s.on; save(); if (cur) setSource(cur); });
   $("#a-tint").addEventListener("click", () => { s.tint = !s.tint; save(); });
   $$("#ambient .amb-modes button").forEach((b) => b.addEventListener("click", () => { s.mode = b.dataset.mode; skipKey = ""; save(); if (cur) setSource(cur); }));
-  $$("#amb-sliders input").forEach((inp) => inp.addEventListener("input", () => { s[inp.dataset.k] = +inp.value; save(); }));
+  $$("#amb-sliders input").forEach((inp) => inp.addEventListener("input", () => { const k = inp.dataset.k, [lo, hi] = AMB_RANGE[k]; s[k] = clamp(+inp.value || AMB_DEFAULTS[k], lo, hi); save(); }));
   $("#a-reset").addEventListener("click", () => { s = { ...AMB_DEFAULTS }; skipKey = ""; save(); if (cur) setSource(cur); });
   applyVars();
   return {
@@ -2270,7 +2300,7 @@ const extras = (() => {
 
   /* offline shell: the page, styles, script, fonts and library work without a connection */
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
-    addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+    addEventListener("load", () => navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {}));
   }
 
   return { onLoad, chapterAt, abSet, snapshot, sleepAtEnd, get state() { return { chapters: chapters.length, ab: [abA, abB], sleep: SLEEP[sleepIdx], boost, mini: wrap.classList.contains("mini"), fill: stage.classList.contains("fill"), subs: !!userTrack, queue: customQueue?.slice(0, 3).map((x) => x.key) }; } };
@@ -2281,7 +2311,7 @@ async function boot() {
   syncVolUI(); syncRateUI(); syncToggles();
   $("#time").setAttribute("aria-label", prefs.remaining ? "Show elapsed time" : "Show time remaining");
   const [vids, hasClip, song] = await Promise.all([
-    fetch("videos.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch(document.querySelector('link[rel="preload"][href^="videos.json"]')?.getAttribute("href") || "videos.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
     fetch(CLIP.src, { method: "HEAD" }).then((r) => r.ok).catch(() => false),
     fetch("../player/contribution-song.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]);

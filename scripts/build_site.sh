@@ -23,6 +23,15 @@ if [ -f _site/player/share-clip.mp4 ]; then
   ffmpeg -loglevel error -y -ss 1 -i _site/player/share-clip.mp4 -frames:v 1 -vf scale=540:-2 -q:v 4 _site/video/clip-poster.jpg \
     || echo "clip poster not built"
 fi
+# Cache busting: point the pages at ?v=<hash of each file> so a deploy reaches browsers at once instead of
+# after GitHub Pages' 10-minute cache, and give the video page's service worker a new cache name.
+h() { if [ -f "$1" ]; then sha1sum "$1" | cut -c1-10; else echo none; fi; }
+sed -i -e "s/video\.css?v=dev/video.css?v=$(h _site/video/video.css)/" \
+       -e "s/video\.js?v=dev/video.js?v=$(h _site/video/video.js)/" \
+       -e "s/videos\.json?v=dev/videos.json?v=$(h _site/video/videos.json)/" _site/video/index.html
+sed -i -e "s/player\.css?v=dev/player.css?v=$(h _site/player/player.css)/" \
+       -e "s/player\.js?v=dev/player.js?v=$(h _site/player/player.js)/" _site/player/index.html
+sed -i "s/^const BUILD = \"dev\";/const BUILD = \"$(cat _site/video/index.html _site/video/sw.js | sha1sum | cut -c1-10)\";/" _site/video/sw.js
 cat > _site/index.html <<'HTML'
 <!doctype html><meta charset="utf-8"><title>Contribution song</title>
 <meta http-equiv="refresh" content="0; url=player/"><link rel="canonical" href="player/">
