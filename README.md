@@ -125,9 +125,16 @@ More edits and remixes on [my channel](https://www.youtube.com/@DemonKing0.___).
     <source media="(prefers-color-scheme: light)" srcset="assets/song-light.svg">
     <img src="assets/song-light.svg" alt="Contribution song: a 90-second track made from the last 12 months of contributions" height="155">
   </picture>
+  <a href="https://nishal21.github.io/nishal21/video/?v=trailer">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/trailer-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="assets/trailer-light.svg">
+      <img src="assets/trailer-light.svg" alt="Year trailer: a 45-second edit of my year on GitHub, cut on the beat of the contribution song" height="155">
+    </picture>
+  </a>
 </p>
 
-<p align="center"><a href="https://nishal21.github.io/nishal21/player/">Listen to the contribution song</a> · <a href="assets/contribution-song-lyrics.md">Lyrics</a> · <a href="https://nishal21.github.io/nishal21/player/contribution-song.mp3">Download MP3</a> · <a href="https://nishal21.github.io/nishal21/player/share-clip.mp4">Clip</a> · <a href="https://nishal21.github.io/nishal21/video/">Videos</a><br>Every bar is one week of my contribution calendar, and the lyrics come from the same numbers.</p>
+<p align="center"><a href="https://nishal21.github.io/nishal21/player/">Listen to the contribution song</a> · <a href="assets/contribution-song-lyrics.md">Lyrics</a> · <a href="https://nishal21.github.io/nishal21/player/contribution-song.mp3">Download MP3</a> · <a href="https://nishal21.github.io/nishal21/player/share-clip.mp4">Clip</a> · <a href="https://nishal21.github.io/nishal21/video/?v=trailer">Year trailer</a> · <a href="https://nishal21.github.io/nishal21/video/">Videos</a><br>Every bar is one week of my contribution calendar, and the lyrics come from the same numbers. You can also <a href="https://nishal21.github.io/nishal21/player/#remix">remix it</a>: mute parts, change the tempo, and share your mix as a link.</p>
 
 <p align="center">
   <picture>
