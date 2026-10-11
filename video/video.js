@@ -25,7 +25,7 @@ const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.crea
 
 const stage = $("#stage"), video = $("#video"), embedBox = $("#embed"), shield = $("#shield");
 const seek = $("#seek"), scrub = $("#scrub"), bigPlay = $("#big-play"), playBtn = $("#play");
-const glowBox = $(".glow"), glow = $("#glow");
+const glowBox = $(".glow");
 
 /* ---------- theme (same rules as the song player, shared localStorage key) ---------- */
 const schemeMeta = $('meta[name="color-scheme"]');
@@ -845,9 +845,11 @@ function fitYT() {
   if (!W || !H) return;
   const a = stage.dataset.shape === "tall" ? 9 / 16 : 16 / 9;
   const vw = Math.min(W, H * a), vh = vw / a;
-  stage.style.setProperty("--yt-w", vw.toFixed(1) + "px");
-  stage.style.setProperty("--yt-h", vh.toFixed(1) + "px");
-  stage.style.setProperty("--yt-cut", clamp(Math.round(vh * 0.16), 56, 140) + "px");
+  // on the wrapper, so the ambient light's copy of the video (in .glow) gets the same fit
+  const st = stage.parentNode.style;
+  st.setProperty("--yt-w", vw.toFixed(1) + "px");
+  st.setProperty("--yt-h", vh.toFixed(1) + "px");
+  st.setProperty("--yt-cut", clamp(Math.round(vh * 0.16), 56, 140) + "px");
 }
 if ("ResizeObserver" in window) new ResizeObserver(fitYT).observe(stage); else addEventListener("resize", fitYT);
 function setTitle(title, author) {
@@ -1606,54 +1608,129 @@ $("#link").addEventListener("focus", () => {
 });
 
 /* ---------- ambient light ----------
-   Video files, HLS, DASH and local files: the glow is drawn from the playing <video> itself on every
-   new frame (up to 30 a second), so it can't fall behind or drift. No second decoder is involved.
-   YouTube and Vimeo can't be read (cross-origin). Calm (the default) uses YouTube's preview frames or
-   the thumbnail, picked by the current position and crossfaded slowly. Live copy plays a muted,
-   low-quality duplicate behind the player; it is only shown while it is provably on the same frame
-   (within a quarter of a second, both playing or both paused). While either side buffers, seeks, plays
-   an ad or changes speed the copy is hidden and the calm glow shows instead, and if the copy can't
-   catch up within a few seconds it is dropped for that video. */
-const AMB_DEFAULTS = { v: 4, on: true, mode: "live", reach: 180, blur: 36, bright: 1, sat: 1.25, opacity: 0.85, tint: true };
+   Rendered by youtube-ambilight's own code (Wessel Kroos, MIT), vendored in vendor/ambilight/ with its license:
+   its WebGL projector (canvas 2D fallback), its levels, fade, blur and colour setup, its bar detection and its
+   video-frame sync. This part feeds it and keeps the settings.
+   Video files, HLS, DASH and local files: our own <video> goes straight in, on every presented frame and again right
+   after a seek. YouTube and Vimeo can't be read (cross-origin), so Live copy plays a muted duplicate behind the player
+   with the same scale, fade, blur and colour done in CSS. The copy only shows while it's provably on the same picture
+   (within a quarter of a second, both playing or both paused); otherwise YouTube's preview frames or the thumbnail go
+   through the extension's renderer until it's back in step. */
+const AMB_DEFAULTS = { v: 6, on: true, mode: "live", spread: 60, blur: 30, bright: 100, sat: 100, opacity: 100, tint: true };
 // every slider's range; saved values are pulled back inside these so an old or edited setting can't blow the light up
-const AMB_RANGE = { reach: [16, 480], blur: [8, 80], bright: [0.4, 1.6], sat: [0.5, 2.5], opacity: [0.1, 1] };
+const AMB_RANGE = { spread: [0, 400], blur: [0, 100], bright: [20, 200], sat: [0, 200], opacity: [10, 100] };
+const AMB_EDGE = 12, AMB_INNER = 2, AMB_FADE_START = 0.25, AMB_FADE_CURVE = 35;
 const LIVE_MAX = 0.25, LIVE_SHOW = 0.15;
 const amb = (() => {
-  const saved = store.get("ambient", null);
-  let s = tidy(saved);
-  // the first version defaulted to a live copy that drifted and a much stronger, oval glow, so its values are dropped;
-  // version 2 had a Size slider that did nothing, so only its size is reset
+  let s = tidy(store.get("ambient", null));
+  // version 5 changed what every slider means, so older saves keep only on/off, Tint and the source;
+  // version 6 raised the default size, so a version 5 save that still had the old default moves to the new one
   function tidy(o) {
     if (!o || typeof o !== "object") return { ...AMB_DEFAULTS };
-    const keep = { on: o.on !== false, tint: o.tint !== false };
-    if (o.v !== 2 && o.v !== 3 && o.v !== 4) return { ...AMB_DEFAULTS, ...keep };
-    // live copy became the default in version 4, so earlier saves move to it once
-    const t = { ...AMB_DEFAULTS, ...keep, mode: o.v === 4 && o.mode === "light" ? "light" : "live" };
-    for (const [k, [lo, hi]] of Object.entries(AMB_RANGE)) {
-      if (k === "reach" && o.v === 2) continue;
+    const t = { ...AMB_DEFAULTS, on: o.on !== false, tint: o.tint !== false, mode: o.v >= 4 && o.mode === "light" ? "light" : "live" };
+    if (o.v === 5 || o.v === 6) for (const [k, [lo, hi]] of Object.entries(AMB_RANGE)) {
       const v = Number(o[k]);
       if (Number.isFinite(v)) t[k] = clamp(v, lo, hi);
     }
+    if (o.v === 5 && t.spread === 17) t.spread = AMB_DEFAULTS.spread;
     return t;
   }
-  // several copies of the same small frame, each scaled further out and blurred more (see .glow in video.css);
-  // they're 64x36 each, so drawing all of them costs next to nothing
-  const layers = [glow, ...[1, 2, 3].map(() => glow.parentNode.insertBefore(el("canvas", { width: 64, height: 36 }), glow.nextSibling))];
-  const ctxs = layers.map((c) => c.getContext("2d", { alpha: false })), ctx = ctxs[0];
-  const tgt = el("canvas", { width: 64, height: 36 });
-  const tctx = tgt.getContext("2d", { willReadFrequently: true });
-  let source = null, colors = null, timer = 0, blendRaf = 0, blendLeft = 0, blendAlpha = 1, readable = true;
-  let stillKey = "", lastColors = 0, vfc = 0, vraf = 0, lastVideoDraw = 0, hardNext = true;
+
+  /* ----- the renderer: youtube-ambilight's own projector code (vendor/ambilight), fed by us ----- */
+  // our setting -> the extension's setting of the same meaning; everything else keeps the extension's default
+  const extSettings = () => ({
+    spread: s.spread, blur2: s.blur, brightness: s.bright, saturation: s.sat,
+    spreadFadeStart: AMB_FADE_START * 100, spreadFadeCurve: AMB_FADE_CURVE, edge: AMB_EDGE,
+    detectHorizontalBarSizeEnabled: true, detectVerticalBarSizeEnabled: true,
+    assetsUrl: new URL("vendor/ambilight/", location.href).href,
+  });
+  let ambi = null, ambiReady = false;
+  const Ext = window.YTAmbilight;
+  if (Ext) {
+    ambi = new Ext.Ambilight({ container: glowBox, videoContainerElem: stage, videoElem: video, settings: extSettings(), onWarning: (t) => t && console.warn("ambient light:", t) });
+    ambi.init().then(() => { ambiReady = true; relayout(); }).catch((e) => { console.warn("ambient light unavailable", e); ambi = null; });
+  }
+  // stills (YouTube preview frames, thumbnails, colours) are crossfaded here first, then handed to the renderer
+  const src = el("canvas", { width: 320, height: 180 }), sctx = src.getContext("2d");
+  const probe = el("canvas", { width: 16, height: 9 }), pctx = probe.getContext("2d", { willReadFrequently: true });
+  const mask = el("canvas"), mctx = mask.getContext("2d");
+  const mirrorBox = el("div", { className: "amb-mirror" }), mirrorIn = el("div", { className: "amb-mirror-in" });
+  mirrorBox.append(mirrorIn);
+  glowBox.append(mirrorBox);
+  let g = null, maskKey = "", lastKey = "";
+  let lastSrc = null;
+
+  // The live copy can't be drawn into a canvas, so it gets the same geometry in CSS: scaled to the extension's
+  // outermost level, faded with the same curve as its shadow, blurred like its canvas-2D renderer.
+  function layout() {
+    const W = stage.offsetWidth, H = stage.offsetHeight;
+    if (!W || !H) return false;
+    const levels = Math.max(2, Math.round(s.spread / AMB_EDGE) + AMB_INNER + 1);
+    const step = AMB_EDGE / 100, pos = levels - 1 - AMB_INNER;
+    const rx = W >= H ? 1 : H / W, ry = W >= H ? W / H : 1;
+    const S = { x: 1 + step * rx * pos, y: 1 + step * ry * pos };
+    const dispBlur = H * 0.0025 * s.blur;
+    g = { W, H, x0: stage.offsetLeft, y0: stage.offsetTop, levels, S, dispBlur };
+    makeMask();
+    Object.assign(mirrorBox.style, { left: g.x0 + "px", top: g.y0 + "px", width: W + "px", height: H + "px" });
+    mirrorIn.style.transform = `scale(${S.x.toFixed(4)}, ${S.y.toFixed(4)})`;
+    glowBox.style.setProperty("--amb-mirror-blur", dispBlur.toFixed(1) + "px");
+    const key = JSON.stringify(extSettings()) + W + "x" + H;
+    if (ambi && ambiReady && key !== lastKey) { lastKey = key; ambi.setSettings(extSettings()); return true; }
+    return false;
+  }
+  // projector-shadow.js's fade, as an alpha mask for the live copy (1 = light)
+  function makeMask() {
+    const key = [g.S.x, g.S.y].map((v) => v.toFixed(4)).join();
+    if (key === maskKey) return;
+    maskKey = key;
+    const N = 256;
+    mask.width = mask.height = N;
+    const E = 16 / (AMB_FADE_CURVE * 0.64);
+    const axis = (Sc) => {
+      const a = (Sc - 1) / (2 * Sc), f = AMB_FADE_START, row = new Float32Array(N);
+      for (let i = 0; i < N; i++) {
+        const x = (i + 0.5) / N, d = Math.min(x, 1 - x);
+        const u = a > 0 ? (a - d) / a : -1;
+        row[i] = u <= f ? 1 : 1 - Math.pow(Math.min(1, (u - f) / (1 - f)), E);
+      }
+      return row;
+    };
+    const hx = axis(g.S.x), vy = axis(g.S.y), img = mctx.createImageData(N, N), px = img.data;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) px[(y * N + x) * 4 + 3] = Math.round(255 * hx[x] * vy[y]);
+    mctx.putImageData(img, 0, 0);
+    const url = mask.toDataURL();
+    mirrorIn.style.maskImage = mirrorIn.style.webkitMaskImage = `url("${url}")`;
+  }
+  // stage a still (alpha < 1 crossfades)
+  function grab(img, sx, sy, sw, sh, alpha = 1) {
+    if (!sw || !sh) return false;
+    sctx.globalAlpha = alpha;
+    try { sctx.drawImage(img, sx, sy, sw, sh, 0, 0, 320, 180); } catch { sctx.globalAlpha = 1; return false; }
+    sctx.globalAlpha = 1;
+    lastSrc = src;
+    return true;
+  }
+  function render(from = src) {
+    if (!ambi || !ambiReady) return false;
+    let ok = false;
+    try { ok = ambi.draw(from); } catch (e) { console.warn("ambient light draw", e); }
+    if (ok) draws++;
+    return ok;
+  }
+  let draws = 0, cost = 0, skip = 0;
+
+  /* ----- settings ----- */
+  let source = null, colors = null, timer = 0, blendRaf = 0, blendLeft = 0, readable = true;
+  let stillKey = "", lastColors = 0, vraf = 0, lastVideoDraw = 0, lastMediaTime = -1, hardNext = true;
   let mirror = null, mirrorTimer = 0, drift = 0, seeks = 0, skipKey = "", note = "";
   const neutral = ["#6b6f78", "#3a3d44"];
 
   function applyVars() {
     const st = root.style;
-    st.setProperty("--amb-blur", s.blur + "px");
-    st.setProperty("--amb-reach", s.reach + "px");
-    st.setProperty("--amb-bright", s.bright);
-    st.setProperty("--amb-sat", s.sat);
-    st.setProperty("--amb-opacity", s.on ? s.opacity : 0);
+    st.setProperty("--amb-bright", s.bright / 100);
+    st.setProperty("--amb-sat", s.sat / 100);
+    st.setProperty("--amb-opacity", s.on ? s.opacity / 100 : 0);
     document.body.classList.toggle("no-ambient", !s.on);
     $(".backdrop").style.setProperty("--tint", s.on && s.tint ? 1 : 0);
     $("#m-ambient-state").textContent = (s.on ? (s.mode === "live" ? "Live copy" : "Calm") : "Off") + " ›";
@@ -1663,7 +1740,7 @@ const amb = (() => {
     for (const inp of $$("#amb-sliders input")) {
       const k = inp.dataset.k, v = s[k];
       inp.value = v;
-      $(`#amb-sliders output[data-for="${k}"]`).textContent = k === "blur" || k === "reach" ? `${v}px` : `${Math.round(v * 100)}%`;
+      $(`#amb-sliders output[data-for="${k}"]`).textContent = k === "blur" ? String(Math.round(v)) : `${Math.round(v)}%`;
     }
     $("#amb-note").textContent = (s.mode === "live"
       ? "Live copy plays a muted, low-quality duplicate of YouTube and Vimeo videos behind the player. It only shows while it's on the same frame, and uses more data."
@@ -1673,36 +1750,30 @@ const amb = (() => {
   function sourceText() {
     if (!s.on) return "";
     if (note) return note;
-    if (mirror) return mirror.visible ? "Now: a muted copy, in step with the picture." : "Now: lining up the copy; the calm glow shows until it's in step.";
+    if (mirror) return mirror.visible ? "Now: a muted copy, in step with the picture." : "Now: lining up the copy; preview frames show until it's in step.";
     const t = source?.type;
-    if (t === "video") return readable ? "Now: the real picture, frame by frame." : "Now: this server doesn't let the page read the picture, so the colours are fixed.";
+    if (t === "video") return "Now: the real picture, frame by frame.";
     if (t === "sprite" || t === "frames") return source.n > 1 || source.frames?.length > 1 ? "Now: preview frames, picked by position." : "Now: the thumbnail, one colour for the whole video.";
     return "Now: a neutral glow, because this site shares no picture.";
   }
-  function save() { store.set("ambient", s); applyVars(); }
+  function save() { store.set("ambient", s); applyVars(); relayout(); }
+  function relayout() { if (layout()) hardNext = true; redraw(); }
+  // the page tint follows two colours read from the picture, twice a second (never in the per-frame path)
   function setColors(c) { root.style.setProperty("--amb1", c[0]); root.style.setProperty("--amb2", c[1] || c[0]); }
   function readColors() {
-    if (!readable) return;
+    if (!readable || !g) return;
     let px;
-    try { px = tctx.getImageData(0, 0, 64, 36).data; } catch { readable = false; setColors(colors || neutral); applyVars(); return; }
+    try { pctx.drawImage(lastSrc || src, 0, 0, 16, 9); px = pctx.getImageData(0, 0, 16, 9).data; } catch { readable = false; setColors(colors || neutral); return; }
     const avg = (x0, x1) => {
-      let r = 0, g = 0, b = 0, w = 0;
-      for (let y = 0; y < 36; y += 2) for (let x = x0; x < x1; x += 2) {
-        const i = (y * 64 + x) * 4, R = px[i], G = px[i + 1], B = px[i + 2];
+      let r = 0, gg = 0, b = 0, w = 0;
+      for (let y = 0; y < 9; y++) for (let x = x0; x < x1; x++) {
+        const i = (y * 16 + x) * 4, R = px[i], G = px[i + 1], B = px[i + 2];
         const wt = 0.2 + (Math.max(R, G, B) - Math.min(R, G, B)) / 255 + (Math.max(R, G, B) > 40 ? 0.3 : 0);
-        r += R * wt; g += G * wt; b += B * wt; w += wt;
+        r += R * wt; gg += G * wt; b += B * wt; w += wt;
       }
-      return `rgb(${(r / w) | 0} ${(g / w) | 0} ${(b / w) | 0})`;
+      return `rgb(${(r / w) | 0} ${(gg / w) | 0} ${(b / w) | 0})`;
     };
-    setColors([avg(0, 32), avg(32, 64)]);
-  }
-  // the light is the current picture, drawn whole; CSS scales it out past the player, blurs it and fades its edges
-  function put(alpha) {
-    for (const c of ctxs) { c.globalAlpha = alpha; c.drawImage(tgt, 0, 0); c.globalAlpha = 1; }
-  }
-  function draw(img, sx = 0, sy = 0, sw = img.naturalWidth || img.videoWidth, sh = img.naturalHeight || img.videoHeight) {
-    if (!sw || !sh) return false;
-    try { tctx.drawImage(img, sx, sy, sw, sh, 0, 0, 64, 36); return true; } catch { return false; }
+    setColors([avg(0, 8), avg(8, 16)]);
   }
   const okImg = (img) => img.complete && img.naturalWidth > 0;
   function pickFrame(t, d) {
@@ -1717,77 +1788,101 @@ const amb = (() => {
     if (source?.type === "sprite") return cur?.thumb || null;
     return null;
   }
+  const shown = () => !!glowBox.offsetWidth && !fsEl() && !prefs.theater;
   const active = () => s.on && !document.hidden && !!cur;
 
-  /* the real picture: one draw per presented frame, capped at ~30 a second */
+  /* ----- the real picture: one draw per presented frame ----- */
   function drawVideo(hard) {
-    if (!active() || source?.type !== "video" || video.readyState < 2 || !draw(video)) return;
+    if (!active() || source?.type !== "video" || video.readyState < 2 || !g) return;
+    if (!shown()) return;
+    // a slow device (over 8 ms a frame, averaged) draws every other frame instead of holding the video back
+    if (!hard && cost > 8 && ++skip % 2) return;
+    const t0 = performance.now();
+    if (!render(video)) return;
+    lastSrc = video;
     lastVideoDraw = performance.now();
-    put(hard || reduceMotion.matches ? 1 : 0.6); // a two-frame ease; never a visible trail
+    cost = cost * 0.9 + (lastVideoDraw - t0) * 0.1;
     if (hard || lastVideoDraw - lastColors > 500) { lastColors = lastVideoDraw; readColors(); }
   }
+  let unfollow = null;
   function stopFollow() {
-    if (vfc) video.cancelVideoFrameCallback?.(vfc);
+    unfollow?.();
+    unfollow = null;
     cancelAnimationFrame(vraf);
-    vfc = vraf = 0;
+    vraf = 0;
   }
   function follow() {
     stopFollow();
     if (!active() || source?.type !== "video") return;
-    if (video.requestVideoFrameCallback) {
-      const step = () => {
-        vfc = video.requestVideoFrameCallback(step);
-        if (performance.now() - lastVideoDraw >= 30 || hardNext) { drawVideo(hardNext); hardNext = false; }
-      };
-      vfc = video.requestVideoFrameCallback(step);
-    } else {
+    // the extension's video-frame sync (requestVideoFrameCallback with a pre-scheduled callback)
+    unfollow = Ext?.followVideoFrames(video, (now, meta) => {
+      lastMediaTime = meta?.mediaTime ?? video.currentTime;
+      drawVideo(hardNext);
+      hardNext = false;
+    }) || null;
+    if (!unfollow) {
+      // no frame callback (older Safari/Firefox): check every display frame and draw when the picture moved
+      let last = -1;
       const step = () => {
         vraf = requestAnimationFrame(step);
-        if (!video.paused && performance.now() - lastVideoDraw >= 30) drawVideo(false);
+        const t = video.currentTime;
+        if (t !== last || hardNext) { last = t; lastMediaTime = t; drawVideo(hardNext); hardNext = false; }
       };
       vraf = requestAnimationFrame(step);
     }
     drawVideo(true);
   }
-  // a jump in the picture (seek, new source, loop) replaces the glow at once instead of easing
+  // a jump in the picture (seek, new source, loop) redraws at once, even while paused
   for (const ev of ["seeked", "loadeddata", "emptied"]) video.addEventListener(ev, () => { hardNext = true; if (P?.native) drawVideo(true); });
   video.addEventListener("seeking", () => { hardNext = true; });
 
-  /* stills for YouTube, Vimeo and the rest: chosen by position, crossfaded over about a second */
+  /* ----- stills for YouTube, Vimeo and the rest: chosen by position, crossfaded over about a second ----- */
   function sampleStill(force) {
-    if (!active() || source?.type === "video" || mirror?.visible) return;
+    if (!active() || source?.type === "video" || mirror?.visible || !g || !shown()) return;
     const t = P?.t || 0, d = P?.d || 0;
-    let ok = false, key = "";
+    let ok = false, key = "", draw = null;
     if (source?.type === "sprite") {
       const sp = source;
       if (okImg(sp.img)) {
         const i = clamp(Math.floor(sp.step ? t / sp.step : (d ? t / d : 0) * sp.n), 0, sp.n - 1);
         key = "s" + i;
-        ok = key === stillKey && !force ? null : draw(sp.img, (i % sp.cols) * sp.w, Math.floor(i / sp.cols) * sp.h, sp.w, sp.h);
+        draw = (a) => grab(sp.img, (i % sp.cols) * sp.w, Math.floor(i / sp.cols) * sp.h, sp.w, sp.h, a);
       }
     } else if (source?.type === "frames") {
       const fr = pickFrame(t, d);
-      if (fr) { key = fr.img.src; ok = key === stillKey && !force ? null : draw(fr.img); }
+      if (fr) { key = fr.img.src; draw = (a) => grab(fr.img, 0, 0, fr.img.naturalWidth, fr.img.naturalHeight, a); }
     }
-    if (ok === null) return; // same still as before
-    if (!ok) {
+    if (!draw) {
       key = "c";
-      if (key === stillKey && !force) return;
-      const c = colors || neutral, g = tctx.createLinearGradient(0, 0, 64, 36);
-      g.addColorStop(0, c[0]); g.addColorStop(1, c[1] || c[0]);
-      tctx.fillStyle = g; tctx.fillRect(0, 0, 64, 36);
+      draw = (a) => {
+        const c = colors || neutral, gr = sctx.createLinearGradient(0, 0, 320, 180);
+        gr.addColorStop(0, c[0]); gr.addColorStop(1, c[1] || c[0]);
+        sctx.globalAlpha = a; sctx.fillStyle = gr; sctx.fillRect(0, 0, 320, 180); sctx.globalAlpha = 1; lastSrc = src;
+        return true;
+      };
     }
-    const first = !stillKey;
+    if (key === stillKey && !force) return;
+    const first = !stillKey || force === "hard";
     stillKey = key;
+    blend.draw = draw;
+    blendLeft = first || reduceMotion.matches ? 1 : 60;
+    blend.alpha = first || reduceMotion.matches ? 1 : 0.06;
+    ok = draw(blend.alpha);
+    if (!ok) return;
+    render();
     readColors();
-    blendAlpha = first || reduceMotion.matches ? 1 : 0.05;
-    blendLeft = first || reduceMotion.matches ? 1 : 80;
-    if (!blendRaf) blendRaf = requestAnimationFrame(blend);
+    if (blendLeft > 1 && !blendRaf) blendRaf = requestAnimationFrame(blend);
   }
   function blend() {
     blendRaf = 0;
-    put(blendAlpha);
+    if (mirror?.visible || !blend.draw) return;
+    blend.draw(blend.alpha);
+    render();
     if (--blendLeft > 0) blendRaf = requestAnimationFrame(blend);
+  }
+  function redraw() {
+    if (source?.type === "video") drawVideo(true);
+    else sampleStill("hard");
   }
   function schedule() {
     clearInterval(timer);
@@ -1800,12 +1895,12 @@ const amb = (() => {
   }
   function kick() { schedule(); mirrorTick(true); }
 
-  function img(src, cors) {
+  function img(url, cors) {
     const i = new Image();
     if (cors) i.crossOrigin = "anonymous";
     i.decoding = "async";
     i.addEventListener("load", () => sampleStill(true), { once: true });
-    i.src = src;
+    i.src = url;
     return i;
   }
   function stills(it) {
@@ -1829,7 +1924,9 @@ const amb = (() => {
     hardNext = true;
     setColors(colors || neutral);
     source = it.kind === "file" || it.kind === "hls" || it.kind === "dash" ? { type: "video" } : stills(it);
-    for (const c of ctxs) { c.fillStyle = "#000"; c.fillRect(0, 0, 64, 36); }
+    layout();
+    sctx.fillStyle = "#000"; sctx.fillRect(0, 0, 320, 180);
+    ambi?.clear(); ambi?.resetBars?.();
     startMirror(it);
     kick();
     applyVars();
@@ -1842,24 +1939,27 @@ const amb = (() => {
     sampleStill(true);
     applyVars();
   }
+  if ("ResizeObserver" in window) new ResizeObserver(() => relayout()).observe(stage);
+  addEventListener("resize", () => relayout());
 
   /* ----- Live copy (YouTube and Vimeo only) ----- */
   function wantMirror(it) {
     return servedFromWeb && s.on && s.mode === "live" && (it.kind === "youtube" || it.kind === "vimeo") && it.id && !prefs.theater && skipKey !== it.key;
   }
-  function mirrorFrame(src) {
-    const f = frame(src, "Ambient light (decorative copy)");
+  function mirrorFrame(url, kind) {
+    const f = frame(url, "Ambient light (decorative copy)");
     f.className = "mirror";
     f.tabIndex = -1;
     f.setAttribute("aria-hidden", "true");
-    glowBox.append(f);
+    mirrorBox.dataset.kind = kind;
+    mirrorIn.append(f);
     return f;
   }
   function startMirror(it) {
     if (!wantMirror(it)) return;
     const base = { item: it, ready: false, visible: false, okSince: 0, badSince: 0, seekAt: 0, settled: true, lead: 0.2, last: null, mainLast: null };
     if (it.kind === "youtube") {
-      const m = (mirror = { ...base, kind: "yt", frame: mirrorFrame(ytSrc(it, true)), state: -1 });
+      const m = (mirror = { ...base, kind: "yt", frame: mirrorFrame(ytSrc(it, true), "youtube"), state: -1 });
       loadYT().then(() => {
         if (mirror !== m) return;
         m.player = new window.YT.Player(m.frame, {
@@ -1871,7 +1971,7 @@ const amb = (() => {
         });
       }).catch(() => { if (mirror === m) giveUp(""); });
     } else {
-      const m = (mirror = { ...base, kind: "vimeo", frame: mirrorFrame(vimeoSrc(it, true)), t: 0, tAt: 0, paused: true, buffering: false, rate: 1 });
+      const m = (mirror = { ...base, kind: "vimeo", frame: mirrorFrame(vimeoSrc(it, true), "vimeo"), t: 0, tAt: 0, paused: true, buffering: false, rate: 1 });
       m.off = vimeoListen(m.frame, (msg) => {
         const d = msg.data || {};
         if (msg.event === "ready") { m.ready = true; vimeoPost(m.frame, "setVolume", 0); mirrorTick(true); }
@@ -1898,7 +1998,7 @@ const amb = (() => {
     mirror.frame?.remove();
     mirror = null;
     glowBox.classList.remove("mirroring");
-    $$(".glow .mirror").forEach((x) => x.remove());
+    mirrorIn.replaceChildren();
   }
   function giveUp(why) {
     if (!mirror) return;
@@ -1913,7 +2013,7 @@ const amb = (() => {
     if (m.visible === on) return;
     m.visible = on;
     glowBox.classList.toggle("mirroring", on);
-    if (!on) { stillKey = ""; sampleStill(true); }
+    if (!on) { stillKey = ""; sampleStill("hard"); }
     applyVars();
   }
   // where each side is: "play", "pause", "buffer" or "end"
@@ -2007,16 +2107,20 @@ const amb = (() => {
   $("#a-on").addEventListener("click", () => { s.on = !s.on; save(); if (cur) setSource(cur); });
   $("#a-tint").addEventListener("click", () => { s.tint = !s.tint; save(); });
   $$("#ambient .amb-modes button").forEach((b) => b.addEventListener("click", () => { s.mode = b.dataset.mode; skipKey = ""; save(); if (cur) setSource(cur); }));
-  $$("#amb-sliders input").forEach((inp) => inp.addEventListener("input", () => { const k = inp.dataset.k, [lo, hi] = AMB_RANGE[k]; s[k] = clamp(+inp.value || AMB_DEFAULTS[k], lo, hi); save(); }));
+  $$("#amb-sliders input").forEach((inp) => inp.addEventListener("input", () => { const k = inp.dataset.k, [lo, hi] = AMB_RANGE[k], v = parseFloat(inp.value); s[k] = clamp(Number.isFinite(v) ? v : AMB_DEFAULTS[k], lo, hi); save(); }));
   $("#a-reset").addEventListener("click", () => { s = { ...AMB_DEFAULTS }; skipKey = ""; save(); if (cur) setSource(cur); });
+  layout();
   applyVars();
   return {
     setSource, updateStills, kick, stopMirror, frameAt,
     sync() { mirrorTick(true); },
     // a seek on the main player hides the copy at once and lines it up again
-    seeked(t) { if (mirror?.ready) { show(mirror, false); seekMirror(mirror, t); } stillKey = ""; },
-    refresh() { if (cur && (cur.kind === "youtube" || cur.kind === "vimeo")) setSource(cur); },
-    get stats() { return { mode: s.mode, on: s.on, mirroring: !!mirror?.ready, visible: !!mirror?.visible, drift, seeks, lead: mirror?.lead, source: source?.type || (colors ? "colors" : "neutral"), lastDraw: lastVideoDraw }; },
+    seeked(t) { if (mirror?.ready) { show(mirror, false); seekMirror(mirror, t); } stillKey = ""; hardNext = true; },
+    refresh() { relayout(); if (cur && (cur.kind === "youtube" || cur.kind === "vimeo")) setSource(cur); },
+    get stats() {
+      return { mode: s.mode, on: s.on, mirroring: !!mirror?.ready, visible: !!mirror?.visible, drift, seeks, lead: mirror?.lead, source: source?.type || (colors ? "colors" : "neutral"),
+        lastDraw: lastVideoDraw, lastMediaTime, draws, msPerDraw: +cost.toFixed(2), levels: ambi?.levels, scale: ambi?.lastScale && [+ambi.lastScale.x.toFixed(3), +ambi.lastScale.y.toFixed(3)], p: ambi?.p, renderer: ambi?.type || "none", bars: ambi && [ambi.settings.horizontalBarsClipPercentage, ambi.settings.verticalBarsClipPercentage], settings: { ...s } };
+    },
   };
 })();
 

@@ -39,7 +39,7 @@
   --emph: cubic-bezier(0.2, 0, 0, 1);
 
   /* ambient light settings (video.js writes these from the settings panel) */
-  --amb-blur: 36px; --amb-reach: 180px; --amb-bright: 1; --amb-sat: 1.25; --amb-opacity: 0.85;
+  --amb-bright: 1; --amb-sat: 1; --amb-opacity: 1;
   --amb1: transparent; --amb2: transparent;
   transition: --amb1 1.4s linear, --amb2 1.4s linear;
 }
@@ -79,7 +79,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .backdrop::before {
   content: ""; position: absolute; inset: 0;
   background:
-    linear-gradient(to bottom, color-mix(in oklab, var(--amb1) calc(5% + var(--dark) * 9%), transparent), color-mix(in oklab, var(--amb2) calc(3% + var(--dark) * 5%), transparent) 55vh, transparent 110vh);
+    linear-gradient(to bottom, color-mix(in oklab, var(--amb1) calc(10% + var(--dark) * 16%), transparent), color-mix(in oklab, var(--amb2) calc(7% + var(--dark) * 11%), transparent) 60vh, color-mix(in oklab, var(--amb2) calc(3% + var(--dark) * 5%), transparent) 120vh);
   opacity: var(--tint, 1); transition: opacity 0.8s;
 }
 .backdrop::after {
@@ -142,51 +142,61 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 }
 
 /* ---------- the stage ---------- */
-/* Ambient light, ambilight style: a blurred copy of the picture, scaled out past every side of the player, strongest
-   at the frame and fading gradually, out to the Size setting (a subtle rim up to most of the page). The shape is
-   the player's rectangle grown evenly on all sides, never an ellipse. It stays behind the page content (z-index -1),
-   so text and Up next always sit on top of it. */
+/* Ambient light (see the ambient light section of video.js). The light itself is youtube-ambilight's renderer
+   (vendor/ambilight, MIT, Wessel Kroos), which builds .ambientlight__container > filter > clip > projectors >
+   projector-list and does its own sizes, fade, blur and colour. The rules for those elements below are adapted from
+   the extension's content.scss; its container is page-sized, ours spills well past the stage instead.
+   The live copy of YouTube and Vimeo goes through the same steps in CSS: scaled out (.amb-mirror-in),
+   faded with the same mask, then blurred and coloured (.amb-mirror). It stays behind the page content (z-index -1). */
 .glow {
-  --reach: clamp(16px, var(--amb-reach), 480px); /* how far past the frame the light goes (the Size slider) */
-  position: absolute; inset: calc(var(--reach) * -1); z-index: -1; pointer-events: none;
-  opacity: calc(var(--amb-opacity) * (0.45 + var(--dark) * 0.55)); /* gentler in light mode, as on YouTube */
+  position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  opacity: calc(var(--amb-opacity) * (0.8 + var(--dark) * 0.2)); /* a little gentler on the light page */
   transition: opacity 0.8s;
-  -webkit-mask-image: linear-gradient(to right, transparent, rgb(0 0 0 / 0.2) calc(var(--reach) * 0.25), rgb(0 0 0 / 0.52) calc(var(--reach) * 0.55), rgb(0 0 0 / 0.84) calc(var(--reach) * 0.82), #000 var(--reach), #000 calc(100% - var(--reach)), rgb(0 0 0 / 0.84) calc(100% - var(--reach) * 0.82), rgb(0 0 0 / 0.52) calc(100% - var(--reach) * 0.55), rgb(0 0 0 / 0.2) calc(100% - var(--reach) * 0.25), transparent),
-                      linear-gradient(to bottom, transparent, rgb(0 0 0 / 0.2) calc(var(--reach) * 0.25), rgb(0 0 0 / 0.52) calc(var(--reach) * 0.55), rgb(0 0 0 / 0.84) calc(var(--reach) * 0.82), #000 var(--reach), #000 calc(100% - var(--reach)), rgb(0 0 0 / 0.84) calc(100% - var(--reach) * 0.82), rgb(0 0 0 / 0.52) calc(100% - var(--reach) * 0.55), rgb(0 0 0 / 0.2) calc(100% - var(--reach) * 0.25), transparent);
-  -webkit-mask-composite: source-in;
-  mask-image: linear-gradient(to right, transparent, rgb(0 0 0 / 0.2) calc(var(--reach) * 0.25), rgb(0 0 0 / 0.52) calc(var(--reach) * 0.55), rgb(0 0 0 / 0.84) calc(var(--reach) * 0.82), #000 var(--reach), #000 calc(100% - var(--reach)), rgb(0 0 0 / 0.84) calc(100% - var(--reach) * 0.82), rgb(0 0 0 / 0.52) calc(100% - var(--reach) * 0.55), rgb(0 0 0 / 0.2) calc(100% - var(--reach) * 0.25), transparent),
-              linear-gradient(to bottom, transparent, rgb(0 0 0 / 0.2) calc(var(--reach) * 0.25), rgb(0 0 0 / 0.52) calc(var(--reach) * 0.55), rgb(0 0 0 / 0.84) calc(var(--reach) * 0.82), #000 var(--reach), #000 calc(100% - var(--reach)), rgb(0 0 0 / 0.84) calc(100% - var(--reach) * 0.82), rgb(0 0 0 / 0.52) calc(100% - var(--reach) * 0.55), rgb(0 0 0 / 0.2) calc(100% - var(--reach) * 0.25), transparent);
-  mask-composite: intersect;
+  --amb-filter: brightness(var(--amb-bright)) saturate(var(--amb-sat));
 }
-/* The light is four copies of the same frame stacked behind the player, each one scaled further out (--f, a share of
-   the reach), blurred more (--b) and fainter (--o) than the one inside it, the way the ambilight extension builds it.
-   Many soft steps blend into one smooth, wide spread with no bands; the mask on .glow fades the outside evenly. */
-.glow > canvas {
-  position: absolute; left: calc(var(--reach) * (1 - var(--f))); top: calc(var(--reach) * (1 - var(--f)));
-  width: calc(100% - 2 * var(--reach) * (1 - var(--f))); height: calc(100% - 2 * var(--reach) * (1 - var(--f)));
-  opacity: var(--o);
-  filter: blur(calc(var(--amb-blur) * 0.5 + var(--reach) * var(--b))) saturate(var(--amb-sat)) brightness(calc(var(--amb-bright) * (0.8 + var(--dark) * 0.2)));
+.ambientlight__container, .ambientlight__filter, .ambientlight__projector-list, .ambientlight__projector,
+.ambientlight__shadow, .ambientlight__clip, .ambientlight__projectors { position: absolute; width: 100%; height: 100%; }
+.ambientlight__container {
+  inset: -100vmax; width: auto; height: auto; display: block;
+  pointer-events: none; user-select: none; transition: opacity 0.3s;
 }
-.glow > canvas:nth-of-type(1) { --f: 1;    --b: 0.3;  --o: 0.5; }
-.glow > canvas:nth-of-type(2) { --f: 0.7;  --b: 0.2;  --o: 0.65; }
-.glow > canvas:nth-of-type(3) { --f: 0.45; --b: 0.12; --o: 0.82; }
-.glow > canvas:nth-of-type(4) { --f: 0.2;  --b: 0.06; --o: 1; }
-/* the live copy (YouTube or Vimeo playing muted behind) can't stretch its edges, so it's scaled out instead */
-.glow > .mirror {
-  position: absolute; inset: calc(var(--reach) * 0.3); width: calc(100% - var(--reach) * 0.6); height: calc(100% - var(--reach) * 0.6); border: 0; border-radius: 16px;
-  filter: blur(calc(var(--amb-blur) + var(--reach) * 0.15)) saturate(var(--amb-sat)) brightness(calc(var(--amb-bright) * (0.8 + var(--dark) * 0.2)));
+.ambientlight__filter, .ambientlight__clip, .ambientlight__projector-list { left: 0; top: 0; }
+.ambientlight__container::before {
+  content: var(--ytal-debanding-content, none); position: absolute; z-index: 2; width: 100%; height: 100%; left: 0; top: 0;
+  background: var(--ytal-debanding-background, none); opacity: var(--ytal-debanding-opacity, 0);
+  mix-blend-mode: var(--ytal-debanding-blend-mode, normal);
 }
-/* a whisper of grain so the long gradients don't band on 8-bit screens */
-.glow::after {
-  content: ""; position: absolute; inset: 0; opacity: 0.05;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1.6 -.3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+.ambientlight__projector { contain: strict; background: none; }
+/* the extension inverts its canvas-2D fade on light pages */
+.ambientlight__shadow { filter: invert(calc(1 - var(--dark))); }
+.glow > .amb-mirror { position: absolute; left: 0; top: 0; }
+.amb-mirror { filter: blur(var(--amb-mirror-blur, 40px)) var(--amb-filter); opacity: 0; transition: opacity 0.15s; }
+.amb-mirror-in {
+  position: absolute; inset: 0; overflow: hidden; transform-origin: 50% 50%;
+  -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+}
+.amb-mirror-in > iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+/* the same overhang as the main YouTube frame (fitYT), so the copy's picture lines up and its bars are cut off too */
+.amb-mirror[data-kind="youtube"] .amb-mirror-in > iframe {
+  inset: auto; left: 50%; top: 50%; translate: -50% -50%;
+  width: var(--yt-w, 100%); height: calc(var(--yt-h, 100%) + 2 * var(--yt-cut, 0px));
 }
 /* the live copy leaves quickly (it's only hidden when it's out of step) and arrives gently */
-.glow > .mirror { opacity: 0; transition: opacity 0.15s; }
-.glow.mirroring > .mirror { opacity: 1; transition-duration: 0.5s; }
-.glow.mirroring > canvas { opacity: 0; }
-.glow > canvas { transition: opacity 0.3s; }
+.glow.mirroring > .amb-mirror { opacity: 1; transition-duration: 0.5s; }
+.glow.mirroring > .ambientlight__container { opacity: 0; }
+/* a whisper of grain so the long, dark gradients don't band on 8-bit screens */
+.glow::after {
+  content: ""; position: absolute; inset: -40vmax; opacity: 0.035;
+  -webkit-mask-image: radial-gradient(closest-side, #000, transparent); mask-image: radial-gradient(closest-side, #000, transparent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1.6 -.3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
 .no-ambient .glow, .theater .glow, :fullscreen .glow { opacity: 0; }
+/* text that sits on the light gets the extension's default text shadow (surroundingContentShadowSize 15 and
+   Opacity 30: two 6px shadows at 30%), black on the dark page and white on the light one */
+body:not(.no-ambient) .info, body:not(.no-ambient) .top, body:not(.no-ambient) .queue-head {
+  --ytal-shadow-c: rgb(calc(255 - var(--dark) * 255) calc(255 - var(--dark) * 255) calc(255 - var(--dark) * 255) / 0.3);
+  text-shadow: var(--ytal-shadow-c) 0 0 6px, var(--ytal-shadow-c) 0 0 6px;
+}
 
 .stage {
   position: relative; z-index: 1; isolation: isolate;
@@ -582,10 +592,10 @@ kbd { display: inline-block; min-width: 1.7em; padding: 1px 6px; border-radius: 
 .toast.show { opacity: 1; translate: -50% 0; }
 .foot { max-width: 1720px; margin: var(--s8) auto 0; padding: var(--s5) var(--pad) max(var(--s6), env(safe-area-inset-bottom)); color: var(--fg-3); font-size: 0.8125rem; }
 .foot p { margin: 0; max-width: 70ch; }
+.foot p + p { margin-top: var(--s2); }
 
 /* ---------- small screens ---------- */
 @media (max-width: 699px) {
-  .glow { --reach: clamp(12px, calc(var(--amb-reach) * 0.4), 200px); } /* the player is edge to edge here: the light mostly goes down */
   .watch { padding-top: 0; gap: var(--s4); }
   .stage-wrap { margin: 0 calc(var(--pad) * -1); }
   .stage { border-radius: 0; max-height: 72svh; }

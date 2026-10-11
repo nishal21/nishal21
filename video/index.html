@@ -21,6 +21,7 @@
 <link rel="preload" href="../player/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="videos.json?v=dev" as="fetch" crossorigin="anonymous">
 <link rel="stylesheet" href="video.css?v=dev">
+<script src="vendor/ambilight/ambilight.js?v=c7c0708705" defer></script>
 <script src="video.js?v=dev" defer></script>
 </head>
 <body>
@@ -72,7 +73,7 @@
 <main class="watch" id="watch">
   <div class="primary">
     <div class="stage-wrap">
-      <div class="glow" aria-hidden="true"><canvas id="glow" width="64" height="36"></canvas></div>
+      <div class="glow" aria-hidden="true"></div>
       <div class="stage paused idle-off" id="stage" data-kind="none" data-shape="wide" tabindex="-1" role="region" aria-label="Video player" aria-describedby="title">
         <video id="video" playsinline preload="metadata" disablepictureinpicture="false"></video>
         <div class="embed" id="embed"></div>
@@ -163,11 +164,11 @@
           </div>
           <p class="amb-note" id="amb-note">Calm uses preview frames and thumbnails for YouTube and Vimeo, picked by position. Video files always follow the real picture.</p>
           <div class="amb-sliders" id="amb-sliders">
-            <label>Blur <output data-for="blur"></output><input type="range" data-k="blur" min="0" max="80" step="2"></label>
-            <label>Size <output data-for="reach"></output><input type="range" data-k="reach" min="16" max="480" step="8"></label>
-            <label>Brightness <output data-for="bright"></output><input type="range" data-k="bright" min="0.4" max="1.6" step="0.05"></label>
-            <label>Saturation <output data-for="sat"></output><input type="range" data-k="sat" min="0.5" max="2.5" step="0.05"></label>
-            <label>Strength <output data-for="opacity"></output><input type="range" data-k="opacity" min="0.1" max="1" step="0.05"></label>
+            <label>Size <output data-for="spread"></output><input type="range" data-k="spread" min="0" max="400" step="1"></label>
+            <label>Blur <output data-for="blur"></output><input type="range" data-k="blur" min="0" max="100" step="1"></label>
+            <label>Brightness <output data-for="bright"></output><input type="range" data-k="bright" min="20" max="200" step="5"></label>
+            <label>Saturation <output data-for="sat"></output><input type="range" data-k="sat" min="0" max="200" step="5"></label>
+            <label>Strength <output data-for="opacity"></output><input type="range" data-k="opacity" min="10" max="100" step="5"></label>
           </div>
           <button type="button" class="menu-row" role="switch" id="a-tint" aria-checked="true"><span>Tint the page</span><span class="switch"></span></button>
           <button type="button" class="menu-row" role="menuitem" id="a-reset"><span>Reset to defaults</span></button>
@@ -295,6 +296,7 @@
 
 <footer class="foot">
   <p>Made by <a href="https://github.com/nishal21">Nishal K</a> in Kerala. YouTube videos play through YouTube's privacy-enhanced player and only load when you press play.</p>
+  <p>Ambient light inspired by <a href="https://github.com/WesselKroos/youtube-ambilight">youtube-ambilight</a> by Wessel Kroos. It is drawn with that project’s own code, used under its <a href="vendor/ambilight/LICENSE">MIT license</a>.</p>
 </footer>
 </body>
 </html>
