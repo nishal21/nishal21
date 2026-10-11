@@ -13,7 +13,7 @@
   const STEMS = [
     { id: "drums", name: "Drums", hint: "the daily hits" },
     { id: "bass", name: "Bass", hint: "808" },
-    { id: "keys", name: "Keys", hint: "tone follows each week's language" },
+    { id: "keys", name: "Keys", hint: "follows each week's language" },
     { id: "synths", name: "Synths", hint: "pads, chords and lead" },
     { id: "vocals", name: "Vocals", hint: "rap and chorus" },
     { id: "fx", name: "FX", hint: "risers, impacts, release hits" },
@@ -462,6 +462,22 @@
   }
   toggleBtn.addEventListener("click", () => open());
   $("#rx-close").addEventListener("click", () => { open(false); toggleBtn.focus(); });
+  // on phones the desk is a sheet: pull the handle down to put it away
+  const sheet = $("#remix-pane"), grab = $("#rx-grab");
+  grab.addEventListener("pointerdown", (e) => {
+    const y0 = e.clientY;
+    let dy = 0;
+    grab.setPointerCapture(e.pointerId);
+    const move = (ev) => { dy = Math.max(0, ev.clientY - y0); sheet.style.translate = `0 ${dy}px`; };
+    const up = () => {
+      grab.removeEventListener("pointermove", move);
+      sheet.style.translate = "";
+      if (dy > 70) { open(false); toggleBtn.focus({ preventScroll: true }); }
+    };
+    grab.addEventListener("pointermove", move);
+    grab.addEventListener("pointerup", up, { once: true });
+    grab.addEventListener("pointercancel", up, { once: true });
+  });
   P.onPanel((which) => toggleBtn.setAttribute("aria-pressed", String(which === "remix")));
   document.addEventListener("keydown", (e) => {
     if (e.altKey || e.ctrlKey || e.metaKey || e.key.toLowerCase() !== "r" || e.shiftKey) return;
