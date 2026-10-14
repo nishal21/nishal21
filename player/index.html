@@ -47,7 +47,7 @@
 <main class="np" id="np">
   <section class="deck" aria-labelledby="title">
     <div class="art">
-      <canvas id="sleeve" role="img" aria-label="Cover: a record whose grooves are the year's contributions, one spoke per week"></canvas>
+      <canvas id="sleeve" tabindex="0" role="slider" aria-label="Record: one spoke per week of contributions. Click a spoke to play that week, drag around the record to scratch, or use the arrow keys" aria-valuemin="1" aria-valuemax="53" aria-valuenow="1"></canvas>
     </div>
 
     <div class="meta">
@@ -80,6 +80,7 @@
         <span class="where" id="where">Loading the song…</span>
         <span id="left">0:00</span>
       </div>
+      <div class="now-badge" id="now-badge" aria-live="polite" aria-atomic="true"></div>
     </div>
 
     <div class="controls" id="controls" tabindex="-1">
@@ -190,7 +191,7 @@
         <h3>This bar</h3>
         <p id="bar-week">Week of …</p>
       </div>
-      <div class="pads" id="pads" role="img"></div>
+      <div class="pads" id="pads" role="group"></div>
       <p class="rule" id="rules"></p>
     </div>
   </section>

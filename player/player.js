@@ -168,6 +168,14 @@ function renderDisc(S) {
       const dr = cnt ? room * (0.38 + 0.62 * Math.sqrt(cnt / dmax)) : room * 0.16;
       x.beginPath(); x.arc(px, py, dr, 0, Math.PI * 2); x.fill();
     }
+    // a short tick on the outer rim for weeks with a release, PR, new repo or the peak day
+    if (w.events?.length) {
+      const span = (Math.PI * 2) / n;
+      x.strokeStyle = w.events.some((e) => e.type === "release" || e.type === "peak") ? ground : mix(INK, ground, 0.6);
+      x.lineWidth = Math.max(1.2, R * 0.016);
+      x.lineCap = "round";
+      x.beginPath(); x.arc(m, m, R * 0.962, a - span * 0.3, a + span * 0.3); x.stroke();
+    }
   });
   return c;
 }
@@ -188,6 +196,9 @@ function mix(a, b, t) {
   return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(" ")})`;
 }
 
+// rotation of the record in degrees: the playing week sits at 12 o'clock under the needle
+const turnAt = (t) => (reduceMotion.matches ? 0 : -((t / song.bar - 0.5) * 360) / song.weeks.length);
+
 function drawSleeve(t = media.currentTime) {
   if (!song) return;
   const [x, S] = fitCanvas(sleeve, 2.5);
@@ -195,7 +206,7 @@ function drawSleeve(t = media.currentTime) {
   const { D, cx, cy, R, r0, r1, label } = geo(S);
   const n = song.weeks.length;
   const pos = t / song.bar;                       // weeks elapsed, fractional
-  const turn = reduceMotion.matches ? 0 : -((pos - 0.5) * 360) / n;
+  const turn = turnAt(t);
   x.fillStyle = ground;
   x.fillRect(0, 0, S, S);
   // sleeve type
@@ -243,6 +254,80 @@ function drawSleeve(t = media.currentTime) {
     x.closePath(); x.fill();
   }
 }
+
+/* ---------- the record is a turntable: click a spoke to play that week, drag around it to scratch ---------- */
+// pointer position on the record: angle (degrees, screen frame) and distance as a share of the record radius
+function discPoint(e) {
+  const r = sleeve.getBoundingClientRect();
+  const { cx, cy, R } = geo(r.width);
+  const dx = e.clientX - r.left - cx, dy = e.clientY - r.top - cy;
+  return { ang: (Math.atan2(dy, dx) * 180) / Math.PI, dist: Math.hypot(dx, dy) / R };
+}
+function weekAtAngle(ang, t = media.currentTime) {
+  const n = song.weeks.length;
+  const local = (((ang - turnAt(t) + 90) % 360) + 360) % 360; // undo the turn, 0 at 12 o'clock
+  return clamp(Math.floor((local * n) / 360), 0, n - 1);
+}
+let scratch = null;
+sleeve.addEventListener("pointerdown", (e) => {
+  if (!song || e.button > 0) return;
+  const p = discPoint(e);
+  if (p.dist > 1 || p.dist < 0.31) return; // only the grooves, not the label or the sleeve
+  e.preventDefault();
+  sleeve.setPointerCapture(e.pointerId);
+  scratch = { id: e.pointerId, x: e.clientX, y: e.clientY, ang: p.ang, moved: false, wasPlaying: !media.paused, t0: media.currentTime };
+});
+sleeve.addEventListener("pointermove", (e) => {
+  if (!song) return;
+  if (!scratch || e.pointerId !== scratch.id) {
+    const p = discPoint(e);
+    sleeve.classList.toggle("on-disc", p.dist <= 1 && p.dist >= 0.31);
+    return;
+  }
+  if (!scratch.moved && Math.hypot(e.clientX - scratch.x, e.clientY - scratch.y) < 5) return;
+  if (!scratch.moved) {
+    scratch.moved = true;
+    sleeve.classList.add("scratching");
+    if (scratch.wasPlaying) media.pause();
+  }
+  const ang = discPoint(e).ang;
+  let da = ang - scratch.ang;
+  if (da > 180) da -= 360; else if (da < -180) da += 360;
+  scratch.ang = ang;
+  // the record follows the hand: turning it back (counterclockwise) moves forward in time, like the platter does
+  const d = media.duration || song.length;
+  const dt = (-da / 360) * song.weeks.length * song.bar;
+  media.currentTime = clamp(media.currentTime + dt, 0, Math.max(0, d - 0.05));
+  lastT = media.currentTime;
+  update(true);
+});
+function endScratch(e) {
+  if (!scratch || e.pointerId !== scratch.id) return;
+  const s = scratch;
+  scratch = null;
+  sleeve.classList.remove("scratching");
+  if (e.type === "pointercancel") { if (s.wasPlaying) play(); return; }
+  if (!s.moved) {
+    const p = discPoint(e);
+    jump(weekAtAngle(p.ang, s.t0) * song.bar + 0.01);
+    play();
+  } else if (s.wasPlaying) play();
+}
+sleeve.addEventListener("pointerup", endScratch);
+sleeve.addEventListener("pointercancel", endScratch);
+sleeve.addEventListener("pointerleave", () => { if (!scratch) sleeve.classList.remove("on-disc"); });
+// keyboard: the record is a slider over the weeks
+sleeve.addEventListener("keydown", (e) => {
+  if (!song || e.altKey || e.ctrlKey || e.metaKey) return;
+  const n = song.weeks.length;
+  const bar = clamp(Math.floor(media.currentTime / song.bar), 0, n - 1);
+  const to = { ArrowRight: bar + 1, ArrowUp: bar + 1, ArrowLeft: bar - 1, ArrowDown: bar - 1, PageUp: bar + 4, PageDown: bar - 4, Home: 0, End: n - 1 }[e.key];
+  if (to !== undefined) {
+    e.preventDefault(); e.stopPropagation();
+    if (e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) { jump(media.currentTime + (e.key === "ArrowLeft" ? -1 : 1)); return; }
+    jump(clamp(to, 0, n - 1) * song.bar + 0.01);
+  } else if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); play(); }
+});
 
 // Backdrop: the cover at 40px, blurred and scaled up by CSS, turning slowly.
 // In light mode the black record is remapped to a pale cut of the sleeve so the page stays bright.
@@ -332,6 +417,7 @@ function build(data) {
   buildLyrics(data);
   buildGrid(data);
   buildPads(data);
+  sleeve.setAttribute("aria-valuemax", data.weeks.length);
   buildStats(s);
   buildTracklist(data);
   setupMediaSession(data);
@@ -480,6 +566,53 @@ function eventText(e) {
   if (e.type === "repo") return `new repo: ${e.repo}`;
   return "busiest day of the year";
 }
+// colors from GitHub's linguist for the languages that show up; anything else gets a stable hue from its name
+const LANG_COLORS = { TypeScript: "#3178c6", JavaScript: "#f1e05a", HTML: "#e34c26", CSS: "#563d7c", Go: "#00add8", Rust: "#dea584",
+  Python: "#3572a5", MDX: "#fcb32c", Kotlin: "#a97bff", Java: "#b07219", Dart: "#00b4ab", "C++": "#f34b7d", C: "#555555",
+  Shell: "#89e051", Svelte: "#ff3e00", Vue: "#41b883", Swift: "#f05138", Lua: "#000080", "C#": "#178600", PHP: "#4f5d95" };
+function langColor(l) {
+  if (LANG_COLORS[l]) return LANG_COLORS[l];
+  let h = 0; for (const ch of l) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return `hsl(${h} 55% 50%)`;
+}
+function eventLabel(e) {
+  if (e.type === "release") return `Release: ${e.title?.startsWith(e.repo) ? e.title : `${e.repo} ${e.title ?? ""}`.trim()}`;
+  if (e.type === "pr") return `Merged PR: ${e.repo}`;
+  if (e.type === "repo") return `New repo: ${e.repo}`;
+  return "Busiest day of the year";
+}
+const badge = $("#now-badge");
+let badgeBar = -1;
+function renderBadge(bar, live) {
+  if (bar === badgeBar) return;
+  badgeBar = bar;
+  badge.replaceChildren();
+  const w = song.weeks[bar];
+  if (!w) return;
+  const chip = (cls, text, i) => {
+    const s = document.createElement("span");
+    s.className = `chip ${cls}`;
+    s.style.setProperty("--i", i);
+    s.textContent = text;
+    badge.append(s);
+    return s;
+  };
+  let i = 0;
+  if (w.lang) {
+    const c = chip("lang", w.lang, i++);
+    const dot = document.createElement("i");
+    dot.className = "dot";
+    dot.style.background = langColor(w.lang);
+    c.prepend(dot);
+  }
+  const ev = [...(w.events || [])].sort((a, b) => ["peak", "release", "pr", "repo"].indexOf(a.type) - ["peak", "release", "pr", "repo"].indexOf(b.type));
+  ev.slice(0, 2).forEach((e) => chip(`ev ev-${e.type}`, eventLabel(e), i++));
+  if (ev.length > 2) chip("more", `+${ev.length - 2} more`, i++).title = ev.slice(2).map(eventLabel).join("\n");
+  badge.classList.toggle("live", !!live);
+  // re-trigger the entrance animation
+  badge.classList.remove("in"); void badge.offsetWidth; badge.classList.add("in");
+}
+
 function level(c) { return c === 0 ? 0 : Math.min(4, 1 + Math.floor((c / dmax) * 4)); }
 function buildGrid(data) {
   const wrap = $("#weeks"), months = $("#months");
@@ -515,7 +648,7 @@ function buildGrid(data) {
     wrap.append(b);
     weekEls.push(b);
     cellEls.push(cells);
-    const mo = new Date(w.start + "T00:00:00").getMonth();
+    const mo = w.start ? new Date(w.start + "T00:00:00").getMonth() : lastMonth; // the lead-in bar has no date
     if (mo !== lastMonth) {
       // label the first week that starts in a new month, if there's room
       if (i - lastLabel >= 4 && i < data.weeks.length - 2) {
@@ -532,6 +665,77 @@ function buildGrid(data) {
 
 /* drum pads for the bar that's playing */
 const RULE_NAMES = { kick: "Kick", hat: "Hat", snare: "Snare", clap: "Clap" };
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+// One-shot drum previews, synthesized so the pads work before (or without) the remix stems.
+// Tuned to the song: a short low kick on A, tight hats, a dry snare and a three-slap clap.
+let padCtx = null;
+let noiseBuf = null;
+function drumCtx() {
+  if (!padCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    padCtx = new AC();
+    noiseBuf = padCtx.createBuffer(1, padCtx.sampleRate, padCtx.sampleRate);
+    const ch = noiseBuf.getChannelData(0);
+    for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
+  }
+  if (padCtx.state === "suspended") padCtx.resume();
+  return padCtx;
+}
+function playDrum(name, vel = 1) {
+  const ac = drumCtx();
+  if (!ac) return;
+  const t = ac.currentTime + 0.005;
+  const out = ac.createGain();
+  out.gain.value = 0.55 * vel;
+  out.connect(ac.destination);
+  const env = (node, peak, decay, at = t) => {
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(peak, at + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + decay);
+    node.connect(g); g.connect(out);
+    return g;
+  };
+  const noise = (at, dur) => { const s = ac.createBufferSource(); s.buffer = noiseBuf; s.start(at, Math.random() * 0.5); s.stop(at + dur); return s; };
+  const filt = (type, f, q = 0.8) => { const b = ac.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
+  if (name === "kick") {
+    const o = ac.createOscillator();
+    o.frequency.setValueAtTime(165, t);
+    o.frequency.exponentialRampToValueAtTime(55, t + 0.12); // settles on A1
+    env(o, 1, 0.42);
+    o.start(t); o.stop(t + 0.45);
+  } else if (name === "hat") {
+    const f = filt("highpass", 7500);
+    noise(t, 0.06).connect(f);
+    env(f, 0.5, 0.055);
+  } else if (name === "snare") {
+    const f = filt("bandpass", 1900, 0.7);
+    noise(t, 0.2).connect(f);
+    env(f, 0.8, 0.18);
+    const o = ac.createOscillator();
+    o.type = "triangle";
+    o.frequency.setValueAtTime(220, t); // A3
+    o.frequency.exponentialRampToValueAtTime(150, t + 0.08);
+    env(o, 0.45, 0.1);
+    o.start(t); o.stop(t + 0.12);
+  } else {
+    const f = filt("bandpass", 1250, 1.1);
+    [0, 0.011, 0.022].forEach((d) => { noise(t + d, 0.01).connect(f); });
+    env(f, 0.9, 0.2, t + 0.022);
+    const pre = filt("bandpass", 1250, 1.1);
+    [0, 0.011].forEach((d) => noise(t + d, 0.008).connect(pre));
+    env(pre, 0.7, 0.02);
+  }
+  setTimeout(() => out.disconnect(), 800);
+}
+function hitPad(p) {
+  playDrum(p.dataset.rule, p.classList.contains("on") ? 1 : 0.75);
+  p.classList.remove("hit");
+  void p.offsetWidth;
+  p.classList.add("hit");
+}
 function buildPads(data) {
   const pads = $("#pads");
   pads.append(document.createElement("span"));
@@ -549,9 +753,24 @@ function buildPads(data) {
     pads.append(lab);
     const row = [];
     for (let d = 0; d < 7; d++) {
-      const p = document.createElement("span");
+      const p = document.createElement("button");
+      p.type = "button";
       p.className = "pad";
       p.dataset.min = r.min;
+      p.dataset.rule = r.name;
+      p.tabIndex = padEls.length === 0 && d === 0 ? 0 : -1;
+      p.setAttribute("aria-label", `${RULE_NAMES[r.name] ?? r.name}, ${DAY_NAMES[d]}. Preview`);
+      const rowIdx = padEls.length;
+      p.addEventListener("click", () => hitPad(p));
+      p.addEventListener("keydown", (e) => {
+        const mv = { ArrowRight: [0, 1], ArrowLeft: [0, -1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
+        if (!mv) return;
+        e.preventDefault(); e.stopPropagation();
+        const ri = clamp(rowIdx + mv[0], 0, padEls.length - 1), di = clamp(d + mv[1], 0, 6);
+        padEls.flat().forEach((el) => (el.tabIndex = -1));
+        padEls[ri][di].tabIndex = 0;
+        padEls[ri][di].focus();
+      });
       pads.append(p);
       row.push(p);
     }
@@ -804,10 +1023,15 @@ function update(force) {
       pad.classList.toggle("on", c >= +pad.dataset.min);
       pad.style.setProperty("--o", (0.45 + 0.55 * Math.min(1, c / dmax)).toFixed(2));
     }));
-    const label = `Week of ${day(w.start)} · ${total} contribution${total === 1 ? "" : "s"}`;
-    $("#bar-week").textContent = `Bar ${bar + 1} of ${n}. ${label}`;
-    $("#pads").setAttribute("aria-label", label);
-    if (t > 0 || !media.paused) $("#where").textContent = `${sectionAt(t).name} · ${day(w.start, { month: "short", day: "numeric", year: "numeric" })}`;
+    const when = w.start ? `Week of ${day(w.start)}` : "Before the first week";
+    const label = `${when} · ${total} contribution${total === 1 ? "" : "s"}`;
+    $("#bar-week").textContent = `Bar ${bar + 1} of ${n}. ${label}${w.lang ? ` · mostly ${w.lang}` : ""}`;
+    $("#pads").setAttribute("aria-label", `Drum pads. ${label}`);
+    const playing = t > 0 || !media.paused;
+    if (playing) $("#where").textContent = `${sectionAt(t).name} · ${w.start ? day(w.start, { month: "short", day: "numeric" }) : "intro"}${w.lang ? ` · ${w.lang}` : ""}`;
+    renderBadge(bar, playing);
+    sleeve.setAttribute("aria-valuenow", bar + 1);
+    sleeve.setAttribute("aria-valuetext", `${label}${w.events?.length ? `, ${w.events.map(eventLabel).join(", ")}` : ""}`);
     // keep the playing week in view in the scrollable grid, unless the reader is using it
     const gs = $("#grid-scroll");
     if (!media.paused && gs.scrollWidth > gs.clientWidth && !gs.matches(":hover, :focus-within")) {
