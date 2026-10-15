@@ -41,22 +41,30 @@ jobs:
 
       - name: Commit changes
         id: commit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add assets/visitor-song-dark.svg assets/visitor-song-light.svg assets/visitor-song-lyrics.md \
-                  assets/visitor-song.lrc assets/visitor-song.json data/visitor-song.json
-          if git diff --cached --quiet; then
-            echo "No changes"
-            exit 0
-          fi
-          git commit -m "Update visitor song"
+          files="assets/visitor-song-dark.svg assets/visitor-song-light.svg assets/visitor-song-lyrics.md
+                 assets/visitor-song.lrc assets/visitor-song.json data/visitor-song.json"
+          # These files are generated, so a rebase conflict is never worth resolving: if main moved,
+          # start again from the new main and read the notes once more.
           for i in 1 2 3; do
-            if git pull --rebase --quiet && git push; then
+            git add $files
+            if git diff --cached --quiet; then
+              echo "No changes"
+              exit 0
+            fi
+            git commit --quiet -m "Update visitor song"
+            if git push --quiet; then
               echo "pushed=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             sleep 10
+            git fetch --quiet origin main
+            git reset --quiet --hard origin/main
+            python scripts/visitor_song.py --no-audio
           done
           exit 1
 
@@ -76,7 +84,7 @@ jobs:
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "Mark visitor notes as answered"
           for i in 1 2 3; do
-            git pull --rebase --quiet && git push && exit 0
+            git pull --rebase --quiet -X theirs && git push && exit 0
             sleep 10
           done
           exit 1
