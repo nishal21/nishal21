@@ -148,6 +148,7 @@
     return buf;
   }
   async function decodeTo(ctx, name) {
+    if (!raw.has(name)) await fetchFile(name); // e.g. a kit picked while the stems were still loading
     const ab = await ctx.decodeAudioData(raw.get(name).slice(0));
     const L = new Float32Array(ab.getChannelData(0));
     const R = ab.numberOfChannels > 1 ? new Float32Array(ab.getChannelData(1)) : null;
@@ -499,7 +500,9 @@
     if (loading) return loading;
     loading = (async () => {
       pane.classList.add("loading");
-      const names = STEMS.map((s) => fileFor(s.id, state.kit));
+      // the kit can change while this loads (a preset or kit click); load this one, then switch
+      const kit0 = state.kit;
+      const names = STEMS.map((s) => fileFor(s.id, kit0));
       const total = names.reduce((a, n) => a + (info.bytes?.[n]?.[ext] || 0), 0);
       let got = 0;
       const mb = (v) => (v / 1048576).toFixed(1);
@@ -513,7 +516,7 @@
         await Promise.all([engine.start(), ...names.map((n) => fetchFile(n, (b) => { got += b; progress(); }))]);
         say("Preparing the stems…", "busy");
         const g = gains(state);
-        loadedKit = state.kit;
+        loadedKit = kit0;
         for (const s of STEMS) {
           const d = await decodeTo(engine.ctx, fileFor(s.id, loadedKit));
           sendStem(engine.node, s.id, d, g[s.id]);
@@ -528,6 +531,7 @@
         say(note);
         note = "";
         if (P.media === engine) document.body.classList.add("remixing");
+        if (state.kit !== loadedKit) setKit(state.kit);
       } catch (e) {
         console.error(e);
         pane.classList.remove("loading");

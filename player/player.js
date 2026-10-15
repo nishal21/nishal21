@@ -618,8 +618,9 @@ function renderBadge(bar, live) {
     c.prepend(dot);
   }
   const ev = [...(w.events || [])].sort((a, b) => ["peak", "release", "pr", "repo"].indexOf(a.type) - ["peak", "release", "pr", "repo"].indexOf(b.type));
-  ev.slice(0, 2).forEach((e) => chip(`ev ev-${e.type}`, eventLabel(e), i++));
-  if (ev.length > 2) chip("more", `+${ev.length - 2} more`, i++).title = ev.slice(2).map(eventLabel).join("\n");
+  // one line: the main event, then a count for the rest (listed in its tooltip)
+  if (ev.length) chip(`ev ev-${ev[0].type}`, eventLabel(ev[0]), i++).title = eventLabel(ev[0]);
+  if (ev.length > 1) chip("more", `+${ev.length - 1}`, i++).title = ev.slice(1).map(eventLabel).join("\n");
   badge.classList.toggle("live", !!live);
   // re-trigger the entrance animation
   badge.classList.remove("in"); void badge.offsetWidth; badge.classList.add("in");

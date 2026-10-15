@@ -413,7 +413,9 @@ button.pad { appearance: none; border: 0; padding: 0; margin: 0; width: 100%; fo
 #sleeve:focus-visible { outline: 2px solid var(--fg); outline-offset: 4px; }
 
 /* what the playing week was about: its main language and anything that shipped */
-.now-badge { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; min-height: 26px; margin-top: var(--s3); }
+.now-badge { display: flex; flex-wrap: nowrap; justify-content: center; gap: 6px; height: 26px; margin-top: var(--s3); overflow: hidden; }
+.now-badge .chip { flex: 0 1 auto; min-width: 0; }
+.now-badge .chip.lang, .now-badge .chip.more { flex: none; }
 .now-badge .chip {
   display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
   padding: 4px 10px; border-radius: 999px; background: var(--wash); color: var(--fg-2);
@@ -610,8 +612,10 @@ kbd {
 #rx-reset { padding-left: var(--s4); }
 .rx-status { margin: calc(var(--s5) * -1 + var(--s2)) 0 0; min-height: 1.4em; font-size: 0.8125rem; color: var(--fg-2); overflow-wrap: anywhere; }
 .rx-status[data-kind="error"] { color: light-dark(#a3260f, #ff9f87); }
-.rx-length { margin: calc(var(--s5) * -1) 0 0; font: 500 0.75rem/1.4 var(--mono); color: var(--fg-3); }
+.rx-length { margin: -8px 0 0; font: 500 0.75rem/1.4 var(--mono); color: var(--fg-3); }
 .rx-length:empty, .rx-status:empty { display: none; }
+/* the desk scrolls; its rows keep their height instead of shrinking into each other */
+.remix-pane > * { flex-shrink: 0; }
 
 /* a thin scrollbar, only shown when the desk is taller than its space */
 .remix-pane { scrollbar-width: thin; scrollbar-color: color-mix(in oklab, var(--fg) 24%, transparent) transparent; }

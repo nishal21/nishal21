@@ -99,15 +99,15 @@ def render(v, thumb, t):
 
 
 def readme_block(v):
-    # The picture is not wrapped in a link: GitHub already links images to the file, and an <a>
-    # around <picture> gets split apart by its sanitizer. A text link below carries the video URL.
+    # The card itself links to the video. Keep <a> and <picture> on one line each with no
+    # blank lines, so GitHub's sanitizer keeps the picture inside the link.
     title = esc(clean_title(v["title"]))
-    return ("<picture>\n"
+    return (f'<a href="{v["url"]}">\n'
+            "<picture>\n"
             '  <source media="(prefers-color-scheme: dark)" srcset="assets/youtube-dark.svg">\n'
             '  <source media="(prefers-color-scheme: light)" srcset="assets/youtube-light.svg">\n'
             f'  <img alt="Latest YouTube upload: {title}" src="assets/youtube-light.svg" height="155">\n'
-            "</picture>\n<br>\n"
-            f'<a href="{v["url"]}">Watch: {title}</a>')
+            "</picture>\n</a>")
 
 
 def main():

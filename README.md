@@ -81,13 +81,13 @@ More posts at [dev.to/nishal21](https://dev.to/nishal21).
 
 <p align="center">
 <!--YOUTUBE:START-->
+<a href="https://www.youtube.com/shorts/wWYIMp2VEH8">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/youtube-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/youtube-light.svg">
   <img alt="Latest YouTube upload: Full on Channel | Majboor x Saal Late Night Mashup | @Demonking.___" src="assets/youtube-light.svg" height="155">
 </picture>
-<br>
-<a href="https://www.youtube.com/shorts/wWYIMp2VEH8">Watch: Full on Channel | Majboor x Saal Late Night Mashup | @Demonking.___</a>
+</a>
 <!--YOUTUBE:END-->
 </p>
 
@@ -140,16 +140,16 @@ More edits and remixes on [my channel](https://www.youtube.com/@DemonKing0.___).
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://github-profile-summary-cards.vercel.app/api/cards/productive-time?username=nishal21&theme=tokyonight&utcOffset=5.5">
-    <img src="https://github-profile-summary-cards.vercel.app/api/cards/productive-time?username=nishal21&theme=github&utcOffset=5.5" alt="Commits by hour of day (IST)" height="155">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/summary-productive-time-dark.svg">
+    <img src="assets/summary-productive-time-light.svg" alt="Commits by hour of day (IST)" height="155">
   </picture>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://github-profile-summary-cards.vercel.app/api/cards/most-commit-language?username=nishal21&theme=tokyonight">
-    <img src="https://github-profile-summary-cards.vercel.app/api/cards/most-commit-language?username=nishal21&theme=github" alt="Top languages by commit" height="155">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/summary-most-commit-language-dark.svg">
+    <img src="assets/summary-most-commit-language-light.svg" alt="Top languages by commit" height="155">
   </picture>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://github-profile-summary-cards.vercel.app/api/cards/repos-per-language?username=nishal21&theme=tokyonight">
-    <img src="https://github-profile-summary-cards.vercel.app/api/cards/repos-per-language?username=nishal21&theme=github" alt="Top languages by repo" height="155">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/summary-repos-per-language-dark.svg">
+    <img src="assets/summary-repos-per-language-light.svg" alt="Top languages by repo" height="155">
   </picture>
 </p>
 

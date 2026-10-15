@@ -83,6 +83,10 @@ jobs:
         continue-on-error: true
         run: python scripts/youtube_videos.py
 
+      - name: Summary cards (hours and languages)
+        continue-on-error: true
+        run: bash scripts/summary_cards.sh
+
       - name: Check the lyric templates
         continue-on-error: true
         run: python scripts/test_song_lyrics.py
