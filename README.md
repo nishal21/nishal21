@@ -120,11 +120,13 @@ More edits and remixes on [my channel](https://www.youtube.com/@DemonKing0.___).
 </p>
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/song-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="assets/song-light.svg">
-    <img src="assets/song-light.svg" alt="Contribution song: a 90-second track made from the last 12 months of contributions" height="155">
-  </picture>
+  <a href="https://nishal21.github.io/nishal21/player/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/song-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="assets/song-light.svg">
+      <img src="assets/song-light.svg" alt="Contribution song: a 90-second track made from the last 12 months of contributions" height="155">
+    </picture>
+  </a>
   <a href="https://nishal21.github.io/nishal21/video/?v=trailer">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/trailer-dark.svg">

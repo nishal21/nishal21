@@ -402,6 +402,71 @@ def vocals(lyrics, n):
 
 # ---------- mix / master ----------
 
+# ---------- vocoder ----------
+# A quiet 12-band channel vocoder under the sung lines: the chords, shaped by the singer's spectrum.
+VOCODER = os.environ.get("SONG_VOCODER", "1") != "0"  # SONG_VOCODER=0 renders without it, for comparisons
+VOC_SECTIONS = ("Chorus", "Breakdown")
+VOC_BANDS, VOC_LO, VOC_HI = 12, 200.0, 6000.0
+VOC_DB = -11.0  # under the dry sing, by RMS over the bars where it plays
+
+
+def section_mask(n, names, ramp=0.02):
+    m = np.zeros(n)
+    acc = 0
+    for name, nb in SECTIONS:
+        if name in names:
+            m[int(acc * BAR * SR):int((acc + nb) * BAR * SR)] = 1
+        acc += nb
+    k = int(ramp * SR)
+    return np.convolve(m, np.ones(k) / k, mode="same")
+
+
+def vocoder_carrier(n):
+    """The chord progression in the vocoder sections: supersaw in the Chorus, warm pad in the Breakdown,
+    left open (cutoff above the top band) so every band has something to shape."""
+    state = S._rng.bit_generator.state  # leave the shared synth RNG where it was, so nothing else changes
+    car = np.zeros((2, n))
+    nbar = int(BAR * SR) + int(SR * 0.6)
+    acc = 0
+    for name, nb in SECTIONS:
+        if name in VOC_SECTIONS:
+            for k in range(nb):
+                ch = chord_at(name, k)
+                notes = ch + [ch[0] + 12]
+                x = S.supersaw(notes, nbar, cutoff=7000, rel=0.2) if name == "Chorus" else S.warm_pad(notes, nbar, cutoff=7000)
+                S.add(car, x, (acc + k) * BAR)
+        acc += nb
+    S._rng.bit_generator.state = state
+    return car
+
+
+def vocoder(sing, n):
+    """12 log-spaced bands, 200 Hz to 6 kHz. Each band of the carrier follows the envelope of the same band
+    of the sung vocal (rectified, smoothed over about 12 ms). Even bands lean left and odd bands right,
+    then a 180 Hz high-pass. Only in the Chorus and Breakdown; returned at VOC_DB under the dry sing."""
+    mod = sing.mean(0)
+    car = vocoder_carrier(n)
+    edges = np.geomspace(VOC_LO, VOC_HI, VOC_BANDS + 1)
+    smooth = S.sos("lowpass", 1 / (2 * np.pi * 0.012))
+    out = np.zeros((2, n))
+    for i in range(VOC_BANDS):
+        bp = S.sos("bandpass", [edges[i], edges[i + 1]])
+        env = np.maximum(signal.sosfilt(smooth, np.abs(signal.sosfilt(bp, mod))), 0)
+        band = signal.sosfilt(bp, car, axis=1)
+        band /= np.sqrt(np.mean(band ** 2)) + 1e-9  # flat carrier, so the voice decides the tone
+        lr = np.array([[1.0], [0.72]]) if i % 2 == 0 else np.array([[0.72], [1.0]])
+        out += band * env * lr
+    out = signal.sosfilt(S.sos("highpass", 180), out, axis=1)
+    mask = section_mask(n, VOC_SECTIONS)
+    out *= mask
+    on = mask > 0.5
+    if not on.any():
+        return out
+    ref = np.sqrt(np.mean(sing[:, on] ** 2)) + 1e-12
+    cur = np.sqrt(np.mean(out[:, on] ** 2)) + 1e-12
+    return out * (ref / cur) * 10 ** (VOC_DB / 20)
+
+
 def mixdown(inst, kicks, vox, hook_lead, n, length, stems=False):
     """The mix before mastering. With stems=True it also returns the remix stems (drums, bass, keys,
     synths, vocals, fx): each one goes through the same (linear) bus processing as in the mix, so
@@ -450,13 +515,15 @@ def mixdown(inst, kicks, vox, hook_lead, n, length, stems=False):
     sing_peak = np.max(np.abs(sing)) + 1e-9
     sing = sing / sing_peak * 0.62
     throws = S.delay(vox["throws"] / sing_peak * 0.5, BEAT * 0.75, feedback=0.4, repeats=4)
-    vocal_bus = rap + sing
+    voc = vocoder(sing, n) if VOCODER else 0
+    vocal_bus = rap + sing + voc
     verb = S.reverb(vocal_bus, seconds=0.9, decay=0.22) * 0.12  # short room
     slap = S.delay(rap, BEAT / 2, feedback=0.25, repeats=2) * 0.25
     mverb = S.reverb(music * 0.5 + fx * 0.3, seconds=2.0, decay=0.5) * 0.25
 
     # duck music a little under the vocal
-    venv = np.convolve(np.abs(vocal_bus).max(0), np.ones(int(0.05 * SR)) / int(0.05 * SR), mode="same")
+    # from the dry voices, so the vocoder layer doesn't change the ducking or the carve
+    venv = np.convolve(np.abs(rap + sing).max(0), np.ones(int(0.05 * SR)) / int(0.05 * SR), mode="same")
     duck = 1 - 0.45 * np.clip(venv / (np.max(venv) + 1e-9) * 4, 0, 1)
 
     # carve 1-4 kHz out of the music while words are sung or rapped (about -7 dB at full vocal level)
