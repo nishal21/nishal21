@@ -95,6 +95,12 @@
     tone.connect(echoOut).connect(out);
     lp.connect(spaceSend).connect(conv).connect(out);
     out.connect(limiter).connect(ctx.destination);
+    // a tap for the waveform's live energy, only when someone is listening (never in the offline export)
+    let analyser = null;
+    if (typeof OfflineAudioContext === "undefined" || !(ctx instanceof OfflineAudioContext)) {
+      analyser = new AnalyserNode(ctx, { fftSize: 256, smoothingTimeConstant: 0.75 });
+      limiter.connect(analyser);
+    }
     const set = (st, instant) => {
       const at = ctx.currentTime;
       const to = (p, v) => (instant ? (p.value = v) : p.setTargetAtTime(v, at, 0.03));
@@ -109,7 +115,7 @@
       to(spaceSend.gain, (st.space / 100) * 0.7);
       to(dry.gain, 1 - (st.space / 100) * 0.15);
     };
-    return { set };
+    return { set, analyser };
   }
 
   /* ---------- stems: fetched once, compressed copies kept for exports ---------- */
@@ -196,7 +202,9 @@
       const heard = ts && ts.contextTime ? ts.contextTime : this.ctx.currentTime - (this.ctx.outputLatency || this.ctx.baseLatency || 0);
       const ref = this.anchor || (this.tick && { pos: this.tick.pos, time: this.tick.time });
       if (!ref) return this._pos;
-      return clamp((ref.pos + Math.max(0, heard - ref.time) * this.sr * this.rate) / this.sr, 0, this.duration);
+      let t = clamp((ref.pos + Math.max(0, heard - ref.time) * this.sr * this.rate) / this.sr, 0, this.duration);
+      if (this.loop && t > this.loop[1] && ref.pos < this.loop[1] * this.sr) t = this.loop[0] + ((t - this.loop[1]) % (this.loop[1] - this.loop[0]));
+      return t;
     }
     set currentTime(t) {
       t = clamp(t, 0, this.duration);
@@ -231,6 +239,21 @@
       this.dispatchEvent(new Event("ratechange"));
     }
     setGains(g, now) { this.node.port.postMessage({ type: "gains", gains: g, now }); }
+    // loop in song seconds (null to stop)
+    setLoop(a, b) {
+      this.loop = a == null ? null : [a, b];
+      this.node.port.postMessage({ type: "loop", start: a == null ? null : a * this.sr, end: a == null ? null : b * this.sr });
+    }
+    // live levels for the waveform: byte spectrum (128 bins) and time domain, plus a 0..1 energy
+    getFrequency(arr) { const a = this.fx?.analyser; if (!a) return null; arr = arr || new Uint8Array(a.frequencyBinCount); a.getByteFrequencyData(arr); return arr; }
+    getTimeDomain(arr) { const a = this.fx?.analyser; if (!a) return null; arr = arr || new Uint8Array(a.fftSize); a.getByteTimeDomainData(arr); return arr; }
+    energy() {
+      const d = this.getTimeDomain(this._td || (this._td = new Uint8Array(256)));
+      if (!d) return 0;
+      let sq = 0;
+      for (let i = 0; i < d.length; i++) { const v = (d[i] - 128) / 128; sq += v * v; }
+      return Math.min(1, Math.sqrt(sq / d.length) * 1.6);
+    }
   }
 
   /* ---------- UI ---------- */
@@ -273,6 +296,80 @@
     rows[s.id] = { li, fader, m, so, meter: $(".rx-meter i", li) };
     list.append(li);
   }
+
+  // presets: one click to a known mix. Fields a preset doesn't name go back to their defaults.
+  const PRESETS = [
+    { id: "original", name: "Original", st: {} },
+    { id: "slowed", name: "Slowed + Reverb", st: { tempo: 82, keep: false, kit: "dusty", filter: -22, echo: 25, space: 65 } },
+    { id: "nightcore", name: "Nightcore / Sped Up", st: { tempo: 124, keep: false, kit: "punchy", filter: 10, echo: 15, space: 20 } },
+    { id: "lofi", name: "Lo-Fi Study", st: { tempo: 90, keep: true, kit: "dusty", filter: -38, echo: 35, space: 30, mute: ["vocals"] } },
+    { id: "808", name: "808 + Vocals", st: { tempo: 100, keep: true, kit: "punchy", solo: ["drums", "bass", "vocals"], space: 25 } },
+  ];
+  const presetState = (pr) => {
+    const st = DEFAULT();
+    for (const [k, v] of Object.entries(pr.st)) st[k] = Array.isArray(v) ? new Set(v) : v;
+    return st;
+  };
+  const presetBox = $("#rx-presets");
+  const presetBtns = PRESETS.map((pr) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "rx-preset";
+    b.dataset.preset = pr.id;
+    b.textContent = pr.name;
+    b.setAttribute("aria-pressed", "false");
+    b.addEventListener("click", () => {
+      const tempoWas = state.tempo, keepWas = state.keep, next = presetState(pr);
+      state = next;
+      changed(next.tempo !== tempoWas || next.keep !== keepWas ? "rate" : undefined);
+      setKit(next.kit);
+      say(pr.id === "original" ? "Back to the original mix." : `${pr.name} preset.`);
+    });
+    presetBox.append(b);
+    return b;
+  });
+  // compared with the sets sorted, so the same mix built in another order still lights its preset
+  const mixKey = (st) => encode({ ...st, mute: new Set([...st.mute].sort()), solo: new Set([...st.solo].sort()) });
+  const presetLinks = PRESETS.map((pr) => mixKey(presetState(pr)));
+
+  // loop: off, the bar (week) that's playing, or the section that's playing. Not part of the link or the export.
+  const LOOP_MODES = ["off", "bar", "section"];
+  const LOOP_NAMES = { off: "Off", bar: "Bar", section: "Section" };
+  let loop = { mode: "off", a: 0, b: 0 };
+  const loopBtn = $("#rx-loop"), loopOut = $("#rx-loop-out");
+  const fmtT = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+  function setLoop(mode) {
+    const song = P.song, t = P.media.currentTime;
+    if (mode === "bar") {
+      const i = clamp(Math.floor(t / song.bar), 0, song.weeks.length - 1);
+      loop = { mode, a: i * song.bar, b: Math.min(song.length, (i + 1) * song.bar), label: `Bar ${i + 1}` };
+    } else if (mode === "section") {
+      let k = 0;
+      song.sections.forEach((x, i) => { if (t >= x.start - 0.01) k = i; });
+      const sec = song.sections[k], end = song.sections[k + 1]?.start ?? song.length;
+      loop = { mode, a: sec.start, b: end, label: sec.name };
+    } else loop = { mode: "off", a: 0, b: 0 };
+    if (ready) engine.setLoop(loop.mode === "off" ? null : loop.a, loop.b);
+    loopBtn.dataset.mode = loop.mode;
+    loopBtn.setAttribute("aria-pressed", String(loop.mode !== "off"));
+    $(".rx-loop-mode", loopBtn).textContent = LOOP_NAMES[loop.mode];
+    loopOut.textContent = loop.mode === "off" ? "" : `${loop.label} · ${fmtT(loop.a)} to ${fmtT(loop.b)}`;
+    say(loop.mode === "off" ? "Loop off." : `Looping ${loop.mode === "bar" ? loop.label.toLowerCase() : `the ${loop.label.toLowerCase()}`}.`);
+  }
+  const cycleLoop = () => setLoop(LOOP_MODES[(LOOP_MODES.indexOf(loop.mode) + 1) % LOOP_MODES.length]);
+  loopBtn.addEventListener("click", cycleLoop);
+  document.addEventListener("keydown", (e) => {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.key.toLowerCase() !== "l" || e.repeat) return;
+    if (e.target.closest("input, textarea, select, [contenteditable]")) return;
+    e.preventDefault();
+    cycleLoop();
+  });
+  // without the stems the <audio> element plays: loop it from the page clock (accurate to a frame or so)
+  (function audioLoop() {
+    const m = P.media;
+    if (loop.mode !== "off" && m !== engine && !m.paused && m.currentTime >= loop.b - 0.02) m.currentTime = loop.a;
+    requestAnimationFrame(audioLoop);
+  })();
 
   // tempo
   const tempo = $("#rx-tempo"), tempoOut = $("#rx-tempo-out"), pitch = $("#rx-pitch");
@@ -365,6 +462,8 @@
     const len = P.song.length / (state.tempo / 100);
     $("#rx-length").textContent = state.tempo === 100 ? "" : `Plays for ${Math.floor(len / 60)}:${String(Math.round(len % 60)).padStart(2, "0")}`;
     $("#rx-reset").disabled = isDefault(state);
+    const link = mixKey(state);
+    presetBtns.forEach((b, i) => b.setAttribute("aria-pressed", String(presetLinks[i] === link)));
   }
 
   function changed(what) {
@@ -422,6 +521,7 @@
         engine.node.port.postMessage({ type: "rate", rate: state.tempo / 100, keep: state.keep });
         engine.rate = state.tempo / 100; engine.keep = state.keep;
         engine.fx.set(state, true);
+        if (loop.mode !== "off") engine.setLoop(loop.a, loop.b);
         ready = true;
         pane.classList.remove("loading");
         P.use(engine);
@@ -605,6 +705,8 @@
   // read-only hooks for automated tests
   Object.defineProperty(window, "__remix", { value: Object.freeze({
     get state() { return { ...state, mute: [...state.mute], solo: [...state.solo], ready, ext, link: encode(state), engine: engine && { t: engine.currentTime, paused: engine.paused, rate: engine.rate, keep: engine.keep, sr: engine.ctx?.sampleRate } }; },
+    get loop() { return { ...loop }; },
+    get analyser() { return !!engine?.fx?.analyser; },
     encode: (s) => encode(s), decode: (h) => { const s = decode(h); return s && { ...s, mute: [...s.mute], solo: [...s.solo] }; },
   }) });
 })();

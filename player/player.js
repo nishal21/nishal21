@@ -355,7 +355,9 @@ function drawBackdrop() {
 /* ---------- waveform scrubber ---------- */
 const waveEl = $(".wave");
 let hoverP = -1;
+let liveBins = null;
 function drawWave() {
+  if (media.getFrequency && !liveBins) liveBins = new Uint8Array(128);
   if (!song) return;
   const c = $("#wave");
   const [x, w, h, dpr] = fitCanvas(c);
@@ -370,13 +372,23 @@ function drawWave() {
   const off = cssColor("color-mix(in oklab, var(--fg) 24%, transparent)");
   const pre = cssColor("color-mix(in oklab, var(--fg) 52%, transparent)");
   const cuts = song.sections.slice(1).map((s) => s.start / d);
+  // while the remix engine plays, the bars around the playhead breathe with the live spectrum (lows at the playhead)
+  const live = !reduceMotion.matches && !media.paused && media.getFrequency ? media.getFrequency(liveBins) : null;
+  const reach = 14; // bars each side of the playhead
   for (let i = 0; i < count; i++) {
     const a = i / count, b = (i + 1) / count;
     if (cuts.some((k) => k >= a && k < b)) continue; // a gap at each section change
     let v = 0;
     const s0 = Math.floor(a * peaks.length), s1 = Math.max(s0 + 1, Math.floor(b * peaks.length));
     for (let k = s0; k < s1 && k < peaks.length; k++) v = Math.max(v, peaks[k]);
-    const bh = Math.max(3 * dpr, Math.pow(v, 0.85) * h * 0.92);
+    let bh = Math.max(3 * dpr, Math.pow(v, 0.85) * h * 0.92);
+    if (live) {
+      const k = Math.abs((a + b) / 2 - p) * count;
+      if (k < reach) {
+        const bin = Math.min(live.length - 1, Math.floor((k / reach) ** 1.5 * live.length * 0.7));
+        bh = Math.min(h, bh * (1 + 0.28 * (1 - k / reach) * (live[bin] / 255)));
+      }
+    }
     const mid = (a + b) / 2;
     x.fillStyle = mid <= p ? on : hoverP >= 0 && mid <= hoverP ? pre : off;
     x.beginPath();

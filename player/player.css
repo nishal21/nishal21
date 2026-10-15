@@ -540,6 +540,35 @@ kbd {
 .rx-switch[aria-checked="true"] .rx-sw { background: var(--mark); }
 .rx-switch[aria-checked="true"] .rx-sw::after { translate: 12px 0; background: var(--bg); }
 
+.rx-presets {
+  display: flex; flex: none; align-items: center; gap: 6px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; scrollbar-width: none;
+  margin-inline: calc(var(--s1) * -1); padding: var(--s1);
+}
+.rx-presets::-webkit-scrollbar { display: none; }
+.rx-preset {
+  flex: none; scroll-snap-align: start; height: 32px; min-height: 32px; line-height: 1; padding: 0 var(--s3); border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--wash); color: var(--fg-2); white-space: nowrap;
+  font-size: 0.8125rem; font-weight: 600;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, scale 0.35s var(--bounce);
+}
+.rx-preset:hover { color: var(--fg); border-color: var(--fg-3); }
+.rx-preset:active { scale: 0.96; }
+.rx-preset[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.rx-preset:focus-visible, .rx-loop:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+.rx-loopbox { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.rx-loop {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 var(--s3) 0 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--wash); color: var(--fg); font-size: 0.875rem; font-weight: 600;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, scale 0.35s var(--bounce);
+}
+.rx-loop svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.rx-loop .rx-loop-mode { font: 500 0.75rem/1 var(--mono); color: var(--fg-2); padding-left: 8px; border-left: 1px solid var(--line); }
+.rx-loop[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.rx-loop[aria-pressed="true"] .rx-loop-mode { color: var(--bg); border-color: color-mix(in oklab, var(--bg) 35%, transparent); }
+.rx-loop:active { scale: 0.96; }
+.rx-loop-out { font: 500 0.75rem/1.2 var(--mono); color: var(--fg-2); font-variant-numeric: tabular-nums; }
+
 .rx-sound { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: var(--s5); }
 .rx-kitbox { display: grid; gap: var(--s3); }
 .rx-seg { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--wash); border: 1px solid var(--line); width: max-content; }

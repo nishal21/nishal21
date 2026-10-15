@@ -25,6 +25,9 @@ class RemixPlayer extends AudioWorkletProcessor {
     this.fadeTo = 1;
     this.pending = null;      // change to apply once faded out
     this.blocks = 0;
+    this.loopStart = -1;      // source samples; a loop is on while loopEnd > loopStart
+    this.loopEnd = -1;
+    this.wrapping = false;
     this.resetStretch();
     this.port.onmessage = (e) => this.onMessage(e.data);
   }
@@ -72,6 +75,11 @@ class RemixPlayer extends AudioWorkletProcessor {
         }
         break;
       }
+      case "loop":
+        // { start, end } in source samples, or start/end null to stop looping
+        if (m.start == null || m.end == null || m.end <= m.start) { this.loopStart = this.loopEnd = -1; }
+        else { this.loopStart = Math.max(0, Math.round(m.start)); this.loopEnd = Math.round(m.end); }
+        break;
       case "ping":
         this.port.postMessage({ type: "ack", id: m.id });
         break;
@@ -222,7 +230,18 @@ class RemixPlayer extends AudioWorkletProcessor {
       }
       if (this.fade === 0 && this.pending) { this.pending(); this.pending = null; this.fadeTo = 1; }
     }
-    if (this.pos >= this.length) {
+    // loop: start the de-click fade a little before the end so the jump lands on the boundary.
+    // The fade out runs 96 samples, then the read head moves back and fades in over 96 more.
+    if (this.loopEnd > this.loopStart && !this.wrapping && this.pos + (96 + n) * this.rate >= this.loopEnd) {
+      this.wrapping = true;
+      const to = this.loopStart;
+      this.change(() => { this.pos = to; this.resetStretch(); this.ended = false; this.wrapping = false; });
+    }
+    if (this.loopEnd > this.loopStart && this.pos >= this.loopEnd && this.pending) {
+      // the fade hasn't finished yet: don't run past the loop into the next bar
+      this.pos = this.loopEnd;
+    }
+    if (this.pos >= this.length && !(this.loopEnd > this.loopStart)) {
       this.playing = false;
       this.pos = this.length;
       this.port.postMessage({ type: "ended" });
