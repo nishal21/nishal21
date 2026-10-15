@@ -806,8 +806,13 @@ kbd {
   .play::before { animation: none; scale: 1; clip-path: none; }
 }
 
-/* Poster: acid yellow field (deep grey in dark mode), big lowercase grotesk, thin outlined round buttons,
-   a dark rounded panel for the waveform. Everything flat: no shadows, no gradients. */
+/* alternative transport icons, shown by the looks that use them */
+.skipbtn .i-ed, .skipbtn .i-arrow { display: none; }
+
+/* ---------- Poster ----------
+   Acid yellow field (deep grey and neon green in dark mode), big lowercase grotesk, thin outlined circles.
+   Deck: title first, then the sleeve, then a dark rounded panel with thin bars and a time tag,
+   then one big arrow-circle play button with small arrows beside it. */
 :root[data-persona="poster"] {
   --bg: light-dark(#e3fb1d, #161616);
   --fg: light-dark(#111111, #f1f1ec);
@@ -817,35 +822,49 @@ kbd {
   --art-bg: var(--bg);
   --ink-panel: #1d1d1d;
   --on-panel: #f1f1ec;
+  .np { grid-template-areas: "meta" "art" "scrub" "controls" "downloads"; }
+  .meta { margin-bottom: var(--s4); flex-wrap: nowrap; align-items: center; }
   .art { margin-bottom: var(--s4); }
   #sleeve { border-radius: 0; }
-  h1 { font-size: clamp(2.5rem, 1.6rem + 3vw, 3.75rem); font-weight: 600; letter-spacing: -0.045em; text-transform: lowercase; line-height: 0.95; }
+  h1 { font-size: clamp(1.75rem, 1.3rem + 1.4vw, 2.25rem); font-weight: 600; letter-spacing: -0.04em; text-transform: lowercase; line-height: 1; }
   .artist { font-weight: 500; color: var(--fg); }
   .artist::after { content: "R"; display: inline-grid; place-items: center; width: 1.4em; height: 1.4em; margin-left: 0.5em; border: 1px solid currentColor; border-radius: 50%; font-size: 0.7em; vertical-align: 0.15em; }
   .tabs { background: transparent; border-color: var(--fg); }
   .tabs a[aria-current="page"] { background: var(--fg); color: var(--bg); }
-  .pill, .dl { background: transparent; border-color: var(--fg); }
+  .pill, .dl { background: transparent; border-color: var(--fg); border-radius: 999px; }
+  .remix-toggle { width: 56px; height: 56px; padding: 0; justify-content: center; border-radius: 50%; }
+  .remix-toggle .pill-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .scrub {
-    background: var(--ink-panel); color: var(--on-panel); border-radius: 22px; padding: var(--s4) var(--s5) var(--s3);
+    background: var(--ink-panel); color: var(--on-panel); border-radius: 26px; padding: var(--s5) var(--s5) var(--s4);
     --fg: var(--on-panel); --fg-2: color-mix(in oklab, var(--on-panel) 70%, transparent); --fg-3: color-mix(in oklab, var(--on-panel) 55%, transparent);
+    --wave-on: light-dark(#e3fb1d, #3df06a);
   }
-  .scrub .thumb { background: var(--accent); width: 3px; box-shadow: none; }
-  .controls { gap: var(--s4); }
-  .skipbtn, .play { border: 1.5px solid var(--fg); border-radius: 50%; background: transparent; color: var(--fg); }
-  .skipbtn { width: 52px; height: 52px; }
-  .play { width: 76px; height: 76px; }
+  .wave { height: 40px; }
+  .scrub .thumb { background: var(--wave-on); width: 2px; height: 40px; box-shadow: none; }
+  #cur { justify-self: start; padding: 2px 8px; background: var(--wave-on); color: #111; border-radius: 4px; font-weight: 600; }
+  .controls { justify-content: space-between; gap: var(--s3); margin-top: var(--s5); }
+  .skipbtn { order: 2; width: 48px; height: 48px; border: 1px solid var(--fg); border-radius: 50%; background: transparent; }
+  .skipbtn .i-std { display: none; }
+  .skipbtn .i-arrow { display: block; width: 20px; height: 20px; stroke-width: 1.5; }
+  #prev { margin-left: auto; }
+  .play { order: 1; width: 96px; height: 96px; border: 1px solid var(--fg); border-radius: 50%; background: transparent; color: var(--fg); }
   .play::before { display: none; }
   .play svg { width: 26px; height: 26px; }
   .playing .play { background: var(--fg); color: var(--bg); }
   .skipbtn:hover, .play:hover { background: color-mix(in oklab, var(--fg) 10%, transparent); }
-  .skipbtn:active, .play:active { scale: 0.94; }
+  .skipbtn:active, .play:active { scale: 0.95; }
   .line { font-weight: 600; letter-spacing: -0.04em; text-transform: lowercase; }
   .line > span { filter: none !important; }
   .line::before, .ly-sec::after { display: none; }
 }
+@media (min-width: 900px) {
+  :root[data-persona="poster"] .np { grid-template-areas: ". lyrics" "meta lyrics" "art lyrics" "scrub lyrics" "controls lyrics" "downloads lyrics" ". lyrics"; }
+}
 
-/* Editorial: a flat slate spread, a huge headline with an asterisk, lyrics stepping in line by line,
-   and the controls in one rounded card. */
+/* ---------- Editorial ----------
+   A flat slate spread. The cover is the hero (title, stepped words, the figure in its rings), so the
+   page title shrinks to a caption. Controls sit in one flat card: a single line for the scrubber and
+   filled double triangles for skip, like a magazine's audio strip. */
 :root[data-persona="editorial"] {
   --bg: light-dark(#d9dbdf, #3a3d43);
   --fg: light-dark(#17181b, #f4f4f2);
@@ -854,48 +873,71 @@ kbd {
   --mark: var(--fg);
   --art-bg: var(--bg);
   --card: light-dark(#eceef1, #4a4e55);
-  .art { aspect-ratio: 5 / 3; margin-bottom: var(--s3); }
-  h1 { font-size: clamp(3rem, 2rem + 4vw, 5.25rem); font-weight: 600; letter-spacing: -0.05em; line-height: 0.9; }
-  h1::after { content: "*"; }
-  .artist { font-size: 1rem; font-weight: 400; max-width: 22em; }
+  .np { grid-template-areas: "art" "scrub" "controls" "meta" "downloads"; }
+  .art { aspect-ratio: 4 / 3; margin-bottom: var(--s4); }
+  .meta { margin: var(--s4) 0 0; }
+  h1 { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.01em; }
+  .artist { font-size: 0.875rem; font-weight: 400; }
   .tabs { background: var(--card); border: 0; }
   .tabs a[aria-current="page"] { background: var(--fg); color: var(--bg); }
   .scrub, .controls { background: var(--card); }
-  .scrub { border-radius: 20px 20px 0 0; padding: var(--s4) var(--s5) var(--s2); }
-  .controls { margin-top: 0; padding: var(--s2) 0 var(--s4); border-radius: 0 0 20px 20px; gap: var(--s5); }
-  .skipbtn { width: 44px; height: 44px; }
+  .scrub { border-radius: 18px 18px 0 0; padding: var(--s4) var(--s5) 0; }
+  .wave { height: 22px; }
+  .thumb { width: 10px; height: 10px; border-radius: 50%; box-shadow: none; }
+  .wave:hover .thumb { width: 12px; height: 12px; }
+  .times { display: flex; justify-content: space-between; }
+  .where { display: none; }
+  .controls { margin-top: 0; padding: var(--s2) 0 var(--s4); border-radius: 0 0 18px 18px; gap: var(--s6); }
+  .skipbtn { width: 44px; height: 44px; border-radius: 8px; }
+  .skipbtn .i-std { display: none; }
+  .skipbtn .i-ed { display: block; width: 24px; height: 24px; }
   .play { width: 52px; height: 52px; color: var(--fg); }
   .play::before { background: transparent; }
-  .play svg { width: 30px; height: 30px; }
-  .thumb { width: 2px; box-shadow: none; }
-  .pill, .dl { background: var(--card); border: 0; }
+  .play svg { width: 32px; height: 32px; }
+  .pill { background: transparent; border: 0; padding: 0; height: auto; text-decoration: underline; text-underline-offset: 4px; font-weight: 500; }
+  .pill svg { display: none; }
+  .pill[aria-pressed="true"] { background: transparent; color: var(--fg); text-decoration-thickness: 2px; }
+  .dl { background: var(--card); border: 0; border-radius: 10px; }
   .lyrics-pane { --ly: clamp(1.5rem, 1rem + 1.6vw, 2.25rem); mask-image: none; }
   .line { font-weight: 400; letter-spacing: -0.02em; line-height: 1.1; margin-left: calc(var(--k, 0) * 6%); max-width: 76%; }
   .line > span { filter: none !important; }
   .line::before, .ly-sec::after { display: none; }
-  .ly-sec { margin-left: 0; }
+}
+@media (min-width: 900px) {
+  :root[data-persona="editorial"] .art { width: 100%; }
+  :root[data-persona="editorial"] .np { grid-template-columns: clamp(380px, 40vw, 600px) minmax(0, 1fr); grid-template-areas: ". lyrics" "art lyrics" "scrub lyrics" "controls lyrics" "meta lyrics" "downloads lyrics" ". lyrics"; }
 }
 
-/* Sketchbook: warm flat cards (orange, green, lilac), condensed capitals, solid round play button */
+/* ---------- Sketchbook ----------
+   Warm flat cards (orange or green, lilac), heavy capitals, ink outlines with flat offset blocks.
+   Deck: sleeve, title, then the controls as ink stickers, then chunky bars in a lilac card. */
 :root[data-persona="sketch"] {
   --bg: light-dark(#f3ead9, #1f2a22);
   --fg: light-dark(#191714, #f3ead9);
-  --accent: light-dark(#1f7a4a, #f5a623);
-  --on-accent: light-dark(#f3ead9, #191714);
+  --accent: light-dark(#e8833a, #f5a623);
+  --on-accent: #191714;
   --mark: var(--accent);
   --art-bg: light-dark(#f5a623, #2f6b46);
+  --paper: light-dark(#fbf5e8, #24302a);
   --card: light-dark(#d9cdf2, #3b3354);
-  --font: "Bricolage", ui-sans-serif, system-ui, sans-serif;
+  .np { grid-template-areas: "art" "meta" "controls" "scrub" "downloads"; }
   #sleeve { border-radius: 24px; background: transparent; }
-  h1 { font-weight: 800; letter-spacing: -0.02em; text-transform: uppercase; font-stretch: 75%; }
-  .scrub { background: var(--card); border-radius: 20px; padding: var(--s4) var(--s5) var(--s3); }
-  .controls { gap: var(--s4); }
-  .skipbtn { width: 48px; height: 48px; border: 1.5px solid var(--fg); border-radius: 50%; }
-  .play { width: 72px; height: 72px; }
-  .play::before { border-radius: 50%; background: var(--accent); }
-  .pill, .dl { background: var(--card); border: 0; }
-  .line { font-weight: 800; text-transform: uppercase; letter-spacing: -0.01em; font-stretch: 80%; }
+  h1 { font-weight: 800; letter-spacing: -0.02em; text-transform: uppercase; }
+  .controls { margin: var(--s2) 0 var(--s5); gap: var(--s4); }
+  .skipbtn, .play, .pill, .dl { border: 2px solid var(--fg); box-shadow: 3px 3px 0 var(--fg); }
+  .skipbtn { width: 52px; height: 52px; border-radius: 50%; background: var(--paper); }
+  .play { width: 76px; height: 76px; border-radius: 50%; background: var(--accent); color: var(--on-accent); }
+  .play::before { display: none; }
+  .skipbtn:active, .play:active, .pill:active, .dl:active { translate: 3px 3px; box-shadow: 0 0 0 var(--fg); scale: 1; }
+  .scrub { background: var(--card); border: 2px solid var(--fg); border-radius: 20px; padding: var(--s4) var(--s5) var(--s3); }
+  .thumb { width: 4px; box-shadow: none; }
+  .pill, .dl { background: var(--card); border-radius: 999px; }
+  .remix-toggle { background: var(--accent); color: var(--on-accent); }
+  .line { font-weight: 800; text-transform: uppercase; letter-spacing: -0.01em; }
   .line > span { filter: none !important; }
+}
+@media (min-width: 900px) {
+  :root[data-persona="sketch"] .np { grid-template-areas: ". lyrics" "art lyrics" "meta lyrics" "controls lyrics" "scrub lyrics" "downloads lyrics" ". lyrics"; }
 }
 
 @media (prefers-reduced-motion: reduce) {

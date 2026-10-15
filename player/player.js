@@ -210,78 +210,122 @@ function place(x, img, X, Y, W, H, mode = "contain") {
 
 const LOOKS = {
   // Poster: a flat colour field, handwriting behind, and the record sliding out of its sleeve as the song plays
+  // Poster: the sleeve is all type. The title fills the width, the dancer stands on it, the record slides out on play.
   poster(x, W, H, t) {
     const field = col("var(--art-bg)"), ink = col("var(--fg)"), acc = col("var(--accent)");
     x.fillStyle = field; x.fillRect(0, 0, W, H);
-    // the letter fills the lower half, faint, with the dancer on top of it
-    const hw = handwriting(col("color-mix(in oklab, var(--fg) 55%, transparent)"));
-    if (hw) { x.save(); x.beginPath(); x.rect(0, H * 0.46, W, H * 0.54); x.clip(); place(x, hw, -W * 0.05, H * 0.42, W * 1.1, H * 0.66, "cover"); x.restore(); }
-    // sleeve and record
-    const s = W * 0.46, sx = W * 0.06, sy = H * 0.06;
-    const target = reduceMotion.matches ? 0.42 : media.paused ? 0.2 : 0.5;
+    // record behind the right edge
+    const target = reduceMotion.matches ? 0.12 : media.paused ? 0.04 : 0.16;
     slide += (target - slide) * (reduceMotion.matches ? 1 : 0.08);
     if (Math.abs(target - slide) > 0.002) requestAnimationFrame(() => drawSleeve());
-    const rx = sx + s / 2 + s * slide, ry = sy + s / 2, R = s * 0.47;
+    const R = H * 0.3, rx = W - R * 0.35 + W * slide - W * 0.12, ry = H * 0.3;
     x.fillStyle = col("var(--ink-panel)"); x.beginPath(); x.arc(rx, ry, R, 0, Math.PI * 2); x.fill();
-    x.strokeStyle = col("color-mix(in oklab, var(--on-panel) 20%, transparent)"); x.lineWidth = Math.max(1, W / 700);
-    for (let g = 0; g < 9; g++) { x.beginPath(); x.arc(rx, ry, R * (0.42 + g * 0.065), 0, Math.PI * 2); x.stroke(); }
+    x.strokeStyle = col("color-mix(in oklab, var(--on-panel) 18%, transparent)"); x.lineWidth = Math.max(1, W / 800);
+    for (let g = 0; g < 8; g++) { x.beginPath(); x.arc(rx, ry, R * (0.42 + g * 0.07), 0, Math.PI * 2); x.stroke(); }
+    x.fillStyle = acc === ink ? field : acc; x.beginPath(); x.arc(rx, ry, R * 0.3, 0, Math.PI * 2); x.fill();
     const turn = reduceMotion.matches ? 0 : t * 1.4;
-    x.fillStyle = acc; x.beginPath(); x.arc(rx, ry, R * 0.3, 0, Math.PI * 2); x.fill();
-    x.fillStyle = col("var(--ink-panel)"); x.beginPath(); x.arc(rx + Math.cos(turn) * R * 0.17, ry + Math.sin(turn) * R * 0.17, R * 0.035, 0, Math.PI * 2); x.fill();
-    x.beginPath(); x.arc(rx, ry, R * 0.03, 0, Math.PI * 2); x.fill();
-    x.fillStyle = field; x.fillRect(sx, sy, s, s);
-    x.strokeStyle = ink; x.lineWidth = Math.max(1.5, W / 300); x.strokeRect(sx, sy, s, s);
-    x.fillStyle = ink; x.textBaseline = "top"; x.textAlign = "left";
-    x.font = `600 ${s * 0.12}px Bricolage, sans-serif`;
-    song.title.toLowerCase().split(" ").forEach((w, i) => x.fillText(w, sx + s * 0.08, sy + s * 0.08 + i * s * 0.12));
-    x.font = `500 ${s * 0.05}px Bricolage, sans-serif`;
-    x.textBaseline = "bottom";
-    x.fillText(`${song.bpm} bpm · ${String(song.key).toLowerCase()}`, sx + s * 0.08, sy + s * 0.92);
-    // the dancer with headphones and a tape player
-    const d = art("dancing", ink, field === acc ? ink : acc);
-    if (d) place(x, d, W * 0.28, H * 0.38, W * 0.74, H * 0.64);
-    // a band across the corner, like a release sticker
-    x.save(); x.translate(W * 0.13, H * 0.88); x.rotate(-0.42);
-    x.fillStyle = ink; roundRect(x, -W * 0.2, -W * 0.034, W * 0.4, W * 0.068, W * 0.034); x.fill();
+    x.fillStyle = col("var(--ink-panel)"); x.beginPath(); x.arc(rx + Math.cos(turn) * R * 0.17, ry + Math.sin(turn) * R * 0.17, R * 0.04, 0, Math.PI * 2); x.fill();
+    // sleeve edge
+    x.fillStyle = field; x.fillRect(0, 0, W * 0.86, H);
+    x.fillStyle = ink; x.fillRect(W * 0.86 - Math.max(1.5, W / 300), 0, Math.max(1.5, W / 300), H);
+    // handwriting along the bottom
+    const hw = handwriting(col("color-mix(in oklab, var(--fg) 50%, transparent)"));
+    if (hw) { x.save(); x.beginPath(); x.rect(0, H * 0.62, W * 0.86, H * 0.38); x.clip(); place(x, hw, -W * 0.1, H * 0.5, W * 1.1, H * 0.7, "cover"); x.restore(); }
+    // the title, as big as it fits
+    x.fillStyle = ink; x.textBaseline = "alphabetic"; x.textAlign = "left";
+    const words = song.title.toLowerCase().split(" ");
+    let fs = H * 0.3;
+    x.font = `600 ${fs}px Bricolage, sans-serif`;
+    const widest = Math.max(...words.map((w) => x.measureText(w).width));
+    fs = Math.min(fs, (fs * W * 0.7) / widest);
+    x.font = `600 ${fs}px Bricolage, sans-serif`;
+    x.letterSpacing = `${-fs * 0.05}px`;
+    words.forEach((w, i) => x.fillText(w, W * 0.05, H * 0.06 + fs * 0.82 * (i + 1)));
+    x.letterSpacing = "0px";
+    x.font = `500 ${W * 0.03}px Bricolage, sans-serif`;
+    x.fillText(`${song.bpm} bpm · ${String(song.key).toLowerCase()} · ${fmt(song.length)}`, W * 0.055, H * 0.06 + fs * 0.82 * words.length + W * 0.06);
+    // the dancer, standing on the title
+    const d = art("dancing", ink, acc === ink ? field : acc);
+    if (d) place(x, d, W * 0.3, H * 0.36, W * 0.66, H * 0.66);
+    // sticker band
+    x.save(); x.translate(W * 0.15, H * 0.9); x.rotate(-0.42);
+    x.fillStyle = ink; roundRect(x, -W * 0.22, -W * 0.034, W * 0.44, W * 0.068, W * 0.034); x.fill();
     x.fillStyle = field; x.textAlign = "center"; x.textBaseline = "middle"; x.font = `500 ${W * 0.032}px Bricolage, sans-serif`;
     x.fillText(song.per === "bar" ? "made by visitors" : "rebuilt every night", 0, W * 0.003);
     x.restore();
   },
 
-  // Editorial: thin rings behind a huge number, like a disc in a magazine spread
+  // Editorial: a magazine hero. Huge title on the left, words stepping down on the right, the figure in the rings.
   editorial(x, W, H, t) {
     x.fillStyle = col("var(--art-bg)"); x.fillRect(0, 0, W, H);
-    const fg = col("var(--fg)"), dim = col("color-mix(in oklab, var(--fg) 28%, transparent)");
-    const p = progressAt(t), cx = W * 0.66, cy = H * 0.55;
-    x.strokeStyle = dim; x.lineWidth = Math.max(1, W / 600);
-    for (let k = 0; k < 4; k++) { x.beginPath(); x.arc(cx, cy, H * (0.22 + k * 0.1), 0, Math.PI * 2); x.stroke(); }
-    x.strokeStyle = fg; x.lineWidth = Math.max(2, W / 300);
-    x.beginPath(); x.arc(cx, cy, H * 0.52, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); x.stroke();
-    const d = art("moshing", fg, col("var(--bg)"));
-    if (d) place(x, d, W * 0.34, H * 0.02, W * 0.64, H * 0.98);
-    x.fillStyle = fg; x.textBaseline = "alphabetic"; x.textAlign = "left";
-    x.font = `600 ${H * 0.34}px Bricolage, sans-serif`;
-    x.fillText(String(song.stats.total), W * 0.04, H * 0.62);
-    x.font = `400 ${H * 0.065}px Bricolage, sans-serif`;
-    x.fillText(`${song.unit || "contribution"}s*`, W * 0.05, H * 0.76);
+    const fg = col("var(--fg)"), dim = col("color-mix(in oklab, var(--fg) 25%, transparent)");
+    const p = progressAt(t), cx = W * 0.7, cy = H * 0.6;
+    x.strokeStyle = dim; x.lineWidth = Math.max(1, W / 700);
+    for (let k = 0; k < 4; k++) { x.beginPath(); x.arc(cx, cy, H * (0.2 + k * 0.1), 0, Math.PI * 2); x.stroke(); }
+    x.strokeStyle = fg; x.lineWidth = Math.max(2, W / 350);
+    x.beginPath(); x.arc(cx, cy, H * 0.5, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); x.stroke();
+    const d = art("moshing", fg, col("var(--art-bg)"));
+    if (d) place(x, d, W * 0.42, H * 0.18, W * 0.56, H * 0.82);
+    // the stepped words: section names, each repeated a little further in
+    x.fillStyle = fg; x.textBaseline = "top"; x.textAlign = "left";
+    const fsS = H * 0.04;
+    x.font = `400 ${fsS}px Bricolage, sans-serif`;
+    const names = [...new Set(song.sections.map((s) => s.name.replace(/ \d+$/, "")))].slice(0, 5);
+    x.textAlign = "right";
+    names.forEach((n, i) => x.fillText(names.slice(Math.max(0, i - 1), i + 1).join(" & ").toLowerCase(), W * 0.72 + i * W * 0.05, H * 0.05 + i * fsS * 1.2));
+    x.textAlign = "left";
+    // the hero title
+    const words = song.title.split(" ");
+    let fs = H * 0.26;
+    x.font = `600 ${fs}px Bricolage, sans-serif`;
+    fs = Math.min(fs, (fs * W * 0.9) / Math.max(...words.map((w) => x.measureText(w + "*").width)));
+    x.font = `600 ${fs}px Bricolage, sans-serif`;
+    x.letterSpacing = `${-fs * 0.05}px`;
+    x.textBaseline = "alphabetic";
+    words.forEach((w, i) => x.fillText(w + (i === words.length - 1 ? "*" : ""), W * 0.04, H * 0.3 + fs * 0.8 + i * fs * 0.88));
+    x.letterSpacing = "0px";
+    x.font = `400 ${H * 0.045}px Bricolage, sans-serif`;
+    x.fillText(song.per === "bar" ? "Is a song made one note at a time" : `Is ${song.stats.total} contributions`, W * 0.045, H * 0.3 + fs * 0.8 + (words.length - 1) * fs * 0.88 + H * 0.08);
+    x.fillText(song.per === "bar" ? "by people who visit this profile." : "turned into a song, rebuilt nightly.", W * 0.045, H * 0.3 + fs * 0.8 + (words.length - 1) * fs * 0.88 + H * 0.14);
   },
 
-  // Sketchbook: a warm card with a line-art listener who nods along on the beat
+  // Sketchbook: a sleeve drawn in ink on paper, with a record outline, a stamp and the dancer in colour
   sketch(x, W, H, t) {
+    const paper = col("var(--paper)"), ink = col("var(--fg)"), card = col("var(--art-bg)"), acc = col("var(--accent)");
     x.fillStyle = col("var(--bg)"); x.fillRect(0, 0, W, H);
-    x.fillStyle = col("var(--art-bg)"); roundRect(x, 0, 0, W, H, W * 0.06); x.fill();
-    const ink = col("var(--fg)");
+    x.fillStyle = card; roundRect(x, 0, 0, W, H, W * 0.06); x.fill();
+    // paper sleeve with a double ink frame
+    const m = W * 0.06;
+    x.fillStyle = paper; roundRect(x, m, m, W - 2 * m, H - 2 * m, W * 0.025); x.fill();
+    x.strokeStyle = ink; x.lineWidth = Math.max(1.5, W / 220); x.stroke();
+    x.lineWidth = Math.max(1, W / 600); roundRect(x, m * 1.4, m * 1.4, W - 2.8 * m, H - 2.8 * m, W * 0.015); x.stroke();
+    // a record drawn in outline, turning slowly
+    const rx = W * 0.66, ry = H * 0.6, R = W * 0.26, turn = reduceMotion.matches ? 0 : t * 0.8;
+    x.lineWidth = Math.max(1, W / 500);
+    for (let g = 0; g < 5; g++) { x.beginPath(); x.arc(rx, ry, R * (0.35 + g * 0.16), turn + g, turn + g + Math.PI * 1.7); x.stroke(); }
+    x.fillStyle = acc; x.beginPath(); x.arc(rx, ry, R * 0.22, 0, Math.PI * 2); x.fill(); x.stroke();
+    // title in heavy capitals
     x.fillStyle = ink; x.textBaseline = "top"; x.textAlign = "left";
-    x.font = `800 ${W * 0.1}px Bricolage, sans-serif`;
-    song.title.toUpperCase().split(" ").forEach((w, i) => x.fillText(w, W * 0.07, W * 0.07 + i * W * 0.1));
-    // the dancer nods on each beat (still for reduced motion)
+    const tw = song.title.toUpperCase().split(" ");
+    let tf = W * 0.105;
+    x.font = `800 ${tf}px Bricolage, sans-serif`;
+    tf = Math.min(tf, (tf * (W - 3.8 * m)) / Math.max(...tw.map((w) => x.measureText(w).width)));
+    x.font = `800 ${tf}px Bricolage, sans-serif`;
+    tw.forEach((w, i) => x.fillText(w, m * 1.9, m * 1.9 + i * tf * 0.95));
+    // stamp
+    x.save(); x.translate(W - m * 3.2, H - m * 3.2); x.rotate(0.2);
+    x.beginPath(); x.arc(0, 0, W * 0.075, 0, Math.PI * 2); x.stroke();
+    x.beginPath(); x.arc(0, 0, W * 0.062, 0, Math.PI * 2); x.stroke();
+    x.textAlign = "center"; x.textBaseline = "middle"; x.font = `700 ${W * 0.03}px Bricolage, sans-serif`;
+    x.fillText(String(song.bpm), 0, -W * 0.012); x.font = `600 ${W * 0.018}px Bricolage, sans-serif`; x.fillText("BPM", 0, W * 0.02);
+    x.restore();
+    // the dancer nods on each beat
     const beat = (t / (song.bar / 4)) % 1;
     const bob = reduceMotion.matches || media.paused ? 0 : -Math.max(0, 1 - beat * 4) * W * 0.012;
-    const d = art("groovy", ink, col("var(--card)"));
-    if (d) place(x, d, W * 0.18, H * 0.2 + bob, W * 0.86, H * 0.8);
-    x.fillStyle = col("var(--accent)"); roundRect(x, W * 0.07, H - W * 0.17, W * 0.3, W * 0.1, W * 0.05); x.fill();
-    x.fillStyle = col("var(--on-accent)"); x.font = `700 ${W * 0.038}px Bricolage, sans-serif`; x.textBaseline = "middle"; x.textAlign = "center";
-    x.fillText(sectionAt(t).name, W * 0.22, H - W * 0.12);
+    const d = art("groovy", ink, acc);
+    if (d) place(x, d, W * 0.1, H * 0.3 + bob, W * 0.7, H * 0.62);
+    x.fillStyle = ink; x.font = `700 ${W * 0.032}px Bricolage, sans-serif`; x.textAlign = "left"; x.textBaseline = "alphabetic";
+    x.fillText(`SIDE A · ${sectionAt(t).name.toUpperCase()}`, m * 1.9, H - m * 1.9);
   },
 };
 let slide = 0.22;
@@ -536,6 +580,13 @@ const waveProbe = document.createElement("i");
 waveProbe.style.display = "none";
 $(".wave").append(waveProbe);
 const waveColor = (v) => { waveProbe.style.color = v; return getComputedStyle(waveProbe).color; };
+function drawLine(x, w, h, dpr, p, d) {
+  const y = h / 2, fg = waveColor("var(--fg)"), dim = waveColor("color-mix(in oklab, var(--fg) 22%, transparent)");
+  x.fillStyle = dim; x.fillRect(0, y - dpr, w, 2 * dpr);
+  song.sections.slice(1).forEach((s) => { x.fillRect((s.start / d) * w - dpr / 2, y - 5 * dpr, dpr, 10 * dpr); });
+  x.fillStyle = fg; x.fillRect(0, y - 1.5 * dpr, w * p, 3 * dpr);
+  if (hoverP >= 0) { x.fillStyle = waveColor("color-mix(in oklab, var(--fg) 50%, transparent)"); x.fillRect(w * Math.min(p, hoverP), y - dpr, Math.abs(hoverP - p) * w, 2 * dpr); }
+}
 function drawWave() {
   if (media.getFrequency && !liveBins) liveBins = new Uint8Array(128);
   if (!song) return;
@@ -545,10 +596,13 @@ function drawWave() {
   const peaks = song.peaks;
   const d = media.duration || song.length;
   const p = clamp(media.currentTime / d, 0, 1);
-  const barW = 3 * dpr, gap = 2 * dpr;
+  // each look has its own scrubber: thin poster bars, a single editorial line, chunky sketchbook bars
+  if (persona === "editorial") { drawLine(x, w, h, dpr, p, d); return; }
+  const [bw, bg] = { poster: [1.5, 2.5], sketch: [6, 4] }[persona] || [3, 2];
+  const barW = bw * dpr, gap = bg * dpr;
   const count = Math.max(10, Math.floor((w + gap) / (barW + gap)));
   const step = (w + gap) / count;
-  const on = waveColor("var(--fg)");
+  const on = waveColor(persona === "poster" ? "var(--wave-on, var(--fg))" : "var(--fg)");
   const off = waveColor("color-mix(in oklab, var(--fg) 24%, transparent)");
   const pre = waveColor("color-mix(in oklab, var(--fg) 52%, transparent)");
   const cuts = song.sections.slice(1).map((s) => s.start / d);
