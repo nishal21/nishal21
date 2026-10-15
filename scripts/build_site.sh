@@ -22,6 +22,8 @@ if [ -d assets/stems ]; then mkdir -p _site/player/stems && cp assets/stems/* _s
 python3 player/make_cover.py _site/player || echo "cover not built; the page draws its own"
 # 15 s vertical video of the busiest week, for sharing (optional: the player hides the link without it)
 python3 scripts/share_clip.py _site/player || echo "share clip not built"
+# The visitor song as a video for the Videos page (needs the MP3 from the "Visitor song" step)
+mkdir -p _site/video && python3 scripts/visitor_video.py _site/video || echo "visitor video not built"
 # The video page: the year trailer, the share clip, the YouTube library (videos.json, refreshed nightly into assets/
 # and kept from the last good run if the feed fails) and a player for any link.
 mkdir -p _site/video

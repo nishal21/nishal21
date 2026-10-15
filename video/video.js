@@ -303,7 +303,14 @@ const TRAILER = {
   download: { href: "trailer.mp4", name: "nishal-year-trailer.mp4", label: "Download trailer" },
   share: "trailer", artist: "Nishal K",
 };
-const OWN = (it) => it === CLIP || it === TRAILER;
+// the visitor song as a video: its card and a live waveform over the audio (scripts/visitor_video.py)
+const VISITOR = {
+  key: "visitor", kind: "file", src: new URL("visitor-song.mp4", SITE).href, shape: "wide",
+  eyebrow: "Visitor song · grows every night", title: "The visitor song, one note per visitor", thumb: "visitor-poster.jpg",
+  download: { href: "visitor-song.mp4", name: "nishal-visitor-song.mp4", label: "Download video" },
+  share: "visitor", artist: "Nishal K and visitors",
+};
+const OWN = (it) => it === CLIP || it === TRAILER || it === VISITOR;
 const TRAILER_WIDE = TRAILER.src, TRAILER_TALL = new URL("trailer-vertical.mp4", SITE).href;
 let trailerMeta = null;   // trailer.json: fps, bar, cuts, kicks, hits and (newer builds) sections
 let trailerTall = false, hasTall = false;
@@ -380,6 +387,7 @@ function ytItem(v) {
 function metaLine(it) {
   if (it === CLIP) return CLIP.metaText || "15 seconds from the contribution song";
   if (it === TRAILER) return TRAILER.metaText || "45 seconds, cut to the contribution song";
+  if (it === VISITOR) return VISITOR.metaText || "Notes and lyric lines added by people who visit my profile";
   const bits = [];
   if (it.views != null) bits.push(`${nf.format(it.views)} views`);
   if (it.duration && !it.short) bits.unshift(fmt(it.duration));
@@ -392,7 +400,7 @@ function thumbEl(it) {
     const tall = it.shape === "tall";
     box.append(el("img", { src: it.thumb, alt: "", loading: "lazy", decoding: "async", width: tall ? 360 : 640, height: tall ? 640 : 360 }));
   }
-  const len = it === CLIP ? "0:15" : it === TRAILER ? fmt(TRAILER.length || 45) : it.duration ? fmt(it.duration) : it.short ? "Short" : "";
+  const len = it === CLIP ? "0:15" : it === TRAILER ? fmt(TRAILER.length || 45) : it === VISITOR ? (VISITOR.length ? fmt(VISITOR.length) : "") : it.duration ? fmt(it.duration) : it.short ? "Short" : "";
   if (len) box.append(el("span", { className: "badge", textContent: len }));
   return box;
 }
@@ -502,7 +510,7 @@ function upNext() {
 function renderQueue() {
   const list = upNext().slice(0, 8);
   $("#queue").replaceChildren(...list.map((it) => {
-    const li = el("li", { className: "qi" }, itemLink(it, it === CLIP ? "Share clip" : it === TRAILER ? "Year trailer" : metaLine(it)));
+    const li = el("li", { className: "qi" }, itemLink(it, it === CLIP ? "Share clip" : it === TRAILER ? "Year trailer" : it === VISITOR ? "Visitor song" : metaLine(it)));
     li.dataset.key = it.key;
     li.append(el("button", { type: "button", className: "grip", ariaLabel: `Move “${it.title}” (arrow keys)`, innerHTML: '<svg aria-hidden="true"><use href="#i-grip"/></svg>' }));
     return li;
@@ -2642,12 +2650,19 @@ window.videoPage = {
 async function boot() {
   syncVolUI(); syncRateUI(); syncToggles();
   $("#time").setAttribute("aria-label", prefs.remaining ? "Show elapsed time" : "Show time remaining");
-  const [vids, hasClip, song, trailer] = await Promise.all([
+  const [vids, hasClip, song, trailer, visitor] = await Promise.all([
     fetch(document.querySelector('link[rel="preload"][href^="videos.json"]')?.getAttribute("href") || "videos.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
     fetch(CLIP.src, { method: "HEAD" }).then((r) => r.ok).catch(() => false),
     fetch("../player/contribution-song.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
     fetch("trailer.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch(VISITOR.src, { method: "HEAD" }).then((r) => (r.ok ? fetch("../player/visitor-song.json").then((j) => (j.ok ? j.json() : {})) : null)).catch(() => null),
   ]);
+  if (visitor) {
+    VISITOR.length = visitor.length;
+    const n = visitor.stats?.total ?? 0, v = encodeURIComponent(visitor.generated || "");
+    VISITOR.metaText = `${fmt(visitor.length || 0)} · ${n} visitor note${n === 1 ? "" : "s"} so far`;
+    VISITOR.src += `?v=${v}`; VISITOR.thumb += `?v=${v}`;
+  }
   if (vids?.channel) channel = { ...channel, ...vids.channel };
   $("#channel-link").href = channel.url;
   $("#channel-link").textContent = channel.handle;
@@ -2672,7 +2687,7 @@ async function boot() {
     // phones get the vertical cut
     if (matchMedia("(max-aspect-ratio: 3/4)").matches) TRAILER.download = { href: "trailer-vertical.mp4", name: "nishal-year-trailer-vertical.mp4", label: "Download vertical" };
   }
-  library = [...(trailer?.length ? [TRAILER] : []), ...(hasClip ? [CLIP] : []), ...yts];
+  library = [...(trailer?.length ? [TRAILER] : []), ...(hasClip ? [CLIP] : []), ...(visitor ? [VISITOR] : []), ...yts];
   buildGroups(yts);
   renderLibrary();
   route();
@@ -2681,7 +2696,7 @@ function route() {
   const q = new URLSearchParams(location.search);
   const v = q.get("v") || (EMBED ? q.get("src") : null), t = parseTime(q.get("t") || q.get("start") || "") || 0;
   let it = null;
-  if (v && v !== "clip" && v !== "trailer") {
+  if (v && v !== "clip" && v !== "trailer" && v !== "visitor") {
     const x = parseLink(v);
     if (x.error) say(`The shared link couldn't be played. ${x.error}`, true);
     else it = itemFromParsed(x);
