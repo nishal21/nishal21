@@ -130,6 +130,145 @@ function setThemeColor() {
   if (m) m.content = cssColor("var(--bg)");
 }
 
+/* ---------- looks: four ways to show the same player (layout and type live in player.css) ---------- */
+// Vinyl is the record below. The others draw their own art here; the audio, lyrics and controls are shared.
+// The choice is kept in localStorage, and #persona=<id> (on its own or after a remix link) opens a page in that look.
+const PERSONAS = { vinyl: "Vinyl turntable", cassette: "Cassette deck", terminal: "Retro terminal", studio: "Minimal studio" };
+const lookFromHash = () => { const v = new URLSearchParams(location.hash.slice(1)).get("persona"); return v in PERSONAS ? v : null; };
+const lookStored = () => { try { const v = localStorage.getItem("player-look"); return v in PERSONAS ? v : null; } catch { return null; } };
+let persona = lookFromHash() || lookStored() || "vinyl";
+let forceVinyl = false;
+root.dataset.persona = persona;
+
+function setPersona(p, { save = true, hash = true } = {}) {
+  if (!(p in PERSONAS)) p = "vinyl";
+  persona = p;
+  root.dataset.persona = p;
+  if (save) try { if (p === "vinyl") localStorage.removeItem("player-look"); else localStorage.setItem("player-look", p); } catch {}
+  if (hash) {
+    const parts = location.hash.slice(1).split("&").filter((x) => x && !x.startsWith("persona="));
+    if (p !== "vinyl") parts.push(`persona=${p}`);
+    try { history.replaceState(null, "", parts.length ? `#${parts.join("&")}` : location.pathname + location.search); } catch {}
+  }
+  $$('#looks input[name="look"]').forEach((r) => (r.checked = r.value === p));
+  discImg = null;
+  if (song) { drawSleeve(); drawWave(); layoutLyrics(true); update(true); }
+}
+$$('#looks input[name="look"]').forEach((r) => {
+  r.checked = r.value === persona;
+  r.addEventListener("change", () => r.checked && setPersona(r.value));
+});
+// opening the picker puts focus on the current look, so the arrow keys move between them at once
+$("#looks")?.addEventListener("toggle", (e) => { if (e.newState === "open") $('#looks input[name="look"]:checked')?.focus(); });
+addEventListener("hashchange", () => { const p = lookFromHash(); if (p && p !== persona) setPersona(p, { hash: false }); });
+
+const col = (v) => cssColor(v);
+function roundRect(x, X, Y, W, H, r) { x.beginPath(); x.roundRect ? x.roundRect(X, Y, W, H, r) : x.rect(X, Y, W, H); }
+const progressAt = (t) => clamp(t / (media.duration || song.length), 0, 1);
+
+const LOOKS = {
+  // a C60 in a window: tape moves from the left reel to the right as the song plays
+  cassette(x, W, H, t) {
+    const bg = col("var(--art-bg)"), shell = col("var(--art-shell)"), ink = col("var(--fg)"), soft = col("var(--fg-3)"), acc = col("var(--accent)");
+    x.fillStyle = bg; x.fillRect(0, 0, W, H);
+    const m = W * 0.06, sw = W - 2 * m, sh = H - 2 * m;
+    x.fillStyle = shell; roundRect(x, m, m, sw, sh, W * 0.025); x.fill();
+    x.strokeStyle = soft; x.lineWidth = Math.max(1, W / 500); x.stroke();
+    // label
+    const lx = m + sw * 0.06, ly = m + sh * 0.07, lw = sw * 0.88, lh = sh * 0.56;
+    x.fillStyle = bg; roundRect(x, lx, ly, lw, lh, W * 0.01); x.fill();
+    x.fillStyle = ink; x.textBaseline = "top"; x.textAlign = "left";
+    x.font = `600 ${W * 0.034}px "JB Mono", monospace`;
+    x.fillText(song.title.toUpperCase(), lx + lw * 0.04, ly + lh * 0.08);
+    x.font = `500 ${W * 0.022}px "JB Mono", monospace`;
+    x.fillStyle = soft;
+    x.fillText(`SIDE A · ${song.bpm} BPM · ${String(song.key).toUpperCase()}`, lx + lw * 0.04, ly + lh * 0.24);
+    x.textAlign = "right";
+    x.fillText(fmt(song.length), lx + lw * 0.96, ly + lh * 0.08);
+    // window with two reels
+    const wx = lx + lw * 0.2, wy = ly + lh * 0.44, ww = lw * 0.6, wh = lh * 0.44;
+    x.fillStyle = shell; roundRect(x, wx, wy, ww, wh, wh * 0.5); x.fill();
+    x.strokeStyle = soft; x.stroke();
+    const p = progressAt(t), rMin = wh * 0.2, rMax = wh * 0.44;
+    const spin = reduceMotion.matches ? 0 : t * 2.2;
+    [[wx + wh * 0.55, 1 - p, spin], [wx + ww - wh * 0.55, p, spin * 0.8]].forEach(([cx, amt, a]) => {
+      const cy = wy + wh / 2;
+      x.fillStyle = col("color-mix(in oklab, var(--fg) 70%, var(--art-shell))");
+      x.beginPath(); x.arc(cx, cy, rMin + (rMax - rMin) * amt, 0, Math.PI * 2); x.fill();
+      x.fillStyle = bg; x.beginPath(); x.arc(cx, cy, rMin * 0.8, 0, Math.PI * 2); x.fill();
+      x.strokeStyle = ink; x.lineWidth = Math.max(1, W / 320);
+      for (let k = 0; k < 6; k++) {
+        const ang = a + (k * Math.PI) / 3;
+        x.beginPath(); x.moveTo(cx + Math.cos(ang) * rMin * 0.3, cy + Math.sin(ang) * rMin * 0.3);
+        x.lineTo(cx + Math.cos(ang) * rMin * 0.72, cy + Math.sin(ang) * rMin * 0.72); x.stroke();
+      }
+    });
+    // counter
+    x.textAlign = "center"; x.textBaseline = "middle"; x.fillStyle = acc;
+    x.font = `600 ${W * 0.03}px "JB Mono", monospace`;
+    x.fillText(String(Math.floor(t)).padStart(3, "0"), wx + ww / 2, wy + wh / 2);
+    // the bottom lip with its five holes
+    const by = m + sh * 0.76, bw = sw * 0.6, bx = m + (sw - bw) / 2;
+    x.strokeStyle = soft; x.lineWidth = Math.max(1, W / 500);
+    x.beginPath(); x.moveTo(bx, m + sh); x.lineTo(bx + bw * 0.06, by); x.lineTo(bx + bw * 0.94, by); x.lineTo(bx + bw, m + sh); x.stroke();
+    x.fillStyle = bg;
+    [0.18, 0.34, 0.5, 0.66, 0.82].forEach((f, i) => { x.beginPath(); x.arc(bx + bw * f, by + (m + sh - by) * 0.55, W * (i % 2 ? 0.008 : 0.012), 0, Math.PI * 2); x.fill(); });
+  },
+
+  // a status screen in monospace: where the song is, a progress bar and the beats of this bar
+  terminal(x, W, H, t) {
+    x.fillStyle = col("var(--art-bg)"); x.fillRect(0, 0, W, H);
+    const fg = col("var(--fg)"), dim = col("var(--fg-3)"), acc = col("var(--accent)");
+    const fs = Math.max(9, W / 34), lh = fs * 1.55, m = W * 0.06;
+    x.font = `500 ${fs}px "JB Mono", monospace`; x.textBaseline = "top"; x.textAlign = "left";
+    const cols = Math.floor((W - 2 * m) / (fs * 0.6));
+    const n = song.weeks.length, bar = clamp(Math.floor(t / song.bar), 0, n - 1), sec = sectionAt(t);
+    const p = progressAt(t), width = Math.max(10, cols - 8), done = Math.round(p * width);
+    const days = song.weeks[bar].days.slice(0, song.per === "bar" ? 4 : 7);
+    const frac = t / song.bar - bar;
+    const rows = [
+      [dim, `$ play ${song.per === "bar" ? "visitor-song" : "contribution-song"}`],
+      [dim, ""],
+      [fg, `title    ${song.title}`],
+      [fg, `section  ${sec.name}`],
+      [fg, `bar      ${String(bar + 1).padStart(2, "0")} of ${n}`],
+      [fg, `time     ${fmt(t)} / ${fmt(song.length)}`],
+      [dim, ""],
+      [acc, `[${"#".repeat(done)}${".".repeat(width - done)}] ${String(Math.round(p * 100)).padStart(3)}%`],
+      [dim, ""],
+      [fg, `${song.per === "bar" ? "beats" : "days "}    ${days.map((c, d) => (!media.paused && frac >= d * (song.per === "bar" ? 0.25 : DAY_STEP) && frac < (d + 1) * (song.per === "bar" ? 0.25 : DAY_STEP)) ? "@" : c ? "o" : ".").join(" ")}`],
+    ];
+    rows.forEach(([c, s], i) => { x.fillStyle = c; x.fillText(s.slice(0, cols), m, m + i * lh); });
+    // the cursor blinks only while playing, and stays still for reduced motion
+    const blink = reduceMotion.matches || media.paused ? 1 : (Math.floor(performance.now() / 530) % 2);
+    if (blink) { x.fillStyle = fg; x.fillRect(m, m + rows.length * lh + lh * 0.5, fs * 0.6, fs * 1.1); }
+  },
+
+  // big time, a thin timeline with the sections, and nothing else
+  studio(x, W, H, t) {
+    x.fillStyle = col("var(--art-bg)"); x.fillRect(0, 0, W, H);
+    const fg = col("var(--fg)"), dim = col("var(--fg-3)"), line = col("var(--line)");
+    const m = W * 0.08;
+    x.textBaseline = "alphabetic"; x.textAlign = "left"; x.fillStyle = fg;
+    x.font = `300 ${W * 0.2}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    x.fillText(fmt(t), m - W * 0.01, m + W * 0.18);
+    x.fillStyle = dim;
+    x.font = `400 ${W * 0.032}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    x.fillText(`${sectionAt(t).name} · ${fmt(song.length)} · ${song.bpm} BPM`, m, m + W * 0.26);
+    // timeline
+    const y = H - m - W * 0.06, w = W - 2 * m, p = progressAt(t);
+    x.fillStyle = line; x.fillRect(m, y, w, Math.max(1, W / 400));
+    x.fillStyle = fg; x.fillRect(m, y - W / 800, w * p, Math.max(2, W / 200));
+    x.font = `400 ${W * 0.024}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    let lastX = -1e9;
+    song.sections.forEach((s) => {
+      const sx = m + (s.start / song.length) * w;
+      x.fillStyle = dim; x.fillRect(sx, y - W * 0.012, Math.max(1, W / 500), W * 0.024);
+      if (sx - lastX > W * 0.14) { x.fillText(s.name, sx, y + W * 0.05); lastX = sx; }
+    });
+  },
+};
+
 /* ---------- the cover: a record whose grooves are the year ---------- */
 const sleeve = $("#sleeve");
 let discImg = null;    // pre-rendered record, redrawn only when the size changes
@@ -214,7 +353,8 @@ const turnAt = (t) => (reduceMotion.matches ? 0 : -((t / song.bar - 0.5) * 360) 
 
 function drawSleeve(t = media.currentTime) {
   if (!song) return;
-  const [x, S] = fitCanvas(sleeve, 2.5);
+  const [x, S, SH] = fitCanvas(sleeve, 2.5);
+  if (persona !== "vinyl" && !forceVinyl) { LOOKS[persona](x, S, SH, t); return; }
   if (S !== sleeveSize || !discImg) { sleeveSize = S; discImg = renderDisc(S); }
   const { D, cx, cy, R, r0, r1, label } = geo(S);
   const n = song.weeks.length;
@@ -285,6 +425,10 @@ function weekAtAngle(ang, t = media.currentTime) {
 let scratch = null;
 sleeve.addEventListener("pointerdown", (e) => {
   if (!song || e.button > 0) return;
+  if (persona !== "vinyl") { // the other looks have no record to scratch: a click plays or pauses
+    if (media.paused) play(); else media.pause();
+    return;
+  }
   const p = discPoint(e);
   if (p.dist > 1 || p.dist < 0.31) return; // only the grooves, not the label or the sleeve
   e.preventDefault();
@@ -469,8 +613,9 @@ function build(data) {
 
   document.fonts.load("800 40px Bricolage").catch(() => {}).finally(() => {
     discImg = null;
+    // the palette always comes from the record sleeve, whichever look is showing
+    forceVinyl = true; drawSleeve(); applyPalette(extractSleeve(sleeve)); forceVinyl = false;
     drawSleeve();
-    applyPalette(extractSleeve(sleeve));
     drawBackdrop();
     layoutLyrics(true);
     update(true);

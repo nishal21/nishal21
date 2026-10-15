@@ -24,7 +24,8 @@
   let state = DEFAULT();
 
   /* ---------- the mix as a link ---------- */
-  function encode(st) {
+  // look: false leaves out the player look (#persona=), so comparing two mixes ignores it
+  function encode(st, look = true) {
     const p = ["remix"];
     if (st.tempo !== 100) p.push(`tempo=${st.tempo}`);
     if (!st.keep) p.push("pitch=free");
@@ -34,6 +35,8 @@
     if (st.solo.size) p.push(`solo=${[...st.solo].join(".")}`);
     const lv = STEMS.filter((s) => st.level[s.id] !== 100).map((s) => s.id + st.level[s.id]);
     if (lv.length) p.push(`level=${lv.join(".")}`);
+    const persona = look && document.documentElement.dataset.persona;
+    if (persona && persona !== "vinyl") p.push(`persona=${persona}`);
     return "#" + p.join("&");
   }
   function decode(hash) {
@@ -56,7 +59,7 @@
     }
     return st;
   }
-  const isDefault = (st) => encode(st) === "#remix";
+  const isDefault = (st) => encode(st, false) === "#remix";
 
   /* ---------- sound ---------- */
   const audible = (st, id) => !st.mute.has(id) && (!st.solo.size || st.solo.has(id));
@@ -330,7 +333,7 @@
     return b;
   });
   // compared with the sets sorted, so the same mix built in another order still lights its preset
-  const mixKey = (st) => encode({ ...st, mute: new Set([...st.mute].sort()), solo: new Set([...st.solo].sort()) });
+  const mixKey = (st) => encode({ ...st, mute: new Set([...st.mute].sort()), solo: new Set([...st.solo].sort()) }, false);
   const presetLinks = PRESETS.map((pr) => mixKey(presetState(pr)));
 
   // loop: off, the bar (week) that's playing, or the section that's playing. Not part of the link or the export.

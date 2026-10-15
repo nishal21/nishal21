@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem("color-scheme")??"light dark"}catch(e){}</script>
+<script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem("color-scheme")??"light dark"}catch(e){}
+try{var l=new URLSearchParams(location.hash.slice(1)).get("persona")||localStorage.getItem("player-look");if(/^(vinyl|cassette|terminal|studio)$/.test(l))document.documentElement.dataset.persona=l}catch(e){}</script>
 <title>Contribution song · Nishal K</title>
 <meta name="description" content="A song made from Nishal K's GitHub contributions over the last 12 months. One bar per week, lyrics from the real numbers, rebuilt every night.">
 <meta name="theme-color" content="#11140b">
@@ -37,12 +38,27 @@
     <a href="./?song=visitor">Visitor song</a>
     <a href="../video/">Videos</a>
   </nav>
+  <div class="top-end">
+  <button type="button" id="look" class="icon-btn" popovertarget="looks" aria-label="Player style">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
+  </button>
+  <div id="looks" class="looks" popover>
+    <fieldset>
+      <legend>Player style</legend>
+      <label><input type="radio" name="look" value="vinyl"><span><b>Vinyl turntable</b><small>The record and its sleeve</small></span></label>
+      <label><input type="radio" name="look" value="cassette"><span><b>Cassette deck</b><small>Reels, a counter and piano keys</small></span></label>
+      <label><input type="radio" name="look" value="terminal"><span><b>Retro terminal</b><small>Monospace, no motion</small></span></label>
+      <label><input type="radio" name="look" value="studio"><span><b>Minimal studio</b><small>Big time, thin lines, quiet type</small></span></label>
+    </fieldset>
+    <p>Same song, same sound. Your choice is saved here and added to shared links.</p>
+  </div>
   <button type="button" id="theme" class="icon-btn theme">
     <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
     <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 14.6A8 8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1z"/></svg>
     <span class="to-dark visually-hidden">Switch to dark theme</span>
     <span class="to-light visually-hidden">Switch to light theme</span>
   </button>
+  </div>
 </header>
 
 <main class="np" id="np">

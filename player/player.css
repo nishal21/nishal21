@@ -116,6 +116,7 @@ button, a, summary { -webkit-tap-highlight-color: transparent; }
 .handle { font: 500 0.8125rem/1 var(--mono); letter-spacing: 0.02em; text-decoration: none; color: var(--fg-2); padding: var(--s2) 0; justify-self: start; }
 .handle:hover { color: var(--fg); }
 .top .icon-btn { justify-self: end; }
+.top-end { justify-self: end; display: flex; align-items: center; gap: var(--s1); }
 /* Song / Videos switch, the same pill as on the video page */
 .tabs { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--wash); border: 1px solid var(--line); }
 .tabs a {
@@ -126,6 +127,8 @@ button, a, summary { -webkit-tap-highlight-color: transparent; }
 .tabs a:hover { color: var(--fg); }
 .tabs a[aria-current="page"] { background: var(--fg); color: var(--bg); }
 @media (max-width: 699px) { .tabs a { padding: 0 var(--s3); } }
+.tabs a { white-space: nowrap; }
+@media (max-width: 479px) { .handle { display: none; } .top { grid-template-columns: 1fr auto; } .tabs { justify-self: start; } .tabs a { padding: 0 var(--s2); font-size: 0.8125rem; } }
 .icon-btn {
   display: grid; place-items: center; width: 40px; height: 40px; padding: 0;
   border: 0; border-radius: 50%; background: transparent; cursor: pointer; color: var(--fg-2);
@@ -778,3 +781,131 @@ kbd {
 }
 .dragging .ly { transition: none; }
 .dl[hidden] { display: none; }
+
+/* ---------- player style picker ---------- */
+.looks {
+  position: fixed; inset: 64px var(--pad) auto auto; margin: 0; width: min(320px, calc(100vw - 2 * var(--s4)));
+  padding: var(--s4); border: 1px solid var(--line); border-radius: 12px;
+  background: var(--bg); color: var(--fg); box-shadow: 0 12px 32px -16px rgb(0 0 0 / 0.35);
+}
+.looks fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 2px; }
+.looks legend { padding: 0 0 var(--s2); font: 600 0.75rem/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-2); }
+.looks label { display: flex; gap: var(--s3); align-items: start; padding: var(--s2) var(--s3); border-radius: 8px; cursor: pointer; }
+.looks label:hover { background: var(--wash); }
+.looks label:has(input:checked) { background: var(--wash); outline: 1px solid var(--line); }
+.looks input { margin: 4px 0 0; accent-color: var(--fg); }
+.looks b { display: block; font-weight: 600; font-size: 0.9375rem; }
+.looks small { display: block; color: var(--fg-2); font-size: 0.8125rem; }
+.looks p { margin: var(--s3) 0 0; font-size: 0.8125rem; color: var(--fg-3); }
+
+/* ---------- looks other than vinyl: own type, colors, controls and motion ----------
+   Each one sets its own background and accent, so the sleeve palette only applies to vinyl. */
+:root:not([data-persona="vinyl"]):is([data-persona]) {
+  .backdrop canvas, .backdrop::after { display: none; }
+  #sleeve { box-shadow: none; background: var(--art-bg); }
+  .play::before { animation: none; scale: 1; clip-path: none; }
+}
+
+/* Cassette deck: a warm grey machine with square piano keys and labels in capitals */
+:root[data-persona="cassette"] {
+  --bg: light-dark(#e9e6df, #171614);
+  --fg: light-dark(#23211d, #e7e3da);
+  --accent: light-dark(#8a4b1f, #d79a62);
+  --on-accent: light-dark(#fff, #171614);
+  --mark: var(--accent);
+  --art-bg: light-dark(#dcd8cf, #22201d);
+  --art-shell: light-dark(#c9c4b9, #2d2a26);
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  .art { aspect-ratio: 16 / 10; }
+  #sleeve { border-radius: 4px; }
+  h1 { font: 700 1.25rem/1.2 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
+  .artist { font: 500 0.8125rem/1.4 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
+  .tabs, .tabs a, .pill, .dl, .icon-btn { border-radius: 4px; }
+  .controls { gap: 0; }
+  .skipbtn, .play {
+    width: 76px; height: 58px; border-radius: 0; border: 1px solid color-mix(in oklab, var(--fg) 30%, transparent);
+    background: var(--art-shell); color: var(--fg);
+    box-shadow: 0 4px 0 color-mix(in oklab, var(--fg) 30%, transparent);
+    transition: translate 0.08s linear, box-shadow 0.08s linear;
+  }
+  .skipbtn + .play, .play + .skipbtn { margin-left: -1px; }
+  .skipbtn:first-child { border-radius: 4px 0 0 4px; }
+  .skipbtn:last-child { border-radius: 0 4px 4px 0; }
+  .play::before { display: none; }
+  .play svg { width: 24px; height: 24px; }
+  .playing .play { background: var(--accent); color: var(--on-accent); translate: 0 3px; box-shadow: 0 1px 0 color-mix(in oklab, var(--fg) 30%, transparent); }
+  .skipbtn:active, .play:active { translate: 0 3px; box-shadow: 0 1px 0 color-mix(in oklab, var(--fg) 30%, transparent); scale: 1; }
+  .skipbtn:hover { background: color-mix(in oklab, var(--art-shell) 85%, var(--fg)); }
+  .thumb { border-radius: 0; width: 2px; box-shadow: none; background: var(--accent); }
+  .line { font-weight: 600; letter-spacing: -0.01em; }
+  .ly-sec { letter-spacing: 0.16em; }
+}
+
+/* Retro terminal: one monospace face, square corners, no animation at all */
+:root[data-persona="terminal"] {
+  --bg: light-dark(#f1f0e9, #0e0f0e);
+  --fg: light-dark(#1c1f1c, #c8d0c6);
+  --accent: light-dark(#2e6a3a, #8fbf8f);
+  --on-accent: var(--bg);
+  --mark: var(--accent);
+  --art-bg: light-dark(#e6e5dc, #121412);
+  --font: var(--mono);
+  * { border-radius: 0 !important; transition: none !important; animation: none !important; }
+  .art { aspect-ratio: 4 / 3; }
+  #sleeve { outline: 1px solid var(--line); }
+  h1 { font-size: 1.375rem; font-weight: 600; letter-spacing: 0; }
+  h1::before { content: "> "; color: var(--accent); }
+  .artist { font-size: 0.875rem; }
+  .controls { gap: var(--s2); }
+  .skipbtn, .play { width: 68px; height: 44px; border: 1px solid var(--fg-3); background: transparent; color: var(--fg); }
+  .play { border-color: var(--accent); color: var(--accent); }
+  .play::before { display: none; }
+  .play svg, .skipbtn svg { width: 18px; height: 18px; }
+  .skipbtn:hover, .play:hover { background: var(--fg); color: var(--bg); }
+  .playing .play { background: var(--accent); color: var(--bg); }
+  .wave canvas { opacity: 0.8; }
+  .thumb { width: 2px; box-shadow: none; }
+  .lyrics-pane { --ly: clamp(1.05rem, 0.8rem + 1vw, 1.5rem); mask-image: none; }
+  .line { font-weight: 500; letter-spacing: 0; line-height: 1.5; max-width: 40em; }
+  .line > span { scale: 1; filter: none !important; }
+  .line.on > span::before { content: "> "; color: var(--accent); }
+  .line.on .w { color: var(--fg); background: none; }
+  .line::before, .ly-sec::after { display: none; }
+  .ly-sec { color: var(--accent); }
+  .ly-sec::before { content: "# "; }
+}
+
+/* Minimal studio: system type, lots of space, hairlines, a plain round play button */
+:root[data-persona="studio"] {
+  --bg: light-dark(#fafaf9, #121212);
+  --fg: light-dark(#161616, #ececec);
+  --accent: var(--fg);
+  --on-accent: var(--bg);
+  --mark: var(--fg);
+  --art-bg: var(--bg);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  .art { aspect-ratio: 4 / 3; }
+  #sleeve { outline: 1px solid var(--line); border-radius: 2px; }
+  h1 { font-weight: 500; letter-spacing: -0.015em; }
+  .artist { font-weight: 400; }
+  .tabs { background: transparent; }
+  .tabs a[aria-current="page"] { background: transparent; color: var(--fg); text-decoration: underline; text-underline-offset: 6px; }
+  .pill, .dl { background: transparent; font-weight: 500; }
+  .controls { gap: var(--s5); }
+  .skipbtn { width: 44px; height: 44px; border-radius: 50%; }
+  .skipbtn svg { width: 20px; height: 20px; stroke-width: 1.5; }
+  .play { width: 64px; height: 64px; color: var(--fg); }
+  .play::before { background: transparent; border: 1px solid var(--fg); border-radius: 50%; transition: none; }
+  .playing .play::before { background: var(--fg); }
+  .playing .play { color: var(--bg); }
+  .play svg { width: 22px; height: 22px; }
+  .thumb { width: 1px; height: 28px; box-shadow: none; }
+  .line { font-weight: 500; letter-spacing: -0.02em; }
+  .line > span { filter: none !important; transition: opacity 0.3s ease; scale: 1; }
+  .ly { transition-duration: 0.4s; transition-timing-function: ease; }
+  .line::before, .ly-sec::after { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-persona] .skipbtn, :root[data-persona] .play, :root[data-persona] .ly, :root[data-persona] .line > span { transition: none !important; }
+}
