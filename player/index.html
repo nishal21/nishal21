@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem("color-scheme")??"light dark"}catch(e){}
-try{var l=new URLSearchParams(location.hash.slice(1)).get("persona")||localStorage.getItem("player-look");if(/^(vinyl|cassette|terminal|studio)$/.test(l))document.documentElement.dataset.persona=l}catch(e){}</script>
+try{var l=new URLSearchParams(location.hash.slice(1)).get("persona")||localStorage.getItem("player-look");if(/^(vinyl|poster|editorial|sketch)$/.test(l))document.documentElement.dataset.persona=l}catch(e){}</script>
 <title>Contribution song · Nishal K</title>
 <meta name="description" content="A song made from Nishal K's GitHub contributions over the last 12 months. One bar per week, lyrics from the real numbers, rebuilt every night.">
 <meta name="theme-color" content="#11140b">
@@ -46,9 +46,9 @@ try{var l=new URLSearchParams(location.hash.slice(1)).get("persona")||localStora
     <fieldset>
       <legend>Player style</legend>
       <label><input type="radio" name="look" value="vinyl"><span><b>Vinyl turntable</b><small>The record and its sleeve</small></span></label>
-      <label><input type="radio" name="look" value="cassette"><span><b>Cassette deck</b><small>Reels, a counter and piano keys</small></span></label>
-      <label><input type="radio" name="look" value="terminal"><span><b>Retro terminal</b><small>Monospace, no motion</small></span></label>
-      <label><input type="radio" name="look" value="studio"><span><b>Minimal studio</b><small>Big time, thin lines, quiet type</small></span></label>
+      <label><input type="radio" name="look" value="poster"><span><b>Poster</b><small>Flat colour, pen drawings, the record slides out</small></span></label>
+      <label><input type="radio" name="look" value="editorial"><span><b>Editorial</b><small>Big type and lyrics set like a magazine</small></span></label>
+      <label><input type="radio" name="look" value="sketch"><span><b>Sketchbook</b><small>Warm cards and a listener drawn in ink</small></span></label>
     </fieldset>
     <p>Same song, same sound. Your choice is saved here and added to shared links.</p>
   </div>
@@ -263,6 +263,7 @@ try{var l=new URLSearchParams(location.hash.slice(1)).get("persona")||localStora
 
 <footer class="foot">
   <p>Made by <a href="https://github.com/nishal21">Nishal K</a> in Kerala.</p>
+  <p class="credits">Illustrations in the Poster, Editorial and Sketchbook styles: <a href="https://www.opendoodles.com">Open Doodles</a> by Pablo Stanley (CC0). Handwriting: a <a href="https://commons.wikimedia.org/wiki/File:Abraham_Lincoln_Letter_to_Mr._Brayman_September_23,_1854_-_NARA_-_192847.jpg">public domain letter</a> from the U.S. National Archives. <a href="art/CREDITS.txt">Credits</a></p>
 </footer>
 </body>
 </html>

@@ -1,0 +1,10 @@
+Illustrations
+  dancing.svg, groovy.svg, moshing.svg: Open Doodles by Pablo Stanley, https://www.opendoodles.com
+  License: CC0 1.0 (public domain dedication). Exported from the react-open-doodles package (MIT).
+  The player recolours the ink and accent at runtime to match each look.
+
+Handwriting texture
+  handwriting.png: letter from Abraham Lincoln to Mr. Brayman, September 23, 1854.
+  U.S. National Archives (NARA 192847), public domain.
+  https://commons.wikimedia.org/wiki/File:Abraham_Lincoln_Letter_to_Mr._Brayman_September_23,_1854_-_NARA_-_192847.jpg
+  Cropped and turned into a transparent ink layer.

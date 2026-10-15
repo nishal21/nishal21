@@ -806,104 +806,96 @@ kbd {
   .play::before { animation: none; scale: 1; clip-path: none; }
 }
 
-/* Cassette deck: a warm grey machine with square piano keys and labels in capitals */
-:root[data-persona="cassette"] {
-  --bg: light-dark(#e9e6df, #171614);
-  --fg: light-dark(#23211d, #e7e3da);
-  --accent: light-dark(#8a4b1f, #d79a62);
-  --on-accent: light-dark(#fff, #171614);
+/* Poster: acid yellow field (deep grey in dark mode), big lowercase grotesk, thin outlined round buttons,
+   a dark rounded panel for the waveform. Everything flat: no shadows, no gradients. */
+:root[data-persona="poster"] {
+  --bg: light-dark(#e3fb1d, #161616);
+  --fg: light-dark(#111111, #f1f1ec);
+  --accent: light-dark(#111111, #3df06a);
+  --on-accent: light-dark(#e3fb1d, #111111);
   --mark: var(--accent);
-  --art-bg: light-dark(#dcd8cf, #22201d);
-  --art-shell: light-dark(#c9c4b9, #2d2a26);
-  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  .art { aspect-ratio: 16 / 10; }
-  #sleeve { border-radius: 4px; }
-  h1 { font: 700 1.25rem/1.2 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
-  .artist { font: 500 0.8125rem/1.4 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
-  .tabs, .tabs a, .pill, .dl, .icon-btn { border-radius: 4px; }
-  .controls { gap: 0; }
-  .skipbtn, .play {
-    width: 76px; height: 58px; border-radius: 0; border: 1px solid color-mix(in oklab, var(--fg) 30%, transparent);
-    background: var(--art-shell); color: var(--fg);
-    box-shadow: 0 4px 0 color-mix(in oklab, var(--fg) 30%, transparent);
-    transition: translate 0.08s linear, box-shadow 0.08s linear;
+  --art-bg: var(--bg);
+  --ink-panel: #1d1d1d;
+  --on-panel: #f1f1ec;
+  .art { margin-bottom: var(--s4); }
+  #sleeve { border-radius: 0; }
+  h1 { font-size: clamp(2.5rem, 1.6rem + 3vw, 3.75rem); font-weight: 600; letter-spacing: -0.045em; text-transform: lowercase; line-height: 0.95; }
+  .artist { font-weight: 500; color: var(--fg); }
+  .artist::after { content: "R"; display: inline-grid; place-items: center; width: 1.4em; height: 1.4em; margin-left: 0.5em; border: 1px solid currentColor; border-radius: 50%; font-size: 0.7em; vertical-align: 0.15em; }
+  .tabs { background: transparent; border-color: var(--fg); }
+  .tabs a[aria-current="page"] { background: var(--fg); color: var(--bg); }
+  .pill, .dl { background: transparent; border-color: var(--fg); }
+  .scrub {
+    background: var(--ink-panel); color: var(--on-panel); border-radius: 22px; padding: var(--s4) var(--s5) var(--s3);
+    --fg: var(--on-panel); --fg-2: color-mix(in oklab, var(--on-panel) 70%, transparent); --fg-3: color-mix(in oklab, var(--on-panel) 55%, transparent);
   }
-  .skipbtn + .play, .play + .skipbtn { margin-left: -1px; }
-  .skipbtn:first-child { border-radius: 4px 0 0 4px; }
-  .skipbtn:last-child { border-radius: 0 4px 4px 0; }
+  .scrub .thumb { background: var(--accent); width: 3px; box-shadow: none; }
+  .controls { gap: var(--s4); }
+  .skipbtn, .play { border: 1.5px solid var(--fg); border-radius: 50%; background: transparent; color: var(--fg); }
+  .skipbtn { width: 52px; height: 52px; }
+  .play { width: 76px; height: 76px; }
   .play::before { display: none; }
-  .play svg { width: 24px; height: 24px; }
-  .playing .play { background: var(--accent); color: var(--on-accent); translate: 0 3px; box-shadow: 0 1px 0 color-mix(in oklab, var(--fg) 30%, transparent); }
-  .skipbtn:active, .play:active { translate: 0 3px; box-shadow: 0 1px 0 color-mix(in oklab, var(--fg) 30%, transparent); scale: 1; }
-  .skipbtn:hover { background: color-mix(in oklab, var(--art-shell) 85%, var(--fg)); }
-  .thumb { border-radius: 0; width: 2px; box-shadow: none; background: var(--accent); }
-  .line { font-weight: 600; letter-spacing: -0.01em; }
-  .ly-sec { letter-spacing: 0.16em; }
-}
-
-/* Retro terminal: one monospace face, square corners, no animation at all */
-:root[data-persona="terminal"] {
-  --bg: light-dark(#f1f0e9, #0e0f0e);
-  --fg: light-dark(#1c1f1c, #c8d0c6);
-  --accent: light-dark(#2e6a3a, #8fbf8f);
-  --on-accent: var(--bg);
-  --mark: var(--accent);
-  --art-bg: light-dark(#e6e5dc, #121412);
-  --font: var(--mono);
-  * { border-radius: 0 !important; transition: none !important; animation: none !important; }
-  .art { aspect-ratio: 4 / 3; }
-  #sleeve { outline: 1px solid var(--line); }
-  h1 { font-size: 1.375rem; font-weight: 600; letter-spacing: 0; }
-  h1::before { content: "> "; color: var(--accent); }
-  .artist { font-size: 0.875rem; }
-  .controls { gap: var(--s2); }
-  .skipbtn, .play { width: 68px; height: 44px; border: 1px solid var(--fg-3); background: transparent; color: var(--fg); }
-  .play { border-color: var(--accent); color: var(--accent); }
-  .play::before { display: none; }
-  .play svg, .skipbtn svg { width: 18px; height: 18px; }
-  .skipbtn:hover, .play:hover { background: var(--fg); color: var(--bg); }
-  .playing .play { background: var(--accent); color: var(--bg); }
-  .wave canvas { opacity: 0.8; }
-  .thumb { width: 2px; box-shadow: none; }
-  .lyrics-pane { --ly: clamp(1.05rem, 0.8rem + 1vw, 1.5rem); mask-image: none; }
-  .line { font-weight: 500; letter-spacing: 0; line-height: 1.5; max-width: 40em; }
-  .line > span { scale: 1; filter: none !important; }
-  .line.on > span::before { content: "> "; color: var(--accent); }
-  .line.on .w { color: var(--fg); background: none; }
+  .play svg { width: 26px; height: 26px; }
+  .playing .play { background: var(--fg); color: var(--bg); }
+  .skipbtn:hover, .play:hover { background: color-mix(in oklab, var(--fg) 10%, transparent); }
+  .skipbtn:active, .play:active { scale: 0.94; }
+  .line { font-weight: 600; letter-spacing: -0.04em; text-transform: lowercase; }
+  .line > span { filter: none !important; }
   .line::before, .ly-sec::after { display: none; }
-  .ly-sec { color: var(--accent); }
-  .ly-sec::before { content: "# "; }
 }
 
-/* Minimal studio: system type, lots of space, hairlines, a plain round play button */
-:root[data-persona="studio"] {
-  --bg: light-dark(#fafaf9, #121212);
-  --fg: light-dark(#161616, #ececec);
+/* Editorial: a flat slate spread, a huge headline with an asterisk, lyrics stepping in line by line,
+   and the controls in one rounded card. */
+:root[data-persona="editorial"] {
+  --bg: light-dark(#d9dbdf, #3a3d43);
+  --fg: light-dark(#17181b, #f4f4f2);
   --accent: var(--fg);
   --on-accent: var(--bg);
   --mark: var(--fg);
   --art-bg: var(--bg);
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  .art { aspect-ratio: 4 / 3; }
-  #sleeve { outline: 1px solid var(--line); border-radius: 2px; }
-  h1 { font-weight: 500; letter-spacing: -0.015em; }
-  .artist { font-weight: 400; }
-  .tabs { background: transparent; }
-  .tabs a[aria-current="page"] { background: transparent; color: var(--fg); text-decoration: underline; text-underline-offset: 6px; }
-  .pill, .dl { background: transparent; font-weight: 500; }
-  .controls { gap: var(--s5); }
-  .skipbtn { width: 44px; height: 44px; border-radius: 50%; }
-  .skipbtn svg { width: 20px; height: 20px; stroke-width: 1.5; }
-  .play { width: 64px; height: 64px; color: var(--fg); }
-  .play::before { background: transparent; border: 1px solid var(--fg); border-radius: 50%; transition: none; }
-  .playing .play::before { background: var(--fg); }
-  .playing .play { color: var(--bg); }
-  .play svg { width: 22px; height: 22px; }
-  .thumb { width: 1px; height: 28px; box-shadow: none; }
-  .line { font-weight: 500; letter-spacing: -0.02em; }
-  .line > span { filter: none !important; transition: opacity 0.3s ease; scale: 1; }
-  .ly { transition-duration: 0.4s; transition-timing-function: ease; }
+  --card: light-dark(#eceef1, #4a4e55);
+  .art { aspect-ratio: 5 / 3; margin-bottom: var(--s3); }
+  h1 { font-size: clamp(3rem, 2rem + 4vw, 5.25rem); font-weight: 600; letter-spacing: -0.05em; line-height: 0.9; }
+  h1::after { content: "*"; }
+  .artist { font-size: 1rem; font-weight: 400; max-width: 22em; }
+  .tabs { background: var(--card); border: 0; }
+  .tabs a[aria-current="page"] { background: var(--fg); color: var(--bg); }
+  .scrub, .controls { background: var(--card); }
+  .scrub { border-radius: 20px 20px 0 0; padding: var(--s4) var(--s5) var(--s2); }
+  .controls { margin-top: 0; padding: var(--s2) 0 var(--s4); border-radius: 0 0 20px 20px; gap: var(--s5); }
+  .skipbtn { width: 44px; height: 44px; }
+  .play { width: 52px; height: 52px; color: var(--fg); }
+  .play::before { background: transparent; }
+  .play svg { width: 30px; height: 30px; }
+  .thumb { width: 2px; box-shadow: none; }
+  .pill, .dl { background: var(--card); border: 0; }
+  .lyrics-pane { --ly: clamp(1.5rem, 1rem + 1.6vw, 2.25rem); mask-image: none; }
+  .line { font-weight: 400; letter-spacing: -0.02em; line-height: 1.1; margin-left: calc(var(--k, 0) * 6%); max-width: 76%; }
+  .line > span { filter: none !important; }
   .line::before, .ly-sec::after { display: none; }
+  .ly-sec { margin-left: 0; }
+}
+
+/* Sketchbook: warm flat cards (orange, green, lilac), condensed capitals, solid round play button */
+:root[data-persona="sketch"] {
+  --bg: light-dark(#f3ead9, #1f2a22);
+  --fg: light-dark(#191714, #f3ead9);
+  --accent: light-dark(#1f7a4a, #f5a623);
+  --on-accent: light-dark(#f3ead9, #191714);
+  --mark: var(--accent);
+  --art-bg: light-dark(#f5a623, #2f6b46);
+  --card: light-dark(#d9cdf2, #3b3354);
+  --font: "Bricolage", ui-sans-serif, system-ui, sans-serif;
+  #sleeve { border-radius: 24px; background: transparent; }
+  h1 { font-weight: 800; letter-spacing: -0.02em; text-transform: uppercase; font-stretch: 75%; }
+  .scrub { background: var(--card); border-radius: 20px; padding: var(--s4) var(--s5) var(--s3); }
+  .controls { gap: var(--s4); }
+  .skipbtn { width: 48px; height: 48px; border: 1.5px solid var(--fg); border-radius: 50%; }
+  .play { width: 72px; height: 72px; }
+  .play::before { border-radius: 50%; background: var(--accent); }
+  .pill, .dl { background: var(--card); border: 0; }
+  .line { font-weight: 800; text-transform: uppercase; letter-spacing: -0.01em; font-stretch: 80%; }
+  .line > span { filter: none !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {

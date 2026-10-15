@@ -7,6 +7,8 @@ rm -rf _site
 mkdir -p _site/player/fonts
 cp player/index.html player/player.css player/player.js player/remix.js player/remix-worklet.js _site/player/
 cp player/fonts/*.woff2 player/fonts/LICENSE.txt _site/player/fonts/
+# artwork for the player looks (Open Doodles, CC0, and a public domain letter; see player/art/CREDITS.txt)
+mkdir -p _site/player/art && cp player/art/* _site/player/art/
 for f in contribution-song.mp3 contribution-song.json contribution-song.lrc contribution-song-lyrics.md; do
   cp "assets/$f" _site/player/
 done
