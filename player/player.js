@@ -265,7 +265,7 @@ const LOOKS = {
     x.strokeStyle = fg; x.lineWidth = Math.max(2, W / 350);
     x.beginPath(); x.arc(cx, cy, H * 0.5, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); x.stroke();
     const d = art("moshing", fg, col("var(--art-bg)"));
-    if (d) place(x, d, W * 0.42, H * 0.18, W * 0.56, H * 0.82);
+    if (d) place(x, d, W * 0.5, H * 0.28, W * 0.48, H * 0.7);
     // the stepped words: section names, each repeated a little further in
     x.fillStyle = fg; x.textBaseline = "top"; x.textAlign = "left";
     const fsS = H * 0.04;
@@ -278,7 +278,7 @@ const LOOKS = {
     const words = song.title.split(" ");
     let fs = H * 0.26;
     x.font = `600 ${fs}px Bricolage, sans-serif`;
-    fs = Math.min(fs, (fs * W * 0.9) / Math.max(...words.map((w) => x.measureText(w + "*").width)));
+    fs = Math.min(fs, (fs * W * 0.58) / Math.max(...words.map((w) => x.measureText(w + "*").width)));  // stays clear of the dancer
     x.font = `600 ${fs}px Bricolage, sans-serif`;
     x.letterSpacing = `${-fs * 0.05}px`;
     x.textBaseline = "alphabetic";

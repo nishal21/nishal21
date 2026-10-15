@@ -852,6 +852,7 @@ kbd {
   .play svg { width: 26px; height: 26px; }
   .playing .play { background: var(--fg); color: var(--bg); }
   .skipbtn:hover, .play:hover { background: color-mix(in oklab, var(--fg) 10%, transparent); }
+  .playing .play:hover { background: color-mix(in oklab, var(--fg) 85%, var(--bg)); }
   .skipbtn:active, .play:active { scale: 0.95; }
   .line { font-weight: 600; letter-spacing: -0.04em; text-transform: lowercase; }
   .line > span { filter: none !important; }
