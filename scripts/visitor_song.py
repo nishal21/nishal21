@@ -206,17 +206,21 @@ def render(entries):
     bars = int(round(total / BAR))
     for b in range(bars):
         chord = PROG[b % 4]
-        S.add(mix, S.warm_pad(chord, int(BAR * SR), cutoff=900) * 0.18, int(b * BAR * SR))  # already stereo
+        S.add(mix, S.warm_pad(chord, int(BAR * SR), cutoff=900) * 0.18, b * BAR)  # already stereo
         for beat in (0, 2):
-            S.add(mix, S.pan(S.kick(0.35), 0.0), int((b * BAR + beat * BEAT) * SR))
+            S.add(mix, S.pan(S.kick(0.35), 0.0), b * BAR + beat * BEAT)
         for beat, k in ((0, 0), (1.5, 2), (3, 1)):  # a quiet piano figure from the chord, so the song plays on its own
             x = S.epiano(chord[k] + 12, int(BEAT * 1.4 * SR), 0.22)
-            S.add(mix, S.pan(x, -0.2 + 0.2 * k), int((b * BAR + beat * BEAT) * SR))
+            S.add(mix, S.pan(x, -0.2 + 0.2 * k), b * BAR + beat * BEAT)
     for i, e in enumerate(entries):
         x = voice(e["instrument"], NOTES[e["note"]], int(BEAT * 1.6 * SR))
-        S.add(mix, S.pan(x * 0.6, ((i * 7) % 11) / 10 - 0.5), int(note_time(i) * SR))
+        S.add(mix, S.pan(x * 0.6, ((i * 7) % 11) / 10 - 0.5), note_time(i))  # add() takes seconds
     mix = mix + 0.25 * S.reverb(mix, 2.6, 0.6)
-    return S.limit(mix, -1.5)[:, : int(total * SR)]
+    # bring it up to about the loudness of the contribution song (-15 dBFS mean): gain, limit, measure, repeat
+    for _ in range(3):
+        rms = float(np.sqrt(np.mean(mix ** 2))) or 1e-9
+        mix = S.limit(mix * min(30.0, 10 ** (-15 / 20) / rms), -1.0)
+    return mix[:, : int(total * SR)]
 
 
 def encode_mp3(stereo, path):
