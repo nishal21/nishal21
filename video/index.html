@@ -81,8 +81,8 @@
         <video id="video" playsinline preload="metadata" disablepictureinpicture="false"></video>
         <div class="embed" id="embed"></div>
         <div class="shield" id="shield" aria-hidden="true"></div>
-        <div class="ripple left" aria-hidden="true"><span>10 seconds</span></div>
-        <div class="ripple right" aria-hidden="true"><span>10 seconds</span></div>
+        <div class="ripple left" aria-hidden="true"><span>5 seconds</span></div>
+        <div class="ripple right" aria-hidden="true"><span>5 seconds</span></div>
         <div class="bezel" id="bezel" aria-hidden="true"></div>
         <div class="spinner" aria-hidden="true"></div>
         <button type="button" class="big-play" id="big-play" aria-label="Play">
@@ -113,6 +113,7 @@
               <div class="played"></div>
               <div class="ab-range" id="ab-range" hidden></div>
               <div class="chap-marks" id="chap-marks"></div>
+              <div class="beat-marks" id="beat-marks"></div>
             </div>
             <span class="knob" aria-hidden="true"></span>
             <div class="preview" id="preview" aria-hidden="true">
@@ -174,6 +175,7 @@
             <label>Strength <output data-for="opacity"></output><input type="range" data-k="opacity" min="10" max="100" step="5"></label>
           </div>
           <button type="button" class="menu-row" role="switch" id="a-tint" aria-checked="true"><span>Tint the page</span><span class="switch"></span></button>
+          <button type="button" class="menu-row" role="switch" id="a-pulse" aria-checked="true"><span>Pulse on the trailer's kick</span><span class="switch"></span></button>
           <button type="button" class="menu-row" role="menuitem" id="a-reset"><span>Reset to defaults</span></button>
         </div>
         <div class="menu" id="chapters" role="dialog" aria-label="Chapters" hidden>
@@ -203,8 +205,10 @@
       <p class="eyebrow" id="eyebrow">Share clip</p>
       <h1 id="title">Contribution song, busiest week</h1>
       <p class="meta" id="meta"></p>
+      <div class="versions" id="versions" role="group" aria-label="Versions" hidden></div>
       <div class="actions">
         <button type="button" class="pill" id="share"><svg><use href="#i-share"/></svg>Share</button>
+        <button type="button" class="pill" id="orient" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true" class="i-orient"><rect x="3" y="7" width="12" height="10" rx="2"/><rect x="16" y="4" width="5" height="16" rx="1.5"/></svg><span>Wide</span></button>
         <a class="pill" id="download" href="#" download hidden><svg><use href="#i-download"/></svg><span>Download</span></a>
         <a class="pill" id="open" href="#" target="_blank" rel="noopener noreferrer" hidden><svg><use href="#i-out"/></svg><span>Open on YouTube</span></a>
       </div>
@@ -282,7 +286,7 @@
     <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Back or forward 5 seconds</dd></div>
     <div><dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Volume (with the player focused)</dd></div>
     <div><dt><kbd>0</kbd>–<kbd>9</kbd></dt><dd>Jump to 0–90%</dd></div>
-    <div><dt><kbd>,</kbd> <kbd>.</kbd></dt><dd>One frame back or forward (paused)</dd></div>
+    <div><dt><kbd>,</kbd> <kbd>.</kbd></dt><dd>One frame back or forward (paused; 1/28 s on the trailer)</dd></div>
     <div><dt><kbd>&lt;</kbd> <kbd>&gt;</kbd></dt><dd>Slower or faster</dd></div>
     <div><dt><kbd>M</kbd></dt><dd>Mute</dd></div>
     <div><dt><kbd>F</kbd></dt><dd>Full screen</dd></div>
@@ -291,7 +295,7 @@
     <div><dt><kbd>C</kbd></dt><dd>Captions, when the video has them</dd></div>
     <div><dt><kbd>R</kbd></dt><dd>Loop</dd></div>
     <div><dt><kbd>Shift</kbd> <kbd>N</kbd></dt><dd>Next video</dd></div>
-    <div><dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Repeat from here, until here</dd></div>
+    <div><dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Repeat from here, until here (on the trailer: previous or next beat cut)</dd></div>
     <div><dt><kbd>\</kbd></dt><dd>Stop repeating a part</dd></div>
     <div><dt><kbd>Shift</kbd> <kbd>S</kbd></dt><dd>Save the current frame (video files)</dd></div>
     <div><dt><kbd>/</kbd></dt><dd>Paste a link</dd></div>

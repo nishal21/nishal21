@@ -304,6 +304,58 @@ const TRAILER = {
   share: "trailer", artist: "Nishal K",
 };
 const OWN = (it) => it === CLIP || it === TRAILER;
+const TRAILER_WIDE = TRAILER.src, TRAILER_TALL = new URL("trailer-vertical.mp4", SITE).href;
+let trailerMeta = null;   // trailer.json: fps, bar, cuts, kicks, hits and (newer builds) sections
+let trailerTall = false, hasTall = false;
+// The trailer's sections in trailer bars, as laid out by plan() in scripts/year_trailer.py. Newer builds write
+// them into trailer.json; older ones only have the bar length, so the same layout is rebuilt from it here.
+const TRAILER_SECTIONS = [[0, "Intro"], [4, "Build"], [6, "Drop"], [10, "Breather"], [14, "Build"], [16, "Final drop"], [22, "Outro"]];
+function trailerChapters(m) {
+  if (Array.isArray(m.sections) && m.sections.length) return m.sections.filter((c) => isFinite(c.t)).map((c) => ({ t: +c.t, title: String(c.title) }));
+  const bar = +m.bar || 1.714286, len = +m.length || Infinity;
+  return TRAILER_SECTIONS.map(([b, title]) => ({ t: +(b * bar).toFixed(3), title })).filter((c) => c.t < len);
+}
+const HIT_NAMES = { "hit: name": "Name hit", "hit: week": "Busiest week", "hit: stat": "Stat hit", "hit: repo": "Repo hit", "hit: langs": "Languages",
+  "impact 1": "Impact", "impact 2": "Impact" };
+const hitName = (e) => HIT_NAMES[e] || e.replace(/^hit: /, "").replace(/^./, (c) => c.toUpperCase());
+const isTrailer = () => cur === TRAILER;
+
+/* versions: the same mashup uploaded as Normal, Slowed, Sped Up, Reverb and a Short becomes one card */
+const VERSIONS = ["Normal", "Slowed", "Sped Up", "Reverb", "Short"];
+function mashupKey(title) {
+  const t = String(title || "").replace(/\s*×\s*/g, " x ");
+  const m = t.match(/(\p{L}[\p{L}' ]*?)\s+x\s+(\p{L}[\p{L}' ]*?)(?=\s*(?:[(|\u2013\u2014-]|$|[^\p{L}' ]))/u);
+  return m ? `${m[1].trim()} x ${m[2].trim()}`.toLowerCase() : null;
+}
+function versionOf(it) {
+  if (it.short) return "Short";
+  const t = String(it.title || "").toLowerCase();
+  if (/sped\s*-?\s*up|spedup|nightcore/.test(t)) return "Sped Up";
+  if (/slowed/.test(t)) return "Slowed";
+  if (/re+verb/.test(t)) return "Reverb";
+  return "Normal";
+}
+let groups = new Map(); // item key -> [{ v, it }] in VERSIONS order, only for groups of two or more
+function buildGroups(items) {
+  const by = new Map();
+  // "Majboor x Saal Music Fusion" and "Majboor x Saal (Slowed)" are one mashup: a key that starts with a
+  // shorter key (on a word boundary) joins it
+  const keyed = items.filter((it) => it.kind === "youtube").map((it) => [it, mashupKey(it.title)]).filter(([, k]) => k);
+  const roots = [...new Set(keyed.map(([, k]) => k))].sort((a, b) => a.length - b.length);
+  const rootOf = (k) => roots.find((r) => k === r || k.startsWith(r + " ")) || k;
+  for (const [it, key] of keyed) {
+    const k = rootOf(key);
+    if (!by.has(k)) by.set(k, []);
+    const list = by.get(k), v = versionOf(it);
+    if (!list.some((x) => x.v === v)) list.push({ v, it });
+  }
+  groups = new Map();
+  for (const list of by.values()) {
+    if (list.length < 2) continue;
+    list.sort((a, b) => VERSIONS.indexOf(a.v) - VERSIONS.indexOf(b.v));
+    for (const x of list) groups.set(x.it.key, list);
+  }
+}
 let library = [];
 let channel = { handle: "@DemonKing0.___", url: "https://www.youtube.com/@DemonKing0.___", name: "DemonKing" };
 const nf = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
@@ -359,17 +411,75 @@ function card(it) {
   li.dataset.key = it.key;
   return li;
 }
+// one card for every version of a mashup: the first version's thumbnail and a row of version pills
+function groupCard(list) {
+  const lead = list.find((x) => x.it.shape !== "tall") || list[0];
+  const li = card(lead.it);
+  li.classList.add("grouped");
+  li.dataset.keys = list.map((x) => x.it.key).join(" ");
+  const bar = el("div", { className: "versions", role: "group", ariaLabel: "Versions" });
+  for (const x of list) {
+    const a = el("a", { className: "ver", href: hrefFor(x.it), textContent: x.v, title: x.it.title });
+    a.dataset.key = x.it.key;
+    a.addEventListener("click", (e) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+      e.preventDefault();
+      load(x.it, { play: false, focus: true });
+    });
+    bar.append(a);
+  }
+  li.append(bar);
+  return li;
+}
+function versionSwitcher(it) {
+  const box = $("#versions");
+  const list = groups.get(it?.key);
+  box.hidden = !list || EMBED;
+  if (!list || EMBED) { box.replaceChildren(); return; }
+  box.replaceChildren(...list.map((x) => {
+    const b = el("button", { type: "button", className: "ver", textContent: x.v, title: x.it.title });
+    b.setAttribute("aria-pressed", String(x.it.key === it.key));
+    b.addEventListener("click", () => switchVersion(x.it));
+    return b;
+  }));
+}
+// keep the place in the song: the same share of the way through, except into or out of the Short
+let pendingFrac = null;
+function switchVersion(to) {
+  if (!cur || to.key === cur.key) return;
+  const frac = P?.d ? clamp(P.t / P.d, 0, 0.98) : 0;
+  const playing = P && !P.paused;
+  const keep = !to.short && !cur.short && frac > 0.01;
+  pendingFrac = keep ? { key: to.key, frac } : null;
+  load(to, { play: playing, focus: false });
+}
+setInterval(() => {
+  if (!pendingFrac || !P || cur?.key !== pendingFrac.key) return;
+  if (P.d > 1) { const f = pendingFrac.frac; pendingFrac = null; seekTo(f * P.d); }
+}, 200);
 let filter = "all", query = "";
 const norm = (s) => s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 function renderLibrary() {
   const q = norm(query.trim());
   const match = (it) => !q || norm(it.title + " " + (it.description || "")).includes(q);
-  const shorts = library.filter((it) => it.shape === "tall" && match(it));
-  const vids = library.filter((it) => it.shape !== "tall" && match(it));
+  // a Short that belongs to a mashup group lives on that group's card, except under the Shorts filter
+  const inGroup = (it) => groups.has(it.key) && groups.get(it.key).some((x) => x.it.shape !== "tall");
+  const shorts = library.filter((it) => it.shape === "tall" && match(it) && (filter === "shorts" || !inGroup(it)));
+  const vids = [];
+  const seen = new Set();
+  for (const it of library) {
+    if (it.shape === "tall") continue;
+    const g = groups.get(it.key);
+    if (g) {
+      if (seen.has(g) || !g.some((x) => match(x.it))) continue;
+      seen.add(g);
+      vids.push(g);
+    } else if (match(it)) vids.push(it);
+  }
   const showS = filter !== "videos" && shorts.length > 0, showV = filter !== "shorts" && vids.length > 0;
   $("#shorts").replaceChildren(...(showS ? shorts.map(card) : []));
   $("#shorts-wrap").hidden = !showS;
-  $("#grid").replaceChildren(...(showV ? vids.map(card) : []));
+  $("#grid").replaceChildren(...(showV ? vids.map((x) => (Array.isArray(x) ? groupCard(x) : card(x))) : []));
   $("#grid").hidden = !showV;
   $("#empty").hidden = showS || showV;
   $("#empty").textContent = q ? `Nothing matches “${query.trim()}”.` : library.length ? "Nothing here yet." : "The video list couldn't be loaded. Paste a link above to play anything.";
@@ -407,7 +517,8 @@ function markYtOnly() {
 const playableHere = (it) => !(it.kind === "youtube" && store.get("ytonly", []).includes(it.id));
 function markNow() {
   markYtOnly();
-  $$(".card, .qi").forEach((li) => li.classList.toggle("now", !!cur && li.dataset.key === cur.key));
+  $$(".card, .qi").forEach((li) => li.classList.toggle("now", !!cur && (li.dataset.key === cur.key || !!li.dataset.keys?.split(" ").includes(cur.key))));
+  $$(".card .ver").forEach((a) => (a.dataset.key === cur?.key ? a.setAttribute("aria-current", "true") : a.removeAttribute("aria-current")));
   $$(".card a[aria-current]").forEach((a) => a.removeAttribute("aria-current"));
   if (cur?.key) $$(".card").filter((li) => li.dataset.key === cur.key).forEach((li) => li.firstChild.setAttribute("aria-current", "true"));
 }
@@ -879,6 +990,12 @@ function updateInfo(it) {
   $("#share").hidden = false;
   $("#share").setAttribute("aria-disabled", String(!!it.local));
   $("#share").title = it.local ? "Local files stay on your device" : "";
+  versionSwitcher(it);
+  const orient = $("#orient");
+  orient.hidden = !(it === TRAILER && hasTall);
+  orient.setAttribute("aria-pressed", String(trailerTall));
+  $("span", orient).textContent = trailerTall ? "Vertical" : "Wide";
+  orient.title = trailerTall ? "Switch to the wide cut" : "Switch to the vertical cut";
   const desc = $("#desc");
   desc.hidden = !it.description;
   desc.open = false;
@@ -1014,7 +1131,7 @@ async function vimeoOembed(it, seq) {
 let raf = 0;
 function tick() {
   cancelAnimationFrame(raf);
-  const step = () => { paint(); if (P && !P.paused) raf = requestAnimationFrame(step); };
+  const step = () => { paint(); kickCheck(); if (P && !P.paused) raf = requestAnimationFrame(step); };
   raf = requestAnimationFrame(step);
 }
 let lastText = "";
@@ -1047,6 +1164,67 @@ function paintBuffered() {
     i.style.width = (100 * (e - s) / d).toFixed(2) + "%";
     return i;
   }));
+}
+
+/* ---------- the trailer: wide or vertical cut, beat marks, kicks ---------- */
+function setTrailerCut(tall) {
+  if (!hasTall || cur !== TRAILER || tall === trailerTall) return;
+  const t = P?.t || 0, playing = P && !P.paused, rate = prefs.rate;
+  trailerTall = tall;
+  const v = trailerMeta?.generated ? `?v=${encodeURIComponent(trailerMeta.generated)}` : "";
+  TRAILER.src = (tall ? TRAILER_TALL : TRAILER_WIDE.split("?")[0]) + v;
+  TRAILER.shape = tall ? "tall" : "wide";
+  TRAILER.start = t || undefined;
+  load(TRAILER, { play: playing, push: false });
+  // the start is for this switch only
+  video.addEventListener("loadedmetadata", () => { delete TRAILER.start; setRate(rate); }, { once: true });
+}
+$("#orient").addEventListener("click", () => setTrailerCut(!trailerTall));
+{
+  const sw = $("#a-pulse");
+  sw.setAttribute("aria-checked", String(store.get("ambPulse", true)));
+  sw.addEventListener("click", () => { const on = !store.get("ambPulse", true); store.set("ambPulse", on); sw.setAttribute("aria-checked", String(on)); });
+}
+function drawBeats() {
+  const box = $("#beat-marks");
+  const d = P?.d;
+  if (!isTrailer() || !trailerMeta || !d) { if (box.childElementCount) box.replaceChildren(); return; }
+  if (box.dataset.d === String(d) && box.childElementCount) return;
+  box.dataset.d = String(d);
+  const hits = new Set((trailerMeta.hits || []).map(([t]) => Math.round(t * 28)));
+  box.replaceChildren(...(trailerMeta.cuts || []).filter((t) => t > 0 && t < d).map((t) => {
+    const i = el("i");
+    i.style.left = ((t / d) * 100).toFixed(3) + "%";
+    if (hits.has(Math.round(t * 28))) i.className = "hit";
+    return i;
+  }));
+}
+function hitNear(t) {
+  if (!trailerMeta?.hits) return null;
+  const win = (+trailerMeta.bar || 1.714) / 4; // within a beat
+  let best = null;
+  for (const [ht, e] of trailerMeta.hits) if (Math.abs(ht - t) <= win && (!best || Math.abs(ht - t) < Math.abs(best[0] - t))) best = [ht, e];
+  return best && hitName(best[1]);
+}
+function jumpCut(dir) {
+  const cuts = trailerMeta?.cuts;
+  if (!cuts?.length || !P) return;
+  const t = P.t;
+  const next = dir > 0 ? cuts.find((c) => c > t + 0.02) : [...cuts].reverse().find((c) => c < t - 0.12);
+  const to = next ?? (dir > 0 ? P.d - 0.1 : 0);
+  seekTo(to);
+  bezel(dir > 0 ? "Next cut" : "Previous cut");
+}
+// the glow breathes with the trailer's kick drum
+let lastKickT = 0;
+const pulseOn = () => store.get("ambPulse", true) && !reduceMotion.matches;
+function kickCheck() {
+  if (!isTrailer() || !trailerMeta?.kicks || !P || P.paused) { lastKickT = P?.t || 0; return; }
+  const t = P.t;
+  if (t > lastKickT && t - lastKickT < 0.25 && pulseOn() && trailerMeta.kicks.some((k) => k > lastKickT && k <= t)) {
+    glowBox.classList.remove("kick"); void glowBox.offsetWidth; glowBox.classList.add("kick");
+  }
+  lastKickT = t;
 }
 
 /* ---------- actions ---------- */
@@ -1292,7 +1470,7 @@ stage.addEventListener("pointerleave", (e) => {
 });
 
 /* click, double click, double tap */
-let lastTap = 0, lastSide = 0, tapT = 0;
+let lastTap = 0, lastSide = 0, tapT = 0, tapSum = 0, tapSide = 0;
 let swallow = false;
 shield.addEventListener("pointerup", (e) => {
   if (e.button > 0) return;
@@ -1309,8 +1487,11 @@ shield.addEventListener("pointerup", (e) => {
   const side = x < 0.36 ? -1 : x > 0.64 ? 1 : 0, now = performance.now();
   if (side && now - lastTap < 320 && side === lastSide) {
     clearTimeout(tapT);
-    seekBy(side * 10);
+    seekBy(side * 5);
+    tapSum = now - lastTap < 320 && tapSide === side ? tapSum + 5 : 5;
+    tapSide = side;
     const rip = $(side < 0 ? ".ripple.left" : ".ripple.right");
+    $("span", rip).textContent = `${side < 0 ? "−" : "+"}${tapSum} seconds`;
     rip.classList.remove("show"); void rip.offsetWidth; rip.classList.add("show");
     lastTap = now;
     return;
@@ -1389,7 +1570,9 @@ function showPreview(frac) {
   if (!P?.d) return;
   const r = scrub.getBoundingClientRect();
   $("#pv-time").textContent = fmt(frac * P.d);
-  $("#pv-chap").textContent = extras.chapterAt(frac * P.d)?.title || "";
+  const chap = extras.chapterAt(frac * P.d)?.title || "";
+  const hit = isTrailer() ? hitNear(frac * P.d) : null;
+  $("#pv-chap").textContent = hit ? `${chap} · ${hit}` : chap;
   scrub.style.setProperty("--h", frac.toFixed(4));
   const tall = stage.dataset.shape === "tall";
   const fileFrame = P.native && cur?.kind === "file";
@@ -1551,8 +1734,9 @@ document.addEventListener("keydown", (e) => {
     case "i": case "I": togglePiP(); return done();
     case "c": case "C": toggleCaptions(); return done();
     case "r": case "R": setLoop(!loop); bezel(loop ? "Loop on" : "Loop off"); return done();
-    case "[": extras.abSet("a"); return done();
-    case "]": extras.abSet("b"); return done();
+    // on the trailer the brackets step between beat cuts; elsewhere they set a part to repeat
+    case "[": if (isTrailer() && trailerMeta) jumpCut(-1); else extras.abSet("a"); return done();
+    case "]": if (isTrailer() && trailerMeta) jumpCut(1); else extras.abSet("b"); return done();
     case "\\": extras.abSet("clear"); return done();
     case "S": if (e.shiftKey) { extras.snapshot(); return done(); } break;
     case "<": stepRate(-1); return done();
@@ -1561,7 +1745,8 @@ document.addEventListener("keydown", (e) => {
     case "End": seekTo(P.d - 0.1); return done();
     case ",": case ".":
       if (!P.paused || !P.native) return;
-      seekBy(k === "," ? -1 / 30 : 1 / 30); return done();
+      { const fps = isTrailer() && trailerMeta?.fps ? +trailerMeta.fps : 30; seekBy(k === "," ? -1 / fps : 1 / fps); }
+      return done();
   }
   if (/^[0-9]$/.test(k)) { seekTo((P.d * +k) / 10); bezel(`${k}0%`); return done(); }
 });
@@ -2414,6 +2599,7 @@ const extras = (() => {
       $$("#chap-list li").forEach((li, i) => li.classList.toggle("now", chapters[i] === c));
     }
     if ($("#chap-marks").childElementCount !== Math.max(0, chapters.length - 1) && P.d) drawMarks();
+    drawBeats();
     if (sleepAt) sleepLabel();
     if (!P.paused && Date.now() - lastRemember > 5000) { lastRemember = Date.now(); remember(); }
     miniCheck();
@@ -2431,7 +2617,7 @@ const extras = (() => {
     if (customQueue) customQueue = customQueue.filter((x) => x.key !== it.key);
     renderCW();
   }
-  video.addEventListener("loadedmetadata", () => { drawMarks(); abUI(); });
+  video.addEventListener("loadedmetadata", () => { drawMarks(); abUI(); drawBeats(); });
 
   /* offline shell: the page, styles, script, fonts and library work without a connection */
   if (!EMBED && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
@@ -2443,7 +2629,7 @@ const extras = (() => {
 
 /* what menu.js (right-click menu, stats) and gestures.js (hold for 2×) plug into */
 window.videoPage = {
-  stage, video, shield,
+  stage, video, shield, seekBy, seekTo,
   get item() { return cur; }, get adapter() { return P; }, get rate() { return prefs.rate; }, get loop() { return loop; },
   rates: () => (P?.rates() || RATES).filter((r) => r >= 0.25),
   engines: () => ({ hls, dash }),
@@ -2474,6 +2660,9 @@ async function boot() {
     CLIP.metaText = `15 seconds · week of ${d.toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}, ${tot[b]} contributions`;
   }
   if (trailer?.length) {
+    trailerMeta = trailer;
+    TRAILER.chapters = trailerChapters(trailer);
+    hasTall = await fetch(TRAILER_TALL, { method: "HEAD" }).then((r) => r.ok).catch(() => false);
     const v = encodeURIComponent(trailer.generated || "");
     TRAILER.length = trailer.length;
     TRAILER.src += `?v=${v}`;
@@ -2484,6 +2673,7 @@ async function boot() {
     if (matchMedia("(max-aspect-ratio: 3/4)").matches) TRAILER.download = { href: "trailer-vertical.mp4", name: "nishal-year-trailer-vertical.mp4", label: "Download vertical" };
   }
   library = [...(trailer?.length ? [TRAILER] : []), ...(hasClip ? [CLIP] : []), ...yts];
+  buildGroups(yts);
   renderLibrary();
   route();
 }
@@ -2538,7 +2728,8 @@ boot();
 Object.defineProperty(window, "__vp", {
   value: Object.freeze({
     get state() {
-      return { kind: cur?.kind, title: $("#title").textContent, t: P?.t, d: P?.d, paused: P?.paused, rate: prefs.rate, volume: prefs.volume, muted: prefs.muted, loop, ambient: amb.stats, extras: extras.state, error: stage.classList.contains("error") ? $("#notice-text").textContent : null };
+      return { trailer: isTrailer() ? { tall: trailerTall, hasTall, cuts: trailerMeta?.cuts?.length || 0, beatMarks: $("#beat-marks").childElementCount, chapters: TRAILER.chapters?.map((c) => c.title) } : null,
+        groups: [...new Set(groups.values())].map((l) => l.map((x) => `${x.v}:${x.it.id}`)), kind: cur?.kind, title: $("#title").textContent, t: P?.t, d: P?.d, paused: P?.paused, rate: prefs.rate, volume: prefs.volume, muted: prefs.muted, loop, ambient: amb.stats, extras: extras.state, error: stage.classList.contains("error") ? $("#notice-text").textContent : null };
     },
     parseLink,
   }),

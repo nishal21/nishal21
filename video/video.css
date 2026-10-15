@@ -740,3 +740,34 @@ kbd { display: inline-block; min-width: 1.7em; padding: 1px 6px; border-radius: 
   .embed-mode .big-play { scale: 0.75; }
   .embed-mode .menu { bottom: 52px; max-height: calc(100% - 60px); }
 }
+
+/* ---------- trailer: beat cuts on the timeline, kick pulse in the glow ---------- */
+.beat-marks { position: absolute; inset: 0; pointer-events: none; }
+.beat-marks i { position: absolute; bottom: 0; height: 50%; width: 1px; translate: -0.5px 0; background: rgb(255 255 255 / 0.38); }
+.beat-marks i.hit { height: 100%; width: 2px; translate: -1px 0; background: rgb(255 255 255 / 0.7); }
+@property --pulse { syntax: "<number>"; inherits: false; initial-value: 1; }
+.glow { opacity: calc(var(--amb-opacity) * (0.8 + var(--dark) * 0.2) * var(--pulse)); }
+.glow.kick { animation: amb-kick 0.32s ease-out; transition: none; }
+@keyframes amb-kick { 0% { --pulse: 1.22; } 100% { --pulse: 1; } }
+@media (prefers-reduced-motion: reduce) { .glow.kick { animation: none; } }
+
+/* ---------- versions of one mashup ---------- */
+.versions { display: flex; flex-wrap: wrap; gap: 6px; }
+.versions[hidden] { display: none; }
+.card .versions { margin-top: var(--s2); }
+.ver {
+  display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--wash); color: var(--fg-2); text-decoration: none;
+  font: 500 0.75rem/1 var(--mono); white-space: nowrap;
+  transition: border-color 0.2s, background-color 0.2s, color 0.2s, scale 0.35s var(--bounce);
+}
+.ver:hover { color: var(--fg); border-color: var(--fg-3); }
+.ver:active { scale: 0.95; }
+.ver[aria-pressed="true"], .ver[aria-current="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.ver:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.i-orient { fill: none; stroke: currentColor; stroke-width: 1.8; }
+#orient[aria-pressed="true"] .i-orient rect:first-child { opacity: 0.4; }
+#orient:not([aria-pressed="true"]) .i-orient rect:last-child { opacity: 0.4; }
+
+/* hold on the left half to rewind */
+.hold-pill.rew .hp-arrows { scale: -1 1; }

@@ -62,6 +62,8 @@ SITE_URL = "nishal21.github.io/nishal21"
 # (first song bar, bars) of each piece of the song, in trailer order. Contiguous pieces are joined, so
 # the builds run into their drops untouched; the 4 splices all sit on downbeats.
 EDIT = [(0, 4), (12, 6), (34, 12), (48, 2), (52, None)]  # None: to the end of the song (its last bar + fade)
+# The trailer's sections as plan() lays them out, in trailer bars. Written to trailer.json as chapters for the video page.
+SECTIONS = [(0, "Intro"), (4, "Build"), (6, "Drop"), (10, "Breather"), (14, "Build"), (16, "Final drop"), (22, "Outro")]
 
 
 def rgb(h):
@@ -1101,7 +1103,8 @@ def video(out_dir, site, only=None):
     cuts = sorted({s.f0 for s in shots if s.f0 > 0 and s.f0 not in after})
     meta = dict(fps=FPS, bpm=song["bpm"], bar=song["bar"], frames=n_frames, length=round(n_frames / FPS, 3),
                 splices=[round(s, 4) for s in starts], cuts=[c / FPS for c in cuts], shots=len(shots),
-                kicks=kicks, hits=[[round(t, 4), e] for t, e in events], generated=song.get("generated"))
+                kicks=kicks, hits=[[round(t, 4), e] for t, e in events], generated=song.get("generated"),
+                sections=[dict(t=round(b * 48 / FPS, 3), title=name) for b, name in SECTIONS if b * 48 < n_frames])
     (out_dir / "trailer.json").write_text(json.dumps(meta))
     print(f"trailer: {len(shots)} shots, {len(cuts)} cuts, {n_frames / FPS:.1f}s")
 

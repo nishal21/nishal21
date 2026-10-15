@@ -1,4 +1,6 @@
-/* Hold for 2×, like YouTube: press and hold the video (mouse or touch) or hold Space, and it plays at 2×
+/* Long press on the left of the picture rewinds at 2× instead (stepping the time back, since browsers
+   don't play backwards); the middle and right play forward at 2×.
+   Hold for 2×, like YouTube: press and hold the video (mouse or touch) or hold Space, and it plays at 2×
    until you let go, then goes back to the speed it had. Sliding sideways while holding picks 1.5× to 3×.
    A quick tap of Space still plays and pauses; a hold never also pauses, opens a menu or selects text. */
 (() => {
@@ -17,6 +19,19 @@
   stage.append(pill);
 
   let holding = false, prevRate = 1, rate = 2, timer = 0, ptr = null, spaceDown = false, spaceUsed = false;
+  let rewinding = false, rewRaf = 0, rewLast = 0, rewT = 0, rewSeekAt = 0, rewWasPlaying = false;
+  const side = (p) => { if (!p) return 0; const r = stage.getBoundingClientRect(); const x = (p.x - r.left) / r.width; return x < 0.36 ? -1 : x > 0.64 ? 1 : 0; };
+  function rewStep(now) {
+    if (!rewinding) return;
+    const P = V.adapter;
+    const dt = Math.min(0.1, (now - rewLast) / 1000);
+    rewLast = now;
+    rewT = Math.max(0, rewT - dt * rate);
+    // video files can take a seek every frame; embedded players get one every quarter second
+    if (P.native || now - rewSeekAt > 250) { rewSeekAt = now; P.seek(rewT, P.native); }
+    if (rewT <= 0) { end(); return; }
+    rewRaf = requestAnimationFrame(rewStep);
+  }
 
   // the fastest this source allows: video files go to 3×, embedded players only to their own top speed (2× on YouTube)
   const top = () => (V.adapter?.native ? MAX : Math.max(...V.rates()));
@@ -32,6 +47,20 @@
   }
   function begin() {
     timer = 0;
+    if (ptr && side(ptr) < 0 && V.adapter && !V.adapter.embed && V.adapter.d > 0) {
+      // rewind: pause, then walk the time back at 2× until the press ends
+      const P = V.adapter;
+      holding = true; rewinding = true; rate = 2;
+      rewWasPlaying = !P.paused;
+      if (rewWasPlaying) P.pause();
+      rewT = P.t; rewLast = performance.now(); rewSeekAt = 0;
+      stage.classList.add("holding");
+      pill.classList.add("show", "rew");
+      pill.querySelector(".hp-rate").textContent = "−2×";
+      if (ptr?.type === "touch") navigator.vibrate?.(8);
+      rewRaf = requestAnimationFrame(rewStep);
+      return;
+    }
     if (!canHold()) return;
     holding = true;
     prevRate = V.rate;
@@ -49,6 +78,14 @@
     holding = false;
     stage.classList.remove("holding");
     pill.classList.remove("show");
+    if (rewinding) {
+      rewinding = false;
+      cancelAnimationFrame(rewRaf);
+      pill.classList.remove("rew");
+      V.seekTo(rewT);
+      if (rewWasPlaying) V.adapter?.play();
+      return true;
+    }
     V.setRate(prevRate);
     return true;
   }
@@ -58,7 +95,8 @@
     if (!e.isPrimary || e.button !== 0) return;
     ptr = { id: e.pointerId, x: e.clientX, y: e.clientY, type: e.pointerType, moved: false };
     clearTimeout(timer);
-    if (canHold()) timer = setTimeout(begin, HOLD_MS);
+    const P = V.adapter;
+    if (canHold() || (side(ptr) < 0 && P && !P.embed && P.d > 0)) timer = setTimeout(begin, HOLD_MS);
   });
   shield.addEventListener("pointermove", (e) => {
     if (!ptr || e.pointerId !== ptr.id) return;
@@ -67,6 +105,7 @@
       if (Math.hypot(dx, dy) > MOVE_CANCEL) { clearTimeout(timer); timer = 0; }
       return;
     }
+    if (rewinding) return;
     // a quarter of the player's width covers the whole 1.5×–3× range on either side of 2×
     const w = Math.max(240, stage.getBoundingClientRect().width);
     const r = 2 + (dx / (w * 0.25)) * (dx < 0 ? 0.5 : 1);
@@ -121,5 +160,5 @@
   addEventListener("blur", () => { spaceDown = false; ptr = null; end(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) { spaceDown = false; ptr = null; end(); } });
 
-  window.__hold = { get holding() { return holding; }, get rate() { return rate; } };
+  window.__hold = { get holding() { return holding; }, get rate() { return rate; }, get rewinding() { return rewinding; } };
 })();
