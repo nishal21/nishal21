@@ -1,0 +1,42 @@
+name: Add a note to the visitor song
+description: Pick one note and an instrument, and if you like, write one line for the lyrics.
+title: "Visitor note"
+labels: ["visitor-note"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is a small song made by people who visit my profile, separate from my contribution song.
+        Every night a script adds new notes to the track, puts accepted lines into the lyrics and credits you by name.
+        You'll get a comment here with a link to the exact second your part plays, and then the issue closes.
+        One note per person per week.
+  - type: dropdown
+    id: note
+    attributes:
+      label: Note
+      description: All notes are in A minor, so anything you pick will fit.
+      options: ["A", "B", "C", "D", "E", "F", "G", "A (high)"]
+    validations:
+      required: true
+  - type: dropdown
+    id: instrument
+    attributes:
+      label: Instrument
+      options: ["Piano", "Pluck", "Bell", "Bass", "Pad"]
+    validations:
+      required: true
+  - type: input
+    id: lyric
+    attributes:
+      label: One lyric line (optional)
+      description: Up to 60 characters. Keep it kind. Your GitHub username goes next to it in the credits.
+      placeholder: "late night builds and a cup of tea"
+    validations:
+      required: false
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Credits
+      options:
+        - label: I'm happy for my username to appear in the song credits.
+          required: true

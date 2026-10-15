@@ -139,6 +139,18 @@ More edits and remixes on [my channel](https://www.youtube.com/@DemonKing0.___).
 <p align="center"><a href="https://nishal21.github.io/nishal21/player/">Listen to the contribution song</a> · <a href="assets/contribution-song-lyrics.md">Lyrics</a> · <a href="https://nishal21.github.io/nishal21/player/contribution-song.mp3">Download MP3</a> · <a href="https://nishal21.github.io/nishal21/player/share-clip.mp4">Clip</a> · <a href="https://nishal21.github.io/nishal21/video/?v=trailer">Year trailer</a> · <a href="https://nishal21.github.io/nishal21/video/">Videos</a><br>Every bar is one week of my contribution calendar, and the lyrics come from the same numbers. You can also <a href="https://nishal21.github.io/nishal21/player/#remix">remix it</a>: mute parts, change the tempo, and share your mix as a link.</p>
 
 <p align="center">
+  <a href="https://github.com/nishal21/nishal21/issues/new?template=visitor-note.yml">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/visitor-song-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="assets/visitor-song-light.svg">
+      <img src="assets/visitor-song-light.svg" alt="Visitor song: a song made from notes and lyric lines added by people who visit this profile" height="155">
+    </picture>
+  </a>
+</p>
+
+<p align="center"><a href="https://github.com/nishal21/nishal21/issues/new?template=visitor-note.yml">Add a note to the visitor song</a> · <a href="https://nishal21.github.io/nishal21/player/?song=visitor">Listen</a> · <a href="assets/visitor-song-lyrics.md">Lyrics and credits</a><br>Pick a note and an instrument, and if you like, write one line for the lyrics. It joins the song that night, with your name in the credits.</p>
+
+<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/summary-productive-time-dark.svg">
     <img src="assets/summary-productive-time-light.svg" alt="Commits by hour of day (IST)" height="155">

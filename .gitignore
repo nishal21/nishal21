@@ -5,3 +5,5 @@ _site/
 assets/contribution-song.mp3
 # remix stems are published to Pages with the song, not committed
 assets/stems/
+# the visitor song MP3 is rebuilt and published to Pages by profile-cards, like the contribution song
+assets/visitor-song.mp3

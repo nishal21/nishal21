@@ -18,6 +18,8 @@ on:
       - "player/**"
       - "video/**"
       - "scripts/**"
+      - "data/visitor-song.json"
+      - "assets/visitor-song-base-lyrics.md"
       - ".github/workflows/profile-cards.yml"
 
 concurrency:
@@ -97,6 +99,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/contribution_song.py
+
+      - name: Visitor song
+        continue-on-error: true
+        run: python scripts/visitor_song.py --rebuild
 
       - name: Year trailer card
         if: steps.song.outcome == 'success'

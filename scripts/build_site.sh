@@ -10,6 +10,10 @@ cp player/fonts/*.woff2 player/fonts/LICENSE.txt _site/player/fonts/
 for f in contribution-song.mp3 contribution-song.json contribution-song.lrc contribution-song-lyrics.md; do
   cp "assets/$f" _site/player/
 done
+# The visitor song (player.js loads it with ?song=visitor). The MP3 comes from the "Visitor song" step.
+for f in visitor-song.mp3 visitor-song.json visitor-song.lrc visitor-song-lyrics.md; do
+  if [ -f "assets/$f" ]; then cp "assets/$f" _site/player/; else echo "visitor song: $f missing"; fi
+done
 # Stems for the remix desk (written by the song step; the page hides the Remix button without them)
 if [ -d assets/stems ]; then mkdir -p _site/player/stems && cp assets/stems/* _site/player/stems/; fi
 # Cover for link previews and the lock screen (needs Pillow, which the song step already installs).

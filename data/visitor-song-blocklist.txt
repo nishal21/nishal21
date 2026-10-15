@@ -1,0 +1,16 @@
+# One word or phrase per line, lowercase. Lines are matched as whole words, ignoring case and simple
+# letter swaps (0->o, 1->i, 3->e, 4->a, 5->s, @->a, $->s). Add to it whenever something slips through.
+# Starter list kept short on purpose; extend it with a maintained list if the song gets busy.
+fuck
+shit
+bitch
+bastard
+cunt
+dick
+slut
+whore
+nigger
+faggot
+retard
+kill yourself
+kys

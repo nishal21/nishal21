@@ -22,6 +22,19 @@ const INK = "#0d0e0c";
 const SLEEVES = ["#a9d6f5", "#cbef4a", "#ff8a65", "#f6a6c6", "#7fe3b4", "#ffc53d",
   "#5cd6cf", "#ff9f43", "#c3b1ff", "#ff7a3d", "#e6d3a3", "#ff6b6b"];
 const DAY_STEP = 1 / 8; // the generator plays day d at d/8 of the bar
+// ?song=visitor plays the visitor song (scripts/visitor_song.py writes the same JSON shape); anything else is the contribution song
+const SONG = new URLSearchParams(location.search).get("song") === "visitor" ? "visitor-song" : "contribution-song";
+if (SONG !== "contribution-song") {
+  document.body.classList.add("is-visitor");
+  audio.src = `${SONG}.mp3`;
+  $$('a.dl[href^="contribution-song."]').forEach((a) => {
+    a.href = a.getAttribute("href").replace("contribution-song", SONG);
+    a.download = a.download.replace("contribution-song", SONG);
+  });
+  $("#clip-dl")?.remove();
+  $$(".tabs a").forEach((a) => a.toggleAttribute("aria-current", a.getAttribute("href") === "./?song=visitor"));
+  $$('.tabs a[aria-current]').forEach((a) => a.setAttribute("aria-current", "page"));
+}
 
 let song = null;
 let ground = SLEEVES[1];
@@ -189,7 +202,7 @@ function drawLabel(x, cx, cy, label) {
   x.fillText(String(song.stats.total), cx, cy + label * 0.04);
   x.font = `650 ${Math.max(6, Math.round(label * 0.13))}px Bricolage, sans-serif`;
   x.fillText("NISHAL K", cx, cy - label * 0.52);
-  x.fillText("CONTRIBUTIONS", cx, cy + label * 0.52);
+  x.fillText(`${(song.unit || "contribution").toUpperCase()}S`, cx, cy + label * 0.52);
 }
 function mix(a, b, t) {
   const A = hexToRgb(a), B = hexToRgb(b);
@@ -214,14 +227,15 @@ function drawSleeve(t = media.currentTime) {
   x.textBaseline = "top"; x.textAlign = "left";
   const m = S * 0.05;
   x.font = `800 ${S * 0.052}px Bricolage, sans-serif`;
-  x.fillText("Contribution", m, m);
-  x.fillText("song", m, m + S * 0.056);
+  const [t1, t2] = song.per === "bar" ? ["Visitor", "song"] : ["Contribution", "song"];
+  x.fillText(t1, m, m);
+  x.fillText(t2, m, m + S * 0.056);
   x.font = `600 ${S * 0.02}px Bricolage, sans-serif`;
   x.textAlign = "right";
   x.fillText(`${song.bpm} BPM`, S - m, m + S * 0.008);
   x.fillText(String(song.key).toUpperCase(), S - m, m + S * 0.036);
   x.textAlign = "left"; x.textBaseline = "alphabetic";
-  x.fillText(`${day(song.stats.first, { month: "short", year: "numeric" })} to ${day(song.stats.last, { month: "short", year: "numeric" })}`.toUpperCase(), m, S - m);
+  x.fillText((song.per === "bar" ? "ONE NOTE PER VISITOR" : `${day(song.stats.first, { month: "short", year: "numeric" })} to ${day(song.stats.last, { month: "short", year: "numeric" })}`.toUpperCase()), m, S - m);
   // record, turned so the bar that's playing sits at 12 o'clock under the needle
   x.save();
   x.translate(cx, cy);
@@ -421,16 +435,29 @@ function build(data) {
   dmax = Math.max(1, ...data.weeks.flatMap((w) => w.days));
   ground = SLEEVES[(parseInt(String(s.month).slice(5, 7), 10) || 2) - 1];
 
+  if (data.title) { $("#title").textContent = data.title; document.title = `${data.title} · Nishal K`; }
+  if (data.artist && SONG !== "contribution-song") $(".artist a").textContent = data.artist;
+  if (data.about) {
+    const p = $(".about .prose p");
+    p.textContent = data.about + " ";
+    if (data.add) { const a = document.createElement("a"); a.href = data.add; a.textContent = "Add your note"; p.append(a, "."); }
+    $('.about .prose a[href$="contribution_song.py"]')?.setAttribute("href", "https://github.com/nishal21/nishal21/blob/main/scripts/visitor_song.py");
+  }
+  if (data.per === "bar") {
+    $("#year-h").textContent = "The song in beats";
+    $(".year .block-head p").textContent = "Each column is one bar of the song and its four beats. Select a bar to play from there.";
+    $("#range").textContent = "So far";
+  }
   $("#left").textContent = `-${fmt(data.length)}`;
   $("#where").textContent = `${fmt(data.length)} · ${data.bpm} BPM · ${data.key}`;
   $("#gen").textContent = `Last built ${new Date(data.generated).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" })} IST`;
-  $("#range").textContent = `${day(s.first)} to ${day(s.last)}`;
+  if (data.per !== "bar") $("#range").textContent = `${day(s.first)} to ${day(s.last)}`;
 
   buildLyrics(data);
   buildGrid(data);
   buildPads(data);
   sleeve.setAttribute("aria-valuemax", data.weeks.length);
-  buildStats(s);
+  buildStats(s, data.items);
   buildTracklist(data);
   setupMediaSession(data);
 
@@ -638,8 +665,9 @@ function buildGrid(data) {
     b.tabIndex = i === 0 ? 0 : -1;
     const total = w.days.reduce((a, c) => a + c, 0);
     const notes = [w.lang ? `mostly ${w.lang}` : "", ...(w.events || []).map(eventText)].filter(Boolean).join("; ");
-    b.setAttribute("aria-label", `Week of ${day(w.start)}, ${total} contributions${notes ? `, ${notes}` : ""}. Play from here.`);
-    b.title = `Week of ${day(w.start)}: ${total} contributions${notes ? `\n${notes}` : ""}`;
+    const what = data.per === "bar" ? `Bar ${i + 1}` : `Week of ${day(w.start)}`, unit = data.unit || "contribution";
+    b.setAttribute("aria-label", `${what}, ${total} ${unit}${total === 1 ? "" : "s"}${notes ? `, ${notes}` : ""}. Play from here.`);
+    b.title = `${what}: ${total} ${unit}${total === 1 ? "" : "s"}${notes ? `\n${notes}` : ""}`;
     const cells = [];
     for (let d = 0; d < 7; d++) {
       const c = document.createElement("span");
@@ -790,10 +818,11 @@ function buildPads(data) {
     padEls.push(row);
   });
   const asc = [...data.rules].sort((a, b) => a.min - b.min);
-  $("#rules").textContent = "Each day plays " + asc.map((r, i) => `${i === asc.length - 1 ? "and " : ""}a ${r.name} at ${r.min}+`).join(", ") + " contributions.";
+  $("#rules").textContent = (data.per === "bar" ? "Each beat lights up when a visitor's note lands on it." : "Each day plays " + asc.map((r, i) => `${i === asc.length - 1 ? "and " : ""}a ${r.name} at ${r.min}+`).join(", ") + " contributions.");
 }
 
-function buildStats(s) {
+function buildStats(s, custom) {
+  if (custom) return fillStats(custom);
   const month = new Date(s.month + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
   const items = [
     ["Contributions", s.total, `${day(s.first, { month: "short", year: "numeric" })} to ${day(s.last, { month: "short", year: "numeric" })}`],
@@ -803,6 +832,9 @@ function buildStats(s) {
     ["Longest streak", `${s.streak} days`, `${day(s.streak_start, { month: "short", day: "numeric" })} to ${day(s.streak_end)}`],
   ];
   if (s.recent?.length) items.push(["Working on", s.recent[0], s.recent.slice(1).join(", "), true]);
+  fillStats(items);
+}
+function fillStats(items) {
   const dl = $("#stats");
   for (const [k, v, small, word] of items) {
     const div = document.createElement("div");
@@ -1036,12 +1068,13 @@ function update(force) {
       pad.classList.toggle("on", c >= +pad.dataset.min);
       pad.style.setProperty("--o", (0.45 + 0.55 * Math.min(1, c / dmax)).toFixed(2));
     }));
-    const when = w.start ? `Week of ${day(w.start)}` : "Before the first week";
-    const label = `${when} · ${total} contribution${total === 1 ? "" : "s"}`;
+    const unit = song.unit || "contribution";
+    const when = song.per === "bar" ? "" : w.start ? `Week of ${day(w.start)} · ` : "Before the first week · ";
+    const label = `${when}${total} ${unit}${total === 1 ? "" : "s"}`;
     $("#bar-week").textContent = `Bar ${bar + 1} of ${n}. ${label}${w.lang ? ` · mostly ${w.lang}` : ""}`;
     $("#pads").setAttribute("aria-label", `Drum pads. ${label}`);
     const playing = t > 0 || !media.paused;
-    if (playing) $("#where").textContent = `${sectionAt(t).name} · ${w.start ? day(w.start, { month: "short", day: "numeric" }) : "intro"}${w.lang ? ` · ${w.lang}` : ""}`;
+    if (playing) $("#where").textContent = `${sectionAt(t).name} · ${song.per === "bar" ? `bar ${bar + 1}` : w.start ? day(w.start, { month: "short", day: "numeric" }) : "intro"}${w.lang ? ` · ${w.lang}` : ""}`;
     renderBadge(bar, playing);
     sleeve.setAttribute("aria-valuenow", bar + 1);
     sleeve.setAttribute("aria-valuetext", `${label}${w.events?.length ? `, ${w.events.map(eventLabel).join(", ")}` : ""}`);
@@ -1084,7 +1117,7 @@ function loop() {
 function setupMediaSession(data) {
   if (!("mediaSession" in navigator)) return;
   navigator.mediaSession.metadata = new MediaMetadata({
-    title: data.title, artist: data.artist, album: `${data.stats.total} contributions`,
+    title: data.title, artist: data.artist, album: `${data.stats.total} ${data.unit || "contribution"}s`,
     artwork: [{ src: new URL("cover.png", location.href).href, sizes: "512x512", type: "image/png" }],
   });
   const handlers = {
@@ -1105,7 +1138,7 @@ function setupMediaSession(data) {
 }
 
 /* ---------- misc ---------- */
-fetch("contribution-song.mp3", { method: "HEAD" })
+fetch(`${SONG}.mp3`, { method: "HEAD" })
   .then((r) => { const n = +r.headers.get("content-length"); if (r.ok && n) $("#mp3-size").textContent = `${(n / 1048576).toFixed(1)} MB`; })
   .catch(() => {});
 
@@ -1128,7 +1161,7 @@ window.songPlayer = {
   onPanel: (fn) => panelWatchers.push(fn),
 };
 
-fetch("contribution-song.json", { credentials: "same-origin" })
+fetch(`${SONG}.json`, { credentials: "same-origin" })
   .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
   .then((data) => {
     build(data);
