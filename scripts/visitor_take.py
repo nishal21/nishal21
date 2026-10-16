@@ -380,7 +380,7 @@ def run(engine, out_dir):
     if engine == "cloud":
         key = os.environ.get("ACESTEP_API_KEY", "").strip()
         if not key:
-            print("ACESTEP_API_KEY isn't set, so the cloud is skipped")
+            print("::warning::ACESTEP_API_KEY isn't set, so the cloud is skipped and the CPU sings")
             return 1
         sing, label = (lambda ly, du, sd: sing_cloud(ly, du, sd, key)), "acemusic.ai"
     else:
@@ -390,21 +390,22 @@ def run(engine, out_dir):
             print(f"ACE-Step CPU unavailable: {e}")
             return 1
     os.makedirs(out_dir, exist_ok=True)
-    best, fails = None, 0
+    best, fails, sung = None, 0, 0
     seed0 = int(h[:6], 16) % 100000
-    for k in range(TRIES):
+    for k in range(TRIES + (3 if engine == "cloud" else 0)):  # room for a few server errors on top of the takes
         seed = seed0 + 7919 * k
         t0 = time.time()
         try:
             data, ext = sing(lyrics, dur, seed)
         except Failed as e:
             fails += 1
-            print(f"take {k + 1}: {e}")
-            if fails >= 2 and best is None:
+            print(f"::warning::{label} take {k + 1} failed: {e}")
+            if fails >= 4 and best is None:
                 break
-            time.sleep(20)
+            time.sleep(min(60, 20 * fails))  # back off: 20, 40, 60 s
             continue
         took = time.time() - t0
+        sung += 1
         with tempfile.TemporaryDirectory() as d:
             raw = os.path.join(d, f"take.{ext}")
             open(raw, "wb").write(data)
@@ -425,10 +426,10 @@ def run(engine, out_dir):
             if best is None or rep["score"] > best[0]["score"]:
                 mix, before, after = polish(v, m)
                 best = (rep, seed, mix, before, after, took)
-        if best and best[0]["good"]:
+        if (best and best[0]["good"]) or sung >= TRIES:
             break
     if not best or not best[0]["ok"] or best[0]["accuracy"] < FLOOR:
-        print("no take was good enough" + (f" (best {best[0]['accuracy']:.1%}, missing {best[0]['missing']}, "
+        print(f"::warning::{label}: no take was good enough" + (f" (best {best[0]['accuracy']:.1%}, missing {best[0]['missing']}, "
                                            f"repeated {best[0]['repeated']})" if best else ""))
         return 1
     rep, seed, mix, before, after, took = best
