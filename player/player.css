@@ -96,9 +96,11 @@ button, a, summary { -webkit-tap-highlight-color: transparent; }
   width: 150vmax; height: 150vmax;
   translate: -50% -50%;
   opacity: calc(0.3 + var(--kick, 0) * 0.12);
-  filter: blur(28px) saturate(1.15);
-  animation: drift 120s linear infinite;
+  /* one rotation in 120 s moves 0.3 deg per step: invisible, but the big blended layer recomposites 10 times a second, not 60 */
+  animation: drift 120s steps(1200) infinite;
 }
+/* low-end devices: hold the backdrop still so the grain blend never has to recomposite */
+:root.lite .backdrop canvas { animation: none; }
 .backdrop::after {
   /* print grain, so large color fields don't look like a flat gradient */
   content: ""; position: absolute; inset: 0; opacity: calc(0.09 - var(--dark) * 0.02); mix-blend-mode: overlay;
@@ -1013,6 +1015,7 @@ kbd {
 }
 .doodle { transition: opacity 0.4s ease; }
 .doodle.away { opacity: 0; }
+.doodle.wait { visibility: hidden; }
 /* wide screens: the remix desk uses the whole right column, stems on the left, tempo, loop, kit and knobs on
    the right, so it fits common laptop heights without scrolling inside */
 @media (min-width: 1200px) {

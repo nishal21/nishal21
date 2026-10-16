@@ -53,7 +53,10 @@ let pulse = 0;
 const schemeMeta = $('meta[name="color-scheme"]');
 const sysDark = matchMedia("(prefers-color-scheme: dark)");
 const rendered = () => (schemeMeta.content === "light dark" ? (sysDark.matches ? "dark" : "light") : schemeMeta.content);
-function schemeChanged() { setThemeColor(); drawWave(); drawBackdrop(); window.layoutDoodles?.(false); }
+const waveColors = new Map();
+// low-end devices get a still backdrop (see .lite in player.css)
+if ((navigator.deviceMemory || 8) <= 4 || (navigator.hardwareConcurrency || 8) <= 4) document.documentElement.classList.add("lite");
+function schemeChanged() { waveColors.clear(); setThemeColor(); drawWave(); drawBackdrop(); window.layoutDoodles?.(false); }
 $("#theme").addEventListener("click", () => {
   const target = rendered() === "dark" ? "light" : "dark";
   const system = sysDark.matches ? "dark" : "light";
@@ -111,6 +114,7 @@ function extractSleeve(canvas) {
 }
 
 function applyPalette(rgb) {
+  waveColors.clear();
   const [h, s] = rgbToHsl(rgb);
   const st = root.style;
   const g = `rgb(${rgb.join(" ")})`;
@@ -144,6 +148,7 @@ function setPersona(p, { save = true, hash = true } = {}) {
   if (!(p in PERSONAS)) p = "vinyl";
   persona = p;
   root.dataset.persona = p;
+  waveColors.clear();
   if (save) try { if (p === "vinyl") localStorage.removeItem("player-look"); else localStorage.setItem("player-look", p); } catch {}
   if (hash) {
     const parts = location.hash.slice(1).split("&").filter((x) => x && !x.startsWith("persona="));
@@ -162,7 +167,8 @@ $$('#looks input[name="look"]').forEach((r) => {
 $("#looks")?.addEventListener("toggle", (e) => { if (e.newState === "open") $('#looks input[name="look"]:checked')?.focus(); });
 addEventListener("hashchange", () => { const p = lookFromHash(); if (p && p !== persona) setPersona(p, { hash: false }); });
 
-const col = (v) => cssColor(v);
+// the cover drawers run every frame: resolve each colour once per look and scheme
+const col = (v) => { const k = "c:" + v; let c = waveColors.get(k); if (c === undefined) { c = cssColor(v); waveColors.set(k, c); } return c; };
 function roundRect(x, X, Y, W, H, r) { x.beginPath(); x.roundRect ? x.roundRect(X, Y, W, H, r) : x.rect(X, Y, W, H); }
 const progressAt = (t) => clamp(t / (media.duration || song.length), 0, 1);
 
@@ -334,8 +340,12 @@ const sleeve = $("#sleeve");
 let discImg = null;    // pre-rendered record, redrawn only when the size changes
 let sleeveSize = 0;
 
+// canvas sizes are cached and refreshed by a ResizeObserver, so per-frame drawing never forces a layout
+const boxes = new WeakMap();
+const boxWatch = new ResizeObserver((list) => { for (const e of list) boxes.set(e.target, e.target.getBoundingClientRect()); });
 function fitCanvas(c, cap = 2) {
-  const r = c.getBoundingClientRect();
+  let r = boxes.get(c);
+  if (!r) { r = c.getBoundingClientRect(); boxes.set(c, r); boxWatch.observe(c); }
   const dpr = Math.min(devicePixelRatio || 1, cap);
   const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
   if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
@@ -542,10 +552,13 @@ sleeve.addEventListener("keydown", (e) => {
 
 // Backdrop: the cover at 40px, blurred and scaled up by CSS, turning slowly.
 // In light mode the black record is remapped to a pale cut of the sleeve so the page stays bright.
+// The blur is baked into the canvas once, instead of a CSS blur that the browser redoes on a huge layer every frame.
+const bgSrc = document.createElement("canvas");
+bgSrc.width = bgSrc.height = 40;
 function drawBackdrop() {
   if (!song) return;
   const bg = $("#bg");
-  const x = bg.getContext("2d", { willReadFrequently: true });
+  const x = bgSrc.getContext("2d", { willReadFrequently: true });
   x.clearRect(0, 0, 40, 40);
   x.filter = "blur(2px)";
   x.drawImage(sleeve, -4, -4, 48, 48);
@@ -561,6 +574,13 @@ function drawBackdrop() {
     }
     x.putImageData(img, 0, 0);
   }
+  // same look as CSS blur(28px) saturate(1.15) on a 150vmax square, scaled to this canvas
+  const N = bg.width, css = 1.5 * Math.max(innerWidth, innerHeight), o = bg.getContext("2d");
+  o.clearRect(0, 0, N, N);
+  o.filter = `blur(${(28 * N / css).toFixed(2)}px) saturate(1.15)`;
+  o.imageSmoothingQuality = "high";
+  o.drawImage(bgSrc, 0, 0, N, N);
+  o.filter = "none";
 }
 
 /* ---------- waveform scrubber ---------- */
@@ -571,7 +591,12 @@ let liveBins = null;
 const waveProbe = document.createElement("i");
 waveProbe.style.display = "none";
 $(".wave").append(waveProbe);
-const waveColor = (v) => { waveProbe.style.color = v; return getComputedStyle(waveProbe).color; };
+// resolved colours are cached until the look or colour scheme changes (getComputedStyle every frame forces a style pass)
+const waveColor = (v) => {
+  let c = waveColors.get(v);
+  if (c === undefined) { waveProbe.style.color = v; c = getComputedStyle(waveProbe).color; waveColors.set(v, c); }
+  return c;
+};
 function drawLine(x, w, h, dpr, p, d) {
   const y = h / 2, fg = waveColor("var(--fg)"), dim = waveColor("color-mix(in oklab, var(--fg) 22%, transparent)");
   x.fillStyle = dim; x.fillRect(0, y - dpr, w, 2 * dpr);
@@ -767,6 +792,7 @@ function placeLyrics(instant) {
     const dist = Math.abs(i - Math.max(0, curLine));
     el.style.setProperty("--blur", `${Math.min(3.2, dist * 0.8).toFixed(1)}px`);
   });
+  dispatchEvent(new Event("lyricsmove"));
   if (instant) {
     lyEls.forEach((el) => (el.style.transition = "none"));
     void pane.offsetHeight;
@@ -1217,24 +1243,29 @@ function fireHits(from, to) {
         pulse = Math.max(pulse, 0.35 + 0.65 * Math.sqrt(c / dmax));
         if (!reduceMotion.matches) {
           const el = cellEls[b][d];
-          el.classList.remove("hit");
-          void el.offsetWidth;
-          el.classList.add("hit");
+          // restart the flash without forcing a layout
+          const run = el.classList.contains("hit") ? el.getAnimations() : [];
+          if (run.length) run.forEach((an) => { an.currentTime = 0; an.play(); });
+          else { el.classList.remove("hit"); requestAnimationFrame(() => el.classList.add("hit")); }
         }
       }
     }
   }
 }
 
+function setText(el, v) { if (el.textContent !== v) el.textContent = v; }
 function update(force) {
   if (!song) return;
   const t = media.currentTime;
   const d = media.duration || song.length;
   const p = clamp(t / d, 0, 1);
-  $("#cur").textContent = fmt(t);
-  $("#left").textContent = `-${fmt(d - t)}`;
-  seek.value = Math.round(p * 1000);
-  seek.setAttribute("aria-valuetext", `${fmt(t)} of ${fmt(d)}, ${sectionAt(t).name}`);
+  // only touch the DOM when a value actually changes (these run every frame while playing)
+  setText($("#cur"), fmt(t));
+  setText($("#left"), `-${fmt(d - t)}`);
+  const sv = Math.round(p * 1000);
+  if (+seek.value !== sv) seek.value = sv;
+  const vt = `${fmt(t)} of ${fmt(d)}, ${sectionAt(t).name}`;
+  if (seek.getAttribute("aria-valuetext") !== vt) seek.setAttribute("aria-valuetext", vt);
   waveEl.style.setProperty("--p", p);
 
   // lyrics: the sung line lights up; between lines (intro, instrumental bars) the next line waits
@@ -1264,7 +1295,8 @@ function update(force) {
     for (const w of lineEls[on].querySelectorAll(".w")) {
       const a = +w.dataset.a, b = +w.dataset.b;
       const wp = clamp((lp - a) / (b - a), 0, 1);
-      w.style.setProperty("--wp", wp.toFixed(3));
+      const ws = wp.toFixed(3);
+      if (w.style.getPropertyValue("--wp") !== ws) w.style.setProperty("--wp", ws);
       w.classList.toggle("sung", wp >= 1);
     }
   }
@@ -1308,9 +1340,21 @@ function update(force) {
     $$("#tracklist li").forEach((li, i) => (i === sec ? li.setAttribute("aria-current", "true") : li.removeAttribute("aria-current")));
     curSec = sec;
   }
-  drawWave();
-  drawSleeve(t);
+  // canvases scrolled out of view are not redrawn; they catch up when they come back
+  if (inView.wave) drawWave();
+  if (inView.sleeve) drawSleeve(t);
 }
+const inView = { wave: true, sleeve: true };
+const viewWatch = new IntersectionObserver((list) => {
+  for (const e of list) {
+    const k = e.target === sleeve ? "sleeve" : "wave";
+    const was = inView[k];
+    inView[k] = e.isIntersecting;
+    if (e.isIntersecting && !was) k === "sleeve" ? drawSleeve() : drawWave();
+  }
+});
+viewWatch.observe(sleeve);
+viewWatch.observe($("#wave"));
 
 let looping = false;
 function loop() {

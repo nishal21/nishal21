@@ -2004,7 +2004,13 @@ const amb = (() => {
   function save() { store.set("ambient", s); applyVars(); relayout(); }
   function relayout() { if (layout()) hardNext = true; redraw(); }
   // the page tint follows two colours read from the picture, twice a second (never in the per-frame path)
-  function setColors(c) { root.style.setProperty("--amb1", c[0]); root.style.setProperty("--amb2", c[1] || c[0]); }
+  let lastTint = "";
+  function setColors(c) {
+    const k = c[0] + "|" + (c[1] || c[0]);
+    if (k === lastTint) return;  // unchanged colours would still restyle the whole page
+    lastTint = k;
+    root.style.setProperty("--amb1", c[0]); root.style.setProperty("--amb2", c[1] || c[0]);
+  }
   function readColors() {
     if (!readable || !g) return;
     let px;
@@ -2033,7 +2039,10 @@ const amb = (() => {
     if (source?.type === "sprite") return cur?.thumb || null;
     return null;
   }
-  const shown = () => !!glowBox.offsetWidth && !fsEl() && !prefs.theater;
+  // the glow box width comes from a ResizeObserver, so the per-frame check never forces a layout
+  let glowW = glowBox.offsetWidth;
+  new ResizeObserver(() => { glowW = glowBox.offsetWidth; }).observe(glowBox);
+  const shown = () => !!glowW && !fsEl() && !prefs.theater;
   const active = () => s.on && !document.hidden && !!cur;
 
   /* ----- the real picture: one draw per presented frame ----- */

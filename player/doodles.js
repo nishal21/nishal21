@@ -57,11 +57,19 @@
     const set = SETS[root.dataset.persona] || SETS.vinyl;
     const texts = await Promise.all(set.map(([n]) => get(n)));
     if (my !== seq) return;
+    seen.disconnect();
     layer.replaceChildren();
     layer.style.height = "0px";
     const W = document.documentElement.clientWidth, H = document.documentElement.scrollHeight;
     layer.style.height = H + "px";
     const block = obstacles(), placed = [];
+    // obstacles bucketed by 64px rows, so each grid test only looks at the few boxes near it
+    const rows = [];
+    for (const b of block) for (let r = Math.max(0, Math.floor(b[1] / 64)); r <= Math.floor(b[3] / 64); r++) (rows[r] ||= []).push(b);
+    const blocked = (box) => {
+      for (let r = Math.max(0, Math.floor(box[1] / 64)); r <= Math.floor(box[3] / 64); r++) if (rows[r] && hit(box, rows[r])) return true;
+      return false;
+    };
     const small = W < 600, ink = color("var(--fg-2)"), acc = color("var(--accent)");
     const rnd = Math.random;
     // how many: about one per screenful of page, more on wide screens with real gutters, few on phones
@@ -79,7 +87,7 @@
       for (let y = 64; y + h + capH < H - 16; y += step)
         for (let x = 8; x + w < W - 8; x += step) {
           const box = [x, y, x + w, y + h + capH];
-          if (!hit(box, block)) list.push(box);
+          if (!blocked(box)) list.push(box);
         }
       return list;
     });
@@ -116,7 +124,8 @@
         const cap = document.createElement("figcaption");
         [...word].forEach((ch, n) => { const sp = document.createElement("span"); sp.textContent = ch; sp.style.setProperty("--k", n); cap.append(sp); });
         fig.append(cap);
-        if (animate && !reduce.matches) fig.classList.add("enter");
+        // draw on only when it scrolls into view, so offscreen doodles cost nothing
+        if (animate && !reduce.matches) { fig.classList.add("wait"); seen.observe(fig); }
         layer.append(fig);
       }
     }
@@ -138,9 +147,34 @@
       f.classList.toggle("away", hit(b, boxes));
     });
   }
-  setInterval(() => { if (!document.hidden) revalidate(); }, 1000);
+  // entrance: start each doodle's draw-on when it is on screen; drop the finished animations afterwards
+  const seen = new IntersectionObserver((list) => {
+    let n = 0;
+    for (const e of list) {
+      if (!e.isIntersecting) continue;
+      const f = e.target;
+      seen.unobserve(f);
+      f.style.setProperty("--d", `${(n++ * 0.35).toFixed(2)}s`);
+      f.classList.replace("wait", "enter");
+      const cap = f.querySelector("figcaption");
+      cap.addEventListener("animationend", (ev) => { if (ev.animationName === "track") f.classList.remove("enter"); });
+    }
+  }, { rootMargin: "0px 0px -10% 0px" });
+  // re-check only when the lyrics actually move (line change, pane scroll, page scroll), at most once a frame
+  let queued = false;
+  const soon = () => { if (queued || document.hidden) return; queued = true; requestAnimationFrame(() => { queued = false; revalidate(); }); };
+  addEventListener("scroll", soon, { passive: true });
+  // the player says when the lyric lines move; check again once their slide has settled
+  addEventListener("lyricsmove", () => { soon(); setTimeout(soon, 700); });
+  const watch = () => {
+    const lp = document.getElementById("lyrics-pane");
+    if (!lp) return;
+    lp.addEventListener("scroll", soon, { passive: true, capture: true });
+  };
+  if (document.readyState === "loading") addEventListener("DOMContentLoaded", watch); else watch();
   let t = 0;
-  const later = (anim) => { clearTimeout(t); t = setTimeout(() => layout(anim), 250); };
+  const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1));
+  const later = (anim) => { clearTimeout(t); t = setTimeout(() => idle(() => layout(anim), { timeout: 1000 }), 250); };
   let lastW = innerWidth;
   addEventListener("resize", () => { if (Math.abs(innerWidth - lastW) > 2) { lastW = innerWidth; later(false); } });
   // re-place quietly if the page grows or shrinks (song data, liner notes), redraw when the look changes
@@ -149,5 +183,6 @@
   new MutationObserver(() => later(true)).observe(root, { attributes: true, attributeFilter: ["data-persona"] });
   window.layoutDoodles = later;
   window.__doodleBlocks = () => obstacles();
-  addEventListener("load", () => setTimeout(() => layout(true), 400));
+  // first placement waits for an idle moment after load, so it never competes with the player starting up
+  addEventListener("load", () => setTimeout(() => idle(() => layout(true), { timeout: 1500 }), 400));
 })();
