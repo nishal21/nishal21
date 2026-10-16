@@ -43,6 +43,8 @@ Leave yours and the song gets one beat longer
 
 **Lyrics:** Nishal K (base lyrics), @nishal21
 
+**Voice:** Piper (the contribution song's chorus voice)
+
 **Notes, in the order they play:**
 
 1. @nishal21 · A on piano · [0:05](https://nishal21.github.io/nishal21/player/?song=visitor&t=5)
