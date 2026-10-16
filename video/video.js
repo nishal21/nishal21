@@ -398,7 +398,8 @@ function thumbEl(it) {
   const box = el("div", { className: "th" });
   if (it.thumb) {
     const tall = it.shape === "tall";
-    box.append(el("img", { src: it.thumb, alt: "", decoding: "async",  // eager: lazy thumbs in the queue never started loading in Chrome width: tall ? 360 : 640, height: tall ? 640 : 360 }));
+    // no loading="lazy": lazy thumbnails in the queue never started loading in Chrome
+    box.append(el("img", { src: it.thumb, alt: "", decoding: "async", width: tall ? 360 : 640, height: tall ? 640 : 360 }));
   }
   const len = it === CLIP ? "0:15" : it === TRAILER ? fmt(TRAILER.length || 45) : it === VISITOR ? (VISITOR.length ? fmt(VISITOR.length) : "") : it.duration ? fmt(it.duration) : it.short ? "Short" : "";
   if (len) box.append(el("span", { className: "badge", textContent: len }));
