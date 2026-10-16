@@ -1656,19 +1656,28 @@ document.addEventListener("pointerdown", (e) => {
 }, true);
 
 /* share and download */
+// videos with their own share page (scripts/share_pages.py), so link previews show that video's card
+function sharePath(it) {
+  if (!it?.share) return null;
+  if (["clip", "trailer", "visitor"].includes(it.key) && it.share === it.key) return `${it.share}/`;
+  if (it.kind === "youtube" && /^[\w-]{11}$/.test(it.share) && library.some((x) => x.share === it.share)) return `yt/${it.share}/`;
+  return null;
+}
 function shareUrl(withTime) {
   if (cur?.local) return null;
-  const u = new URL(SITE);
-  if (cur && cur !== library[0] && cur.share) u.searchParams.set("v", cur.share);
+  const path = sharePath(cur);
+  const u = new URL(path || "", SITE);
+  if (!path && cur && cur !== library[0] && cur.share) u.searchParams.set("v", cur.share);
   if (withTime && P?.t > 1) u.searchParams.set("t", String(Math.floor(P.t)));
   return u.href;
 }
 // the embed URL and a responsive snippet for it; links inside an embed still point at the full page
 function embedUrl(withTime) {
   if (cur?.local || !cur?.share) return null;
-  const u = new URL(SITE);
+  const path = sharePath(cur);
+  const u = new URL(path || "", SITE);
   u.searchParams.set("embed", "1");
-  u.searchParams.set("v", cur.share);
+  if (!path) u.searchParams.set("v", cur.share);
   if (withTime && P?.t > 1) u.searchParams.set("t", String(Math.floor(P.t)));
   return u.href;
 }

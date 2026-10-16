@@ -505,6 +505,9 @@ def main():
     t0 = time.time()
     v.frame(max(0.5, v.first - 1.2)).resize((1280, 720), Image.LANCZOS).save(os.path.join(out, "visitor-poster.jpg"), quality=86)
     if "--web" in args:
+        # link preview card (1200x630): the title frame, with the current line and visitor counts
+        big = v.frame(max(0.5, v.first - 1.2))
+        big.crop((0, 36, 1920, 1044)).resize((1200, 630), Image.LANCZOS).save(os.path.join(out, "visitor-og.jpg"), quality=88)
         with open(os.path.join(out, "visitor-video.json"), "w") as f:
             json.dump(plan(v, "../player/art/"), f, separators=(",", ":"))
         subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", mp3, "-af", f"apad,atrim=0:{v.total:.3f}",

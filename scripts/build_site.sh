@@ -36,6 +36,8 @@ if [ -f _site/player/share-clip.mp4 ]; then
   ffmpeg -loglevel error -y -ss 1 -i _site/player/share-clip.mp4 -frames:v 1 -vf scale=540:-2 -q:v 4 _site/video/clip-poster.jpg \
     || echo "clip poster not built"
 fi
+# One small page per video and song with its own link preview (crawlers ignore ?v= and don't run JS)
+python3 scripts/share_pages.py _site || echo "share pages not built"
 # Cache busting: point the pages at ?v=<hash of each file> so a deploy reaches browsers at once instead of
 # after GitHub Pages' 10-minute cache, and give the video page's service worker a new cache name.
 h() { if [ -f "$1" ]; then sha1sum "$1" | cut -c1-10; else echo none; fi; }
