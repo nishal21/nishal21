@@ -320,7 +320,7 @@ def words_heard(audio16):
         from faster_whisper import WhisperModel
         _whisper = WhisperModel(os.environ.get("VISITOR_WHISPER", "small.en"), device="cpu", compute_type="int8")
     segs, _ = _whisper.transcribe(audio16, language="en", word_timestamps=True, vad_filter=False, beam_size=5,
-                                  hotwords=HOTWORDS or None)
+                                  temperature=0.0, hotwords=HOTWORDS or None)  # no random fallback: the same audio, the same score
     return [(w.word.strip(), w.start, w.end) for s in segs for w in (s.words or [])]
 
 
@@ -599,7 +599,7 @@ def run_sections(out_dir):
             failed.append(sec)
             continue
         CAPTION = SECTION_STYLE["sung" if sec in ("Chorus", "Breakdown") else "rap"]
-        keep = os.path.join(out_dir, "sections", hashlib.sha256(json.dumps([VERSION, BPM, CAPTION, k]).encode()).hexdigest()[:12])
+        keep = os.path.join(out_dir, "sections", hashlib.sha256(json.dumps([VERSION, BPM, CAPTION, k, "clip2"]).encode()).hexdigest()[:12])
         if os.path.exists(keep + ".json"):  # passed in an earlier run of these same lyrics
             done[k] = dict(json.load(open(keep + ".json")), voice=decode(keep + ".wav"))
             print(f"{sec}: kept from an earlier run ({done[k]['engine']}, {done[k]['acc']:.1%})")
@@ -642,9 +642,14 @@ def run_sections(out_dir):
                 rep, seed, v = got[0], got[1], got[2]
                 if not rep["words"]:
                     continue
-                for li, (ln, la) in enumerate(zip(timed_lines(sl, rep["words"]), rep["line_acc"])):
+                tls = timed_lines(sl, rep["words"])
+                for li, (ln, la) in enumerate(zip(tls, rep["line_acc"])):
                     if pool[li] is None or la > pool[li][0]:
-                        a, b = max(0.0, ln["t"] - 0.3), ln["end"] + 0.4
+                        # cut up to where the next line starts, not at Whisper's end time: at the end of a segment its
+                        # word times can bunch up on one instant, and a cut there loses the rest of the line
+                        a = max(0.0, ln["t"] - 0.3, tls[li - 1]["end"] if li else 0.0)
+                        b = tls[li + 1]["t"] - 0.05 if li + 1 < len(tls) else v.shape[1] / SR
+                        ln = dict(ln, end=b - 0.1)
                         pool[li] = (la, v[:, int(a * SR):int(b * SR)], dict(ln, t=ln["t"] - a, end=ln["end"] - a,
                                     words=[[w, x - a] for w, x in ln["words"]]), label, seed)
                 print(f"  best per line so far: {', '.join(f'{p[0]:.0%}' if p else '-' for p in pool)}")
@@ -678,19 +683,33 @@ def run_sections(out_dir):
         print(f"::warning::no take: {', '.join(failed)} didn't pass")
         return 1
     gap = np.zeros((2, int(0.6 * SR)))
-    parts, out_lines, t, used = [], [], 0.0, []
+    parts, out_lines, t, used, spans = [], [], 0.0, [], []
     for sec, idx in groups:
         d = done[tuple(lines[i]["text"] for i in idx)]
         for ln in d["lines"]:
             sh = t - d["cut"]
             out_lines.append(dict(ln, t=round(ln["t"] + sh, 3), end=round(ln["end"] + sh, 3),
                                   words=[[w, round(x + sh, 3)] for w, x in ln["words"]]))
+        spans.append((idx, d["voice"]))
         parts += [d["voice"], gap]
         t += (d["voice"].shape[1] + gap.shape[1]) / SR
         used.append(dict(section=sec, engine=d["engine"], seed=d["seed"], accuracy=d["acc"]))
     voice = np.concatenate(parts, axis=1)
+    if os.environ.get("TAKE_DEBUG"):
+        write_wav(os.path.join(out_dir, "stitched-debug.wav"), voice)
+        json.dump(out_lines, open(os.path.join(out_dir, "stitched-debug.json"), "w"))
     from scipy import signal
-    whole = check(lines, words_heard(signal.resample_poly(np.mean(voice, 0), 160, 441).astype(np.float32)))
+    # Checked section by section, on the same stitched audio: one difflib pass over the whole song gets lost on the
+    # repeated chorus (it pairs the first heard chorus with the second one in the lyrics and marks everything in
+    # between as missing and the verses as "repeated"), which is what failed the 2026-10-16 run at 48.5%.
+    reps = []
+    for idx, v in spans:
+        reps.append((idx, check([lines[i] for i in idx], words_heard(signal.resample_poly(np.mean(v, 0), 160, 441).astype(np.float32)))))
+    n_words = [sum(1 for w in lines[i]["text"].split() if norm(w)) for i in range(len(lines))]
+    line_acc = [a for _, r in reps for a in r["line_acc"]]
+    whole = dict(accuracy=round(sum(a * n for a, n in zip(line_acc, n_words)) / max(1, sum(n_words)), 4), line_acc=line_acc,
+                 missing=[m for _, r in reps for m in r["missing"]], repeated=sorted({x for _, r in reps for x in r["repeated"]}),
+                 heard=" / ".join(r["heard"] for _, r in reps))
     print(f"stitched: {whole['accuracy']:.1%} of words, missing {len(whole['missing'])}, repeated {len(whole['repeated'])}")
     weakest = min(whole["line_acc"])
     print(f"stitched lines: {', '.join(f'{a:.0%}' for a in whole['line_acc'])}")
