@@ -1891,9 +1891,16 @@ const amb = (() => {
   });
   let ambi = null, ambiReady = false;
   const Ext = window.YTAmbilight;
+  // the WebGL setup is the heaviest part of loading the page on a phone, so it waits for the first idle moment;
+  // until it's ready render() returns false and the light simply fades in a moment later
   if (Ext) {
-    ambi = new Ext.Ambilight({ container: glowBox, videoContainerElem: stage, videoElem: video, settings: extSettings(), onWarning: (t) => t && console.warn("ambient light:", t) });
-    ambi.init().then(() => { ambiReady = true; relayout(); }).catch((e) => { console.warn("ambient light unavailable", e); ambi = null; });
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 200));
+    const start = () => {
+      ambi = new Ext.Ambilight({ container: glowBox, videoContainerElem: stage, videoElem: video, settings: extSettings(), onWarning: (t) => t && console.warn("ambient light:", t) });
+      // the first draw sizes all the canvases, so it gets a task of its own too
+      ambi.init().then(() => idle(() => { ambiReady = true; relayout(); }, { timeout: 500 })).catch((e) => { console.warn("ambient light unavailable", e); ambi = null; });
+    };
+    idle(start, { timeout: 1200 });
   }
   // stills (YouTube preview frames, thumbnails, colours) are crossfaded here first, then handed to the renderer
   const src = el("canvas", { width: 320, height: 180 }), sctx = src.getContext("2d");
@@ -2049,8 +2056,10 @@ const amb = (() => {
   function drawVideo(hard) {
     if (!active() || source?.type !== "video" || video.readyState < 2 || !g) return;
     if (!shown()) return;
-    // a slow device (over 8 ms a frame, averaged) draws every other frame instead of holding the video back
-    if (!hard && cost > 8 && ++skip % 2) return;
+    // a slow device draws every 2nd, 3rd or 4th frame (over 8, 20 or 40 ms a draw, averaged) instead of holding
+    // the video and the page back; the light is heavily blurred, so the lower rate doesn't show
+    const every = cost > 40 ? 4 : cost > 20 ? 3 : cost > 8 ? 2 : 1;
+    if (!hard && every > 1 && ++skip % every) return;
     const t0 = performance.now();
     if (!render(video)) return;
     lastSrc = video;

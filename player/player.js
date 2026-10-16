@@ -157,7 +157,7 @@ function setPersona(p, { save = true, hash = true } = {}) {
   }
   $$('#looks input[name="look"]').forEach((r) => (r.checked = r.value === p));
   discImg = null;
-  if (song) { drawSleeve(); drawWave(); layoutLyrics(true); update(true); }
+  if (song) { drawSleeve(); drawWave(); layoutLyrics(true); update(true); backdropClock(); }
 }
 $$('#looks input[name="look"]').forEach((r) => {
   r.checked = r.value === persona;
@@ -209,11 +209,27 @@ function handwriting(color) {
 // draw an image to fill a box, keeping its shape (cover) or fitting inside it (contain)
 function place(x, img, X, Y, W, H, mode = "contain") {
   const r = img.width / img.height, k = mode === "cover" ? Math.max(W / img.width, H / img.height) : Math.min(W / img.width, H / img.height);
-  const w = img.width * k, h = img.height * k;
-  x.drawImage(img, X + (W - w) / 2, Y + (H - h) / 2, w, h);
+  const w = img.width * k, h = img.height * k, dx = X + (W - w) / 2, dy = Y + (H - h) / 2;
+  // a vector drawing is re-rasterised on every drawImage, and the covers redraw every frame while playing:
+  // rasterise it once at this exact size and sub-pixel offset, then stamp the pixels at a whole-pixel position
+  if (img instanceof HTMLImageElement && img.src.startsWith("data:image/svg") && x.getTransform().isIdentity && x.globalAlpha === 1) {
+    const ix = Math.floor(dx), iy = Math.floor(dy), key = `${w}|${h}|${dx - ix}|${dy - iy}`;
+    let c = rasters.get(img);
+    if (!c || c.key !== key) {
+      c = document.createElement("canvas");
+      c.key = key; c.width = Math.ceil(dx - ix + w) + 1; c.height = Math.ceil(dy - iy + h) + 1;
+      c.getContext("2d").drawImage(img, dx - ix, dy - iy, w, h);
+      rasters.set(img, c);
+    }
+    x.drawImage(c, ix, iy);
+    return r;
+  }
+  x.drawImage(img, dx, dy, w, h);
   return r;
 }
+const rasters = new WeakMap();
 
+const posterFront = { key: "", c: document.createElement("canvas") };
 const LOOKS = {
   // Poster: a flat colour field, handwriting behind, and the record sliding out of its sleeve as the song plays
   // Poster: the sleeve is all type. The title fills the width, the dancer stands on it, the record slides out on play.
@@ -233,34 +249,44 @@ const LOOKS = {
     x.fillStyle = acc === ink ? field : acc; x.beginPath(); x.arc(rx, ry, R * 0.3, 0, Math.PI * 2); x.fill();
     const turn = reduceMotion.matches ? 0 : t * 1.4;
     x.fillStyle = col("var(--ink-panel)"); x.beginPath(); x.arc(rx + Math.cos(turn) * R * 0.17, ry + Math.sin(turn) * R * 0.17, R * 0.04, 0, Math.PI * 2); x.fill();
-    // sleeve edge
-    x.fillStyle = field; x.fillRect(0, 0, E, H);
-    x.fillStyle = ink; x.fillRect(E - Math.max(1.5, W / 300), 0, Math.max(1.5, W / 300), H);
-    // handwriting along the bottom
     const hw = handwriting(col("color-mix(in oklab, var(--fg) 50%, transparent)"));
-    if (hw) { x.save(); x.beginPath(); x.rect(0, H * 0.62, E, H * 0.38); x.clip(); place(x, hw, -W * 0.1, H * 0.5, W * 1.1, H * 0.7, "cover"); x.restore(); }
-    // the title, as big as it fits
-    x.fillStyle = ink; x.textBaseline = "alphabetic"; x.textAlign = "left";
-    const words = song.title.toLowerCase().split(" ");
-    let fs = H * 0.3;
-    x.font = `600 ${fs}px Bricolage, sans-serif`;
-    const widest = Math.max(...words.map((w) => x.measureText(w).width));
-    fs = Math.min(fs, (fs * W * 0.64) / widest);
-    x.font = `600 ${fs}px Bricolage, sans-serif`;
-    x.letterSpacing = `${-fs * 0.05}px`;
-    words.forEach((w, i) => x.fillText(w, W * 0.05, H * 0.06 + fs * 0.82 * (i + 1)));
-    x.letterSpacing = "0px";
-    x.font = `500 ${W * 0.03}px Bricolage, sans-serif`;
-    x.fillText(`${song.bpm} bpm · ${String(song.key).toLowerCase()} · ${fmt(song.length)}`, W * 0.055, H * 0.06 + fs * 0.82 * words.length + W * 0.06);
-    // the dancer, standing on the title
     const d = art("dancing", ink, acc === ink ? field : acc);
-    if (d) place(x, d, W * 0.2, H * 0.38, W * 0.52, H * 0.6);  // still, inside the sleeve
-    // sticker band
-    x.save(); x.translate(W * 0.15, H * 0.9); x.rotate(-0.42);
-    x.fillStyle = ink; roundRect(x, -W * 0.22, -W * 0.034, W * 0.44, W * 0.068, W * 0.034); x.fill();
-    x.fillStyle = field; x.textAlign = "center"; x.textBaseline = "middle"; x.font = `500 ${W * 0.032}px Bricolage, sans-serif`;
-    x.fillText(song.per === "bar" ? "made by visitors" : "rebuilt every night", 0, W * 0.003);
-    x.restore();
+    // everything in front of the record is still: draw it once into a layer and stamp it each frame
+    const key = `${W}x${H}|${field}|${ink}|${acc}|${!!hw}|${!!d}|${song.title}|${song.per}|${document.fonts.check("600 10px Bricolage")}`;
+    if (posterFront.key !== key) {
+      posterFront.key = key;
+      const c = posterFront.c; c.width = W; c.height = H;
+      // kept in the page next to the cover, so its text picks up the same inherited font settings
+      if (!c.isConnected) { c.style.display = "none"; c.setAttribute("aria-hidden", "true"); sleeve.after(c); }
+      const y = c.getContext("2d");
+      // sleeve edge
+      y.fillStyle = field; y.fillRect(0, 0, E, H);
+      y.fillStyle = ink; y.fillRect(E - Math.max(1.5, W / 300), 0, Math.max(1.5, W / 300), H);
+      // handwriting along the bottom
+      if (hw) { y.save(); y.beginPath(); y.rect(0, H * 0.62, E, H * 0.38); y.clip(); place(y, hw, -W * 0.1, H * 0.5, W * 1.1, H * 0.7, "cover"); y.restore(); }
+      // the title, as big as it fits
+      y.fillStyle = ink; y.textBaseline = "alphabetic"; y.textAlign = "left";
+      const words = song.title.toLowerCase().split(" ");
+      let fs = H * 0.3;
+      y.font = `600 ${fs}px Bricolage, sans-serif`;
+      const widest = Math.max(...words.map((w) => y.measureText(w).width));
+      fs = Math.min(fs, (fs * W * 0.64) / widest);
+      y.font = `600 ${fs}px Bricolage, sans-serif`;
+      y.letterSpacing = `${-fs * 0.05}px`;
+      words.forEach((w, i) => y.fillText(w, W * 0.05, H * 0.06 + fs * 0.82 * (i + 1)));
+      y.letterSpacing = "0px";
+      y.font = `500 ${W * 0.03}px Bricolage, sans-serif`;
+      y.fillText(`${song.bpm} bpm · ${String(song.key).toLowerCase()} · ${fmt(song.length)}`, W * 0.055, H * 0.06 + fs * 0.82 * words.length + W * 0.06);
+      // the dancer, standing on the title
+      if (d) place(y, d, W * 0.2, H * 0.38, W * 0.52, H * 0.6);  // still, inside the sleeve
+      // sticker band
+      y.save(); y.translate(W * 0.15, H * 0.9); y.rotate(-0.42);
+      y.fillStyle = ink; roundRect(y, -W * 0.22, -W * 0.034, W * 0.44, W * 0.068, W * 0.034); y.fill();
+      y.fillStyle = field; y.textAlign = "center"; y.textBaseline = "middle"; y.font = `500 ${W * 0.032}px Bricolage, sans-serif`;
+      y.fillText(song.per === "bar" ? "made by visitors" : "rebuilt every night", 0, W * 0.003);
+      y.restore();
+    }
+    x.drawImage(posterFront.c, 0, 0);
   },
 
   // Editorial: a magazine hero. Huge title on the left, words stepping down on the right, the figure in the rings.
@@ -575,13 +601,43 @@ function drawBackdrop() {
     x.putImageData(img, 0, 0);
   }
   // same look as CSS blur(28px) saturate(1.15) on a 150vmax square, scaled to this canvas
-  const N = bg.width, css = 1.5 * Math.max(innerWidth, innerHeight), o = bg.getContext("2d");
+  const N = bgBaked.width, css = 1.5 * Math.max(innerWidth, innerHeight), o = bgBaked.getContext("2d");
   o.clearRect(0, 0, N, N);
   o.filter = `blur(${(28 * N / css).toFixed(2)}px) saturate(1.15)`;
   o.imageSmoothingQuality = "high";
   o.drawImage(bgSrc, 0, 0, N, N);
   o.filter = "none";
+  bgStep = -1;
+  turnBackdrop();
 }
+// The baked square turns inside the upright #bg canvas: one turn in 120 s, in 1200 steps of 0.3 deg.
+// Held still on low-end devices and with reduced motion, as the CSS animation it replaces was.
+const bgBaked = document.createElement("canvas");
+bgBaked.width = bgBaked.height = 160;
+const bgT0 = performance.now();
+let bgStep = -1, bgTimer = 0;
+const bgStill = () => document.documentElement.classList.contains("lite") || reduceMotion.matches;
+function turnBackdrop() {
+  if (!song) return;
+  const step = bgStill() ? 0 : Math.floor((performance.now() - bgT0) / 100) % 1200;
+  if (step === bgStep) return;
+  bgStep = step;
+  const bg = $("#bg"), o = bg.getContext("2d"), W = bg.width;
+  o.setTransform(1, 0, 0, 1, 0, 0);
+  o.clearRect(0, 0, W, W);
+  o.translate(W / 2, W / 2);
+  o.rotate(step * 0.3 * Math.PI / 180);
+  o.imageSmoothingQuality = "high";
+  o.drawImage(bgBaked, -80, -80);
+  o.setTransform(1, 0, 0, 1, 0, 0);
+}
+function backdropClock() {
+  clearInterval(bgTimer);
+  const on = !bgStill() && !document.hidden && getComputedStyle($("#bg")).display !== "none";
+  if (on) bgTimer = setInterval(turnBackdrop, 100);
+}
+document.addEventListener("visibilitychange", backdropClock);
+reduceMotion.addEventListener("change", () => { bgStep = -1; turnBackdrop(); backdropClock(); });
 
 /* ---------- waveform scrubber ---------- */
 const waveEl = $(".wave");
@@ -666,6 +722,17 @@ addEventListener("scroll", endHover, { passive: true });
 const sectionAt = (t) => { let s = song.sections[0]; for (const x of song.sections) if (t >= x.start - 0.01) s = x; return s; };
 const sectionIndex = (t) => { let k = 0; song.sections.forEach((x, i) => { if (t >= x.start - 0.01) k = i; }); return k; };
 
+// run startup work one piece per task, in order, so input and paint can get in between
+const stageQ = [];
+function stage(fn) {
+  stageQ.push(fn);
+  if (stageQ.length === 1) setTimeout(runStage, 0);
+}
+function runStage() {
+  const fn = stageQ[0];
+  try { fn(); } finally { stageQ.shift(); if (stageQ.length) setTimeout(runStage, 0); }
+}
+
 function build(data) {
   song = data;
   const s = data.stats;
@@ -691,12 +758,11 @@ function build(data) {
   if (data.per !== "bar") $("#range").textContent = `${day(s.first)} to ${day(s.last)}`;
 
   buildLyrics(data);
-  buildGrid(data);
-  buildPads(data);
   sleeve.setAttribute("aria-valuemax", data.weeks.length);
-  buildStats(s, data.items);
-  buildTracklist(data);
   setupMediaSession(data);
+  // the sections below the player are built in separate tasks, so the first paint isn't held up on slow phones
+  stage(() => { buildGrid(data); buildPads(data); update(true); });
+  stage(() => { buildStats(s, data.items); buildTracklist(data); update(true); });
 
   playBtn.disabled = false;
   seek.disabled = false;
@@ -707,11 +773,9 @@ function build(data) {
   document.fonts.load("800 40px Bricolage").catch(() => {}).finally(() => {
     discImg = null;
     // the palette always comes from the record sleeve, whichever look is showing
-    forceVinyl = true; drawSleeve(); applyPalette(extractSleeve(sleeve)); forceVinyl = false;
-    drawSleeve();
-    drawBackdrop();
-    layoutLyrics(true);
-    update(true);
+    stage(() => { forceVinyl = true; drawSleeve(); applyPalette(extractSleeve(sleeve)); forceVinyl = false; });
+    stage(() => { drawSleeve(); drawBackdrop(); backdropClock(); });
+    stage(() => { layoutLyrics(true); update(true); });
   });
   update(true);
 }
@@ -1242,7 +1306,8 @@ function fireHits(from, to) {
       if (at > from && at <= to && c) {
         pulse = Math.max(pulse, 0.35 + 0.65 * Math.sqrt(c / dmax));
         if (!reduceMotion.matches) {
-          const el = cellEls[b][d];
+          const el = cellEls[b]?.[d];
+          if (!el) continue;
           // restart the flash without forcing a layout
           const run = el.classList.contains("hit") ? el.getAnimations() : [];
           if (run.length) run.forEach((an) => { an.currentTime = 0; an.play(); });

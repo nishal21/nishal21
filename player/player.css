@@ -93,20 +93,18 @@ button, a, summary { -webkit-tap-highlight-color: transparent; }
 }
 .backdrop canvas {
   position: absolute; left: 50%; top: 42%;
-  width: 150vmax; height: 150vmax;
+  /* the 150vmax cover square sits in the middle of this larger canvas, and player.js turns it inside the canvas
+     (one turn in 120 s, 0.3 deg per step, 10 steps a second). A rotated full-screen layer is slow to composite
+     under the grain every time the beat changes its opacity; an upright one is cheap. */
+  width: calc(150vmax * 226 / 160); height: calc(150vmax * 226 / 160);
   translate: -50% -50%;
   opacity: calc(0.3 + var(--kick, 0) * 0.12);
-  /* one rotation in 120 s moves 0.3 deg per step: invisible, but the big blended layer recomposites 10 times a second, not 60 */
-  animation: drift 120s steps(1200) infinite;
 }
-/* low-end devices: hold the backdrop still so the grain blend never has to recomposite */
-:root.lite .backdrop canvas { animation: none; }
 .backdrop::after {
   /* print grain, so large color fields don't look like a flat gradient */
   content: ""; position: absolute; inset: 0; opacity: calc(0.09 - var(--dark) * 0.02); mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-@keyframes drift { to { rotate: 360deg; } }
 
 /* ---------- top bar ---------- */
 .top {
