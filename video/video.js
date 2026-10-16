@@ -9,6 +9,10 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const root = document.documentElement;
+// links pasted from HTML come with "&amp;" between the options; tidy the address before anything reads it
+if (/&amp;|[?&]amp;/i.test(location.search)) {
+  try { history.replaceState(null, "", location.pathname + location.search.replace(/&amp;/gi, "&").replace(/([?&])amp;/gi, "$1") + location.hash); } catch {}
+}
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const coarse = matchMedia("(pointer: coarse)");
 // ?embed=1 is the player alone, for other sites' iframes (the class is set in the page head, before paint)
@@ -1688,14 +1692,16 @@ $("#share").addEventListener("click", () => {
   closeMenus();
   if (!open) return;
   $("#s-native").hidden = !navigator.share;
-  $("#s-t").textContent = fmt(P?.t || 0);
+  $("#s-t").textContent = $("#s-t2").textContent = fmt(P?.t || 0);
   $("#s-copy-t").hidden = !P || P.embed || (P.t || 0) < 1;
+  $("#s-embed-link").hidden = !cur?.share || !!cur?.local;
   m.hidden = false;
   $("#share").setAttribute("aria-expanded", "true");
   m.querySelector("button:not([hidden])")?.focus();
 });
 $("#s-native").addEventListener("click", async () => { closeMenus(); if (cur?.local) return; try { await navigator.share({ title: cur?.title || "Video", url: shareUrl(false) }); } catch {} });
 $("#s-copy").addEventListener("click", () => { closeMenus(); if (cur?.local) return; copy(shareUrl(false), "Link copied"); });
+$("#s-embed-link").addEventListener("click", () => { closeMenus(); const u = embedUrl(true); if (u) copy(u, `Embed link at ${fmt(P?.t || 0)} copied`); });
 $("#s-embed").addEventListener("click", () => { closeMenus(); const c = embedCode(); if (c) copy(c, "Embed code copied"); });
 $("#s-copy-t").addEventListener("click", () => { closeMenus(); if (cur?.local) return; copy(shareUrl(true), `Link at ${fmt(P?.t || 0)} copied`); });
 $("#download").addEventListener("click", async (e) => {

@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem("color-scheme")??"light dark"}catch(e){}if(/[?&]embed=1(&|$)/.test(location.search))document.documentElement.classList.add("embed-mode")</script>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.youtube.com 'sha256-OaRQzSdzJvKfVBhEbMxJ6X6nocXUPbz3DJBqyN66OKY='; style-src 'self'; img-src 'self' https: data: blob:; media-src 'self' https: http: blob:; connect-src 'self' https: http:; worker-src 'self' blob:; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://player.twitch.tv https://clips.twitch.tv https://geo.dailymotion.com https://streamable.com https://www.loom.com https://drive.google.com https://archive.org https://onedrive.live.com; object-src 'none'; base-uri 'none'; form-action 'self'">
+<script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem("color-scheme")??"light dark"}catch(e){}if(/[?&;]embed=1(&|$)/.test(location.search))document.documentElement.classList.add("embed-mode")</script>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.youtube.com 'sha256-YwODze1owh+IkVPxNAW9A2cyRZHkV7lxXVuGnEOleM0='; style-src 'self'; img-src 'self' https: data: blob:; media-src 'self' https: http: blob:; connect-src 'self' https: http:; worker-src 'self' blob:; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://player.twitch.tv https://clips.twitch.tv https://geo.dailymotion.com https://streamable.com https://www.loom.com https://drive.google.com https://archive.org https://onedrive.live.com; object-src 'none'; base-uri 'none'; form-action 'self'">
 <title>Videos · Nishal K</title>
 <meta name="description" content="Nishal K's videos: the nightly contribution-song clip, his YouTube edits and mashups, and a player for any video link.">
 <meta name="theme-color" content="#0f120a">
@@ -217,7 +217,8 @@
         <button type="button" role="menuitem" id="s-native" hidden>Share…</button>
         <button type="button" role="menuitem" id="s-copy">Copy link</button>
         <button type="button" role="menuitem" id="s-copy-t">Copy link at <span id="s-t">0:00</span></button>
-        <button type="button" role="menuitem" id="s-embed">Copy embed code</button>
+        <button type="button" role="menuitem" id="s-embed-link">Copy embed link at <span id="s-t2">0:00</span></button>
+        <button type="button" role="menuitem" id="s-embed">Copy embed code at this time</button>
       </div>
       <details class="desc" id="desc" hidden><summary>Description</summary><p id="desc-text"></p></details>
     </section>
