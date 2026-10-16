@@ -5,10 +5,10 @@
 // With prefers-reduced-motion everything just appears. Decorative only: aria-hidden, no pointer events.
 (() => {
   const SETS = {
-    vinyl: [["chilling", "side b"], ["float", "hum"], ["laying", "spin"], ["sitting", "b-side"], ["sleek", "groove"], ["loving", "encore"]],
-    poster: [["levitate", "loud"], ["roller-skating", "move"], ["strolling", "go on"], ["jumping", "jump"], ["running", "faster"], ["dog-jump", "woof"]],
-    editorial: [["reading", "listen*"], ["sitting-reading", "issue 01"], ["meditating", "slow"], ["reading-side", "notes"], ["petting", "pause"], ["selfie", "cover"]],
-    sketch: [["coffee", "doodle"], ["swinging", "la la"], ["plant", "hmm"], ["ice-cream", "sweet"], ["unboxing", "new!"], ["doggie", "good boy"]],
+    vinyl: [["chilling", "side b"], ["float", "hum"], ["laying", "spin"], ["sitting", "b-side"], ["sleek", "groove"], ["loving", "encore"], ["rolling", "rewind"]],
+    poster: [["levitate", "loud"], ["roller-skating", "move"], ["strolling", "go on"], ["jumping", "jump"], ["running", "faster"], ["dog-jump", "woof"], ["sprinting", "go!"], ["ballet", "turn"]],
+    editorial: [["reading", "listen*"], ["sitting-reading", "issue 01"], ["meditating", "slow"], ["reading-side", "notes"], ["petting", "pause"], ["selfie", "cover"], ["clumsy", "drafts"]],
+    sketch: [["coffee", "doodle"], ["swinging", "la la"], ["plant", "hmm"], ["ice-cream", "sweet"], ["unboxing", "new!"], ["doggie", "good boy"], ["zombieing", "boo"]],
   };
   const src = {};
   const reduce = matchMedia("(prefers-reduced-motion: reduce)");
@@ -65,7 +65,9 @@
     const small = W < 600, ink = color("var(--fg-2)"), acc = color("var(--accent)");
     const rnd = Math.random;
     // how many: about one per screenful of page, more on wide screens with real gutters, few on phones
-    const want = Math.max(2, Math.min(small ? 4 : 12, Math.round((H / innerHeight) * (small ? 0.8 : W >= 1100 ? 2.4 : 1.6))));
+    // each doodle at most once per page (the cover figures are a separate set): if the set runs out, place fewer
+    const want0 = Math.max(2, Math.min(small ? 4 : 12, Math.round((H / innerHeight) * (small ? 0.8 : W >= 1100 ? 2.4 : 1.6))));
+    const want = Math.min(want0, set.length);
     const gap = small ? 140 : 190;  // minimum distance between doodles (Poisson-disc style)
     const sizes = small ? [84, 72, 64] : [140, 120, 104, 90, 78, 68, 60];
     const capH = 20, step = 12;
@@ -82,7 +84,11 @@
       return list;
     });
     const far = (box) => { const cx = (box[0] + box[2]) / 2, cy = (box[1] + box[3]) / 2;
-      return !placed.some((p) => Math.hypot((p[0] + p[2]) / 2 - cx, (p[1] + p[3]) / 2 - cy) < gap); };
+      // no stacked row down a side margin: at most one doodle per margin, and vertical neighbours vary in x
+      const side = (b) => b[2] < W * 0.12 ? "l" : b[0] > W * 0.88 ? "r" : "";
+      if (side(box) && placed.some((p) => side(p) === side(box))) return false;
+      return !placed.some((p) => { const px = (p[0] + p[2]) / 2, py = (p[1] + p[3]) / 2;
+        return Math.hypot(px - cx, py - cy) < gap || Math.abs(px - cx) < 120 && Math.abs(py - cy) < 600; }); };
     // stratified: split the page into equal bands and give each band one doodle, so they spread over the whole height
     const picks = [];
     const bands = want, bh = H / bands;
@@ -103,6 +109,7 @@
         if (!text) continue;
         const fig = document.createElement("figure");
         fig.className = "doodle";
+        fig.dataset.art = set[idx][0];
         fig.style.cssText = `left:${box[0]}px;top:${box[1]}px;width:${w}px;--rot:${(rnd() * 10 - 5).toFixed(1)}deg;--d:${(k - 1) * 0.35}s`;
         fig.innerHTML = text.replace('fill="#000"', `fill="${ink}"`).replace('fill="#FF5678"', `fill="${acc}"`).replace("<svg ", '<svg focusable="false" ');
         fig.querySelectorAll("path").forEach((p) => { p.setAttribute("pathLength", "1"); p.style.stroke = p.getAttribute("fill") || "currentColor"; });

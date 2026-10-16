@@ -1,6 +1,7 @@
 Illustrations
-  dancing.svg, groovy.svg, moshing.svg (covers) and page/*.svg (chilling, float, laying, levitate,
-  roller-skating, strolling, reading, sitting-reading, meditating, coffee, swinging, plant): Open Doodles by Pablo Stanley, https://www.opendoodles.com
+  dancing.svg, groovy.svg, moshing.svg (covers) and page/*.svg (chilling, float, laying, sitting, sleek, loving, rolling, levitate, roller-skating, strolling,
+  jumping, running, dog-jump, sprinting, ballet, reading, sitting-reading, meditating, reading-side, petting, selfie,
+  clumsy, coffee, swinging, plant, ice-cream, unboxing, doggie, zombieing): Open Doodles by Pablo Stanley, https://www.opendoodles.com
   License: CC0 1.0 (public domain dedication). Exported from the react-open-doodles package (MIT).
   The player recolours the ink and accent at runtime to match each look.
 
