@@ -17,28 +17,32 @@ I never got their name until the credits
 now it plays here every single day  
 <sub>lyric: Nishal K · [0:20](https://nishal21.github.io/nishal21/player/?song=visitor&t=20)</sub>  
 
+I was painting a picture  
+<sub>lyric: @nishal21 · [0:25](https://nishal21.github.io/nishal21/player/?song=visitor&t=25)</sub>  
+
 ## Chorus
 
 One note at a time  
-<sub>lyric: Nishal K · [0:25](https://nishal21.github.io/nishal21/player/?song=visitor&t=25)</sub>  
-
-from people passing through  
 <sub>lyric: Nishal K · [0:30](https://nishal21.github.io/nishal21/player/?song=visitor&t=30)</sub>  
 
-a name beside a line  
+from people passing through  
 <sub>lyric: Nishal K · [0:35](https://nishal21.github.io/nishal21/player/?song=visitor&t=35)</sub>  
 
-and part of it is you  
+a name beside a line  
 <sub>lyric: Nishal K · [0:40](https://nishal21.github.io/nishal21/player/?song=visitor&t=40)</sub>  
+
+and part of it is you  
+<sub>lyric: Nishal K · [0:45](https://nishal21.github.io/nishal21/player/?song=visitor&t=45)</sub>  
 
 ## Outro
 
 Leave yours and the song gets one beat longer  
-<sub>lyric: Nishal K · [0:45](https://nishal21.github.io/nishal21/player/?song=visitor&t=45)</sub>  
+<sub>lyric: Nishal K · [0:50](https://nishal21.github.io/nishal21/player/?song=visitor&t=50)</sub>  
 
 ## Credits
 
-**Lyrics:** Nishal K (base lyrics)
+**Lyrics:** Nishal K (base lyrics), @nishal21
 
 **Notes, in the order they play:**
 
+1. @nishal21 · A on piano · [0:05](https://nishal21.github.io/nishal21/player/?song=visitor&t=5)
