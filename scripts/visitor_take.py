@@ -133,7 +133,7 @@ def sing_cloud(lyrics, dur, seed, key):
         "User-Agent": "curl/8.5.0"})  # Cloudflare turns away Python's default user agent (error 1010)
     audio, t0 = None, time.time()
     try:
-        with urllib.request.urlopen(req, timeout=900) as r:
+        with urllib.request.urlopen(req, timeout=180) as r:  # Cloudflare cuts at ~60-100 s, so longer is a hang
             for raw in r:
                 line = raw.decode("utf-8", "replace").strip()
                 if not line.startswith("data:") or line == "data: [DONE]":
@@ -310,6 +310,7 @@ def master(mix, out_mp3):
 # ---------- checking a take ----------
 
 _whisper = None
+HOTWORDS = ""  # names Whisper wouldn't otherwise spell (only names, never the lyrics, so the check stays honest)
 
 
 def words_heard(audio16):
@@ -317,7 +318,8 @@ def words_heard(audio16):
     if _whisper is None:
         from faster_whisper import WhisperModel
         _whisper = WhisperModel(os.environ.get("VISITOR_WHISPER", "small.en"), device="cpu", compute_type="int8")
-    segs, _ = _whisper.transcribe(audio16, language="en", word_timestamps=True, vad_filter=False, beam_size=5)
+    segs, _ = _whisper.transcribe(audio16, language="en", word_timestamps=True, vad_filter=False, beam_size=5,
+                                  hotwords=HOTWORDS or None)
     return [(w.word.strip(), w.start, w.end) for s in segs for w in (s.words or [])]
 
 
@@ -325,11 +327,44 @@ def norm(w):
     return re.sub(r"[^a-z0-9']", "", w.lower().replace("’", "'"))
 
 
+ONES = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
+TENS = "_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()
+
+
+def say_number(n):
+    """923 -> ['nine', 'hundred', 'twentythree'] (normalised words, as the lyrics spell numbers out)."""
+    if n < 20:
+        return [ONES[n]]
+    if n < 100:
+        return [TENS[n // 10] + (ONES[n % 10] if n % 10 else "")]
+    if n < 1000:
+        return [ONES[n // 100], "hundred"] + (say_number(n % 100) if n % 100 else [])
+    if n < 10000:
+        return say_number(n // 1000) + ["thousand"] + (say_number(n % 1000) if n % 1000 else [])
+    return [str(n)]
+
+
+def spelled(heard):
+    """Whisper writes "923" where the lyrics sing "nine hundred twenty-three": spell heard numbers out, and split
+    letters it runs together ("AMV") when the lyrics spell them ("A M V")."""
+    out = []
+    for w, s, e in heard:
+        n = norm(w)
+        if n.isdigit():
+            ws = say_number(int(n))
+        elif re.fullmatch(r"[A-Z]{2,4}", w.strip(".,!?")):
+            ws = list(n)
+        else:
+            ws = [n]
+        out += [(x, s + (e - s) * k / len(ws), s + (e - s) * (k + 1) / len(ws)) for k, x in enumerate(ws)]
+    return out
+
+
 def check(lines, heard):
     """Matches what Whisper heard to the lyrics. Returns a report with accuracy, missing and repeated lines,
     and a time for every lyric word."""
     ref = [(i, norm(w), w) for i, ln in enumerate(lines) for w in ln["text"].split() if norm(w)]
-    hyp = [(norm(w), s, e) for w, s, e in heard if norm(w)]
+    hyp = [(w, s, e) for w, s, e in spelled(heard) if w]
     sm = difflib.SequenceMatcher(None, [r[1] for r in ref], [h[0] for h in hyp], autojunk=False)
     exact, near = {}, {}
     for op, a0, a1, b0, b1 in sm.get_opcodes():
@@ -382,8 +417,10 @@ def check(lines, heard):
                 else:
                     s = max(0.0, t[hi][0] - 0.35 * (hi - k))
                 t[k] = (s, s + 0.3)
+    line_acc = [sum(1 for k, r in enumerate(ref) if r[0] == i and k in exact) / max(1, sum(1 for r in ref if r[0] == i))
+                for i in range(len(lines))]
     score = acc - 0.5 * extra - 0.2 * len(missing) - 0.2 * len(repeated)
-    return dict(accuracy=round(acc, 4), extra=round(extra, 4), missing=missing, repeated=sorted(set(repeated)),
+    return dict(accuracy=round(acc, 4), extra=round(extra, 4), line_acc=line_acc, missing=missing, repeated=sorted(set(repeated)),
                 score=score, ok=bool(known) and not missing and not repeated,
                 good=bool(known) and not missing and not repeated and acc >= GOOD,
                 words=[(ref[k][0], ref[k][2], t[k]) for k in range(len(ref))] if known else [],
@@ -404,32 +441,15 @@ def timed_lines(lines, words):
 
 # ---------- one run ----------
 
-def run(engine, out_dir):
-    lines = sheet()
-    if not lines:
-        print("no lyrics")
-        return 1
-    lyrics, dur, h = ace_lyrics(lines), duration(lines), lyrics_hash(lines)
-    if engine == "cloud":
-        key = os.environ.get("ACESTEP_API_KEY", "").strip()
-        if not key:
-            print("::warning::ACESTEP_API_KEY isn't set, so the cloud is skipped and the CPU sings")
-            return 1
-        sing, label = (lambda ly, du, sd: sing_cloud(ly, du, sd, key)), "acemusic.ai"
-    else:
-        try:
-            sing, label = CpuSinger(), "ACE-Step 1.5 on CPU"
-        except Exception as e:  # noqa: BLE001
-            print(f"ACE-Step CPU unavailable: {e}")
-            return 1
-    os.makedirs(out_dir, exist_ok=True)
+def attempts(lines, lyrics, dur, seed0, sing, label, tries, cloud, start):
+    """Up to `tries` takes (plus room for server errors on the cloud) until one is good. Returns the best as
+    (report, seed, voice, music, seconds) or None. Cloud retries share CLOUD_BUDGET counted from `start`."""
     best, fails, sung = None, 0, 0
-    seed0 = int(h[:6], 16) % 100000
-    tries = TRIES + (2 if engine == "cloud" else 0)  # cloud takes are quick, so reroll a few more before the CPU
-    print(f"{label}: {len(lines)} lines, {dur} s of song requested, up to {tries} takes")
-    start = time.time()
-    for k in range(tries + (12 if engine == "cloud" else 0)):  # room for a few server errors on top of the takes
+    for k in range(tries + (12 if cloud else 0)):
         seed = seed0 + 7919 * k
+        if cloud and time.time() - start > CLOUD_BUDGET:
+            print(f"::warning::{label}: out of the {CLOUD_BUDGET // 60} min cloud budget")
+            break
         t0 = time.time()
         try:
             data, ext = sing(lyrics, dur, seed)
@@ -463,12 +483,39 @@ def run(engine, out_dir):
             rep = check(lines, words_heard(v16))
             print(f"take {k + 1} (seed {seed}, made in {took:.0f} s, {x.shape[1] / SR:.0f} s long): {rep['accuracy']:.1%} of words, extra {rep['extra']:.1%}, "
                   f"missing {len(rep['missing'])}, repeated {len(rep['repeated'])}")
+            print(f"  heard: {rep['heard'][:300]}")
             if best is None or rep["score"] > best[0]["score"]:
-                mix, before, after = polish(v, m)
-                best = (rep, seed, mix, before, after, took)
-                write_wav(os.path.join(out_dir, NAME + "-vocals.wav"), v)
+                best = (rep, seed, v, m, took)
         if (best and best[0]["good"]) or sung >= tries:
             break
+    return best
+
+
+def run(engine, out_dir):
+    lines = sheet()
+    if not lines:
+        print("no lyrics")
+        return 1
+    lyrics, dur, h = ace_lyrics(lines), duration(lines), lyrics_hash(lines)
+    if engine == "cloud":
+        key = os.environ.get("ACESTEP_API_KEY", "").strip()
+        if not key:
+            print("::warning::ACESTEP_API_KEY isn't set, so the cloud is skipped and the CPU sings")
+            return 1
+        sing, label = (lambda ly, du, sd: sing_cloud(ly, du, sd, key)), "acemusic.ai"
+    else:
+        try:
+            sing, label = CpuSinger(), "ACE-Step 1.5 on CPU"
+        except Exception as e:  # noqa: BLE001
+            print(f"ACE-Step CPU unavailable: {e}")
+            return 1
+    os.makedirs(out_dir, exist_ok=True)
+    tries = TRIES + (2 if engine == "cloud" else 0)  # cloud takes are quick, so reroll a few more before the CPU
+    print(f"{label}: {len(lines)} lines, {dur} s of song requested, up to {tries} takes")
+    best = attempts(lines, lyrics, dur, int(h[:6], 16) % 100000, sing, label, tries, engine == "cloud", time.time())
+    if best:
+        write_wav(os.path.join(out_dir, NAME + "-vocals.wav"), best[2])
+        best = (best[0], best[1], *polish(best[2], best[3]), best[4])
     if not best or not best[0]["ok"] or best[0]["accuracy"] < FLOOR:
         print(f"::warning::{label}: no take was good enough" + (f" (best {best[0]['accuracy']:.1%}, missing {best[0]['missing']}, "
                                            f"repeated {best[0]['repeated']})" if best else ""))
@@ -495,12 +542,179 @@ CONTRIB_CAPTION = ("hip hop, 140 BPM half-time, A minor, 4/4. Confident male rap
                    "the voice: soft 808, light hats, airy pad. No ad-libs, no backing vocals.")
 
 
+SECTION_STYLE = {
+    "sung": ("melodic hip hop hook, 140 BPM half-time, A minor, 4/4. Warm female lead vocal sings the hook upfront and "
+             "dry, clear diction, every word sung clearly. Sparse beat kept low: soft 808, light hats, airy pad. "
+             "No ad-libs, no backing vocals."),
+    "rap": ("hip hop, 140 BPM half-time, A minor, 4/4. Confident male rapper, lead vocal upfront and dry, clear diction, "
+            "every word clear and on the beat, unhurried flow. Sparse beat kept low: soft 808, light hats, airy pad. "
+            "No ad-libs, no backing vocals."),
+}
+
+
+def syllables(text):
+    return sum(max(1, len(re.findall(r"[aeiouy]+", w.lower().rstrip("e")))) for w in re.findall(r"[A-Za-z']+", text))
+
+
+def section_dur(lines):
+    """Seconds to ask for: a short intro, about 2.6 syllables a second, unhurried (never under 3 s a line), a short tail."""
+    return max(14, int(round(6 + sum(max(3.0, syllables(ln["text"]) / 2.6) for ln in lines))))
+
+
+def run_sections(out_dir):
+    """The contribution song, one short take per section (a repeated chorus is sung once): acemusic.ai first, the
+    CPU for any section the cloud couldn't sing well. Each section is Whisper-checked and rerolled; the best takes'
+    voices are stitched into one voice track, which is checked again as a whole before it's written."""
+    global CAPTION
+    lines = sheet()
+    h = lyrics_hash(lines)
+    key = os.environ.get("ACESTEP_API_KEY", "").strip()
+    if not key:
+        print("::warning::ACESTEP_API_KEY isn't set, so the cloud is skipped and the CPU sings every section")
+    groups = []  # (section, [line indexes]) in singing order
+    for i, ln in enumerate(lines):
+        if groups and groups[-1][0] == ln["section"]:
+            groups[-1][1].append(i)
+        else:
+            groups.append((ln["section"], [i]))
+    # a one-line section on its own often comes back instrumental, so it's sung with the section after it
+    # (the intro with the first verse, the breakdown with the chorus after it)
+    merged = []
+    for g in groups:
+        if merged and len(merged[-1][1]) == 1 and merged[-1][0] in ("Intro", "Breakdown"):
+            merged[-1] = (g[0], merged[-1][1] + g[1])
+        else:
+            merged.append(g)
+    groups = merged
+    os.makedirs(out_dir, exist_ok=True)
+    start, cpu, done, failed = time.time(), [None], {}, []
+    for sec, idx in groups:
+        sl = [lines[i] for i in idx]
+        k = tuple(ln["text"] for ln in sl)
+        if k in done:
+            continue
+        only = os.environ.get("TAKE_ONLY")  # sing just these sections (to sing sections in parallel runs)
+        if only and sec not in only.split(","):
+            failed.append(sec)
+            continue
+        CAPTION = SECTION_STYLE["sung" if sec in ("Chorus", "Breakdown") else "rap"]
+        keep = os.path.join(out_dir, "sections", hashlib.sha256(json.dumps([VERSION, BPM, CAPTION, k]).encode()).hexdigest()[:12])
+        if os.path.exists(keep + ".json"):  # passed in an earlier run of these same lyrics
+            done[k] = dict(json.load(open(keep + ".json")), voice=decode(keep + ".wav"))
+            print(f"{sec}: kept from an earlier run ({done[k]['engine']}, {done[k]['acc']:.1%})")
+            continue
+        tag = "chorus" if sec in ("Chorus", "Breakdown") else "verse"  # an [intro]/[outro] tag reads as instrumental
+        lyrics, dur = f"[{tag}]\n" + "\n".join(k) + "\n", section_dur(sl)
+        seed0 = int(hashlib.sha256((h + sec).encode()).hexdigest()[:6], 16) % 100000
+        # every take is kept and each line comes from the take that sang it best, so one fluffed line doesn't
+        # throw away a take; it's sung again until every line has a clean rendition
+        pool = [None] * len(sl)  # per line: (line accuracy, clip, line, engine, seed)
+        tl_all = []
+
+        def enough():
+            return all(p and p[0] >= 0.75 for p in pool) and sum(p[0] * len(p[2]["words"]) for p in pool) / max(
+                1, sum(len(p[2]["words"]) for p in pool)) >= GOOD
+
+        engines = []
+        if key and time.time() - start < CLOUD_BUDGET:
+            engines.append(("acemusic.ai", lambda ly, du, sd: sing_cloud(ly, du, sd, key), TRIES + 2, True))
+        engines.append(("ACE-Step 1.5 on CPU", None, TRIES + 2, False))
+        for label, sing, tries, cloud in engines:
+            if enough():
+                break
+            if sing is None:
+                try:
+                    cpu[0] = cpu[0] or CpuSinger()
+                except Exception as e:  # noqa: BLE001
+                    print(f"::warning::ACE-Step CPU unavailable: {e}")
+                    break
+                sing = cpu[0]
+            print(f"--- {sec}: {label}, {len(sl)} lines, {dur} s")
+            for j in range(tries):
+                if cloud and time.time() - start > CLOUD_BUDGET:
+                    break
+                got = attempts(sl, lyrics, dur, seed0 + (0 if cloud else 31) + 7919 * j, sing, label, 1, cloud, start)
+                if not got:
+                    if cloud:
+                        break  # the cloud is failing; the CPU takes over
+                    continue
+                rep, seed, v = got[0], got[1], got[2]
+                if not rep["words"]:
+                    continue
+                for li, (ln, la) in enumerate(zip(timed_lines(sl, rep["words"]), rep["line_acc"])):
+                    if pool[li] is None or la > pool[li][0]:
+                        a, b = max(0.0, ln["t"] - 0.3), ln["end"] + 0.4
+                        pool[li] = (la, v[:, int(a * SR):int(b * SR)], dict(ln, t=ln["t"] - a, end=ln["end"] - a,
+                                    words=[[w, x - a] for w, x in ln["words"]]), label, seed)
+                print(f"  best per line so far: {', '.join(f'{p[0]:.0%}' if p else '-' for p in pool)}")
+                if enough():
+                    break
+        if not all(pool):
+            print(f"::warning::{sec}: some lines were never heard")
+            failed.append(sec)
+            continue
+        if not enough():
+            print(f"::warning::{sec}: best lines {', '.join(f'{p[0]:.0%}' for p in pool)}, short of the bar")
+            failed.append(sec)
+            continue
+        gap = np.zeros((2, int(0.35 * SR)))
+        voice, lns, t = [], [], 0.0
+        for la, clip, ln, label, seed in pool:
+            lns.append(dict(ln, t=round(ln["t"] + t, 3), end=round(ln["end"] + t, 3), words=[[w, round(x + t, 3)] for w, x in ln["words"]]))
+            voice += [clip, gap]
+            t += (clip.shape[1] + gap.shape[1]) / SR
+        eng = sorted({p[3] for p in pool})
+        done[k] = dict(voice=np.concatenate(voice, axis=1), lines=lns, cut=0.0, engine=" + ".join(eng),
+                       seed=[p[4] for p in pool], acc=sum(p[0] * len(p[2]["words"]) for p in pool) / sum(len(p[2]["words"]) for p in pool))
+        print(f"{sec}: {done[k]['engine']}, {done[k]['acc']:.1%}")
+        os.makedirs(os.path.dirname(keep), exist_ok=True)
+        write_wav(keep + ".wav", done[k]["voice"])
+        json.dump({x: y for x, y in done[k].items() if x != "voice"}, open(keep + ".json", "w"))
+    CAPTION = CONTRIB_CAPTION
+    if failed:
+        print(f"::warning::no take: {', '.join(failed)} didn't pass")
+        return 1
+    gap = np.zeros((2, int(0.6 * SR)))
+    parts, out_lines, t, used = [], [], 0.0, []
+    for sec, idx in groups:
+        d = done[tuple(lines[i]["text"] for i in idx)]
+        for ln in d["lines"]:
+            sh = t - d["cut"]
+            out_lines.append(dict(ln, t=round(ln["t"] + sh, 3), end=round(ln["end"] + sh, 3),
+                                  words=[[w, round(x + sh, 3)] for w, x in ln["words"]]))
+        parts += [d["voice"], gap]
+        t += (d["voice"].shape[1] + gap.shape[1]) / SR
+        used.append(dict(section=sec, engine=d["engine"], seed=d["seed"], accuracy=d["acc"]))
+    voice = np.concatenate(parts, axis=1)
+    from scipy import signal
+    whole = check(lines, words_heard(signal.resample_poly(np.mean(voice, 0), 160, 441).astype(np.float32)))
+    print(f"stitched: {whole['accuracy']:.1%} of words, missing {len(whole['missing'])}, repeated {len(whole['repeated'])}")
+    if not whole["good"]:
+        print(f"::warning::the stitched take isn't good enough (missing {whole['missing']}, repeated {whole['repeated']})")
+        return 1
+    engines = sorted({e for u in used for e in u["engine"].split(" + ")})
+    label = engines[0] if len(engines) == 1 else " + ".join(engines)
+    write_wav(os.path.join(out_dir, NAME + "-vocals.wav"), voice)
+    lufs, peak = master(voice, os.path.join(out_dir, NAME + ".mp3"))
+    take = dict(hash=h, engine=label, model="ACE-Step 1.5 turbo (acestep-v15-turbo)", bpm=BPM, key=KEY, sections=used,
+                made=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), length=round(voice.shape[1] / SR, 3),
+                accuracy_voice=whole["accuracy"], lufs=lufs, peak_db=peak, seconds=round(time.time() - start, 1),
+                lines=out_lines)
+    with open(os.path.join(out_dir, NAME + ".json"), "w") as f:
+        json.dump(take, f, indent=1)
+    print(f"take written: {label}, {whole['accuracy']:.1%} of words over {len(lines)} lines, in {time.time() - start:.0f} s")
+    print("heard:", whole["heard"])
+    return 0
+
+
 def use_contribution():
     """Switch to the contribution song: its own release, brief, tempo and the lines file from contribution_song.py."""
     global RELEASE, NAME, TAKE_URL, BPM, CAPTION
     RELEASE, NAME, BPM, CAPTION = "contribution-song-take", "contribution-take", 140, CONTRIB_CAPTION
     TAKE_URL = f"https://github.com/{USER}/{USER}/releases/download/{RELEASE}/"
     os.environ.setdefault("TAKE_LINES", "/tmp/contribution-lines.json")
+    global HOTWORDS
+    HOTWORDS = "Nishal"
 
 
 def main():
@@ -514,6 +728,7 @@ def main():
     g.add_argument("--cloud", metavar="OUT_DIR")
     g.add_argument("--cpu", metavar="OUT_DIR")
     g.add_argument("--prepare-cpu", action="store_true")
+    g.add_argument("--sections", metavar="OUT_DIR", help="contribution song: a take per section, cloud then CPU")
     a = ap.parse_args()
     if a.check:
         lines = sheet()
@@ -524,6 +739,8 @@ def main():
     if a.prepare_cpu:
         prepare_cpu()
         return 0
+    if a.sections:
+        return run_sections(a.sections)
     return run("cloud" if a.cloud else "cpu", a.cloud or a.cpu)
 
 

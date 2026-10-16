@@ -6,7 +6,11 @@ Each week's total sets how busy its bar is: hat density and rolls, extra kicks, 
 pad brightness, key and pluck note counts. Every day also triggers the commit-beat rules on top
 (kick 1+, hat 3+, snare 6+, clap 10+), louder on busier days.
 
-Vocals (song_vocals.py): two Piper voices at their natural pitch. A male voice raps the verses; a female voice takes the
+Vocals: ACE-Step 1.5 sings the lyrics when a take for tonight's lyrics passed its checks (scripts/visitor_take.py
+--contribution: acemusic.ai first, then the runner's CPU). Each line of the take is cut from its separated voice by
+Whisper's word times and set on the same bars the arrangement gives it, so tempo, key and structure don't change.
+Without a take, the original Piper vocals sing (below).
+Piper vocals (song_vocals.py): two Piper voices at their natural pitch. A male voice raps the verses; a female voice takes the
 chorus and breakdown on the beat while the synth lead carries the hook melody and answers the rap lines.
 Timing comes only from Piper's own speed setting; vocal processing is EQ, compression, de-essing, a short
 room and delay throws. Instruments and mixing live in song_synth.py.
@@ -37,6 +41,8 @@ REMIX_STEMS = True    # per-stem files and two extra drum kits for the remix in 
 EVENT_ACCENTS = True  # releases, big PRs, new repos and the peak day as one-shot accents (song_events.py)
 
 SR = S.SR
+TAKE_RELEASE = f"https://github.com/{USER}/{USER}/releases/download/contribution-song-take/"
+TAKE = {"used": None}  # the take's json when ACE-Step sings tonight
 BPM = 140
 BEAT = 60 / BPM
 BAR = 4 * BEAT
@@ -397,7 +403,103 @@ def vocals(lyrics, n):
 
     timeline.sort(key=lambda l: l["start"])
     st["lead_only"] = lead_only
+    sung = take_lines(lyrics, timeline)
+    out = os.environ.get("CONTRIB_LINES_OUT")
+    if out:
+        with open(out, "w") as f:
+            json.dump(dict(lines=sung, length=len(bar_sections()) * BAR + 2.0), f)
+    tk = load_take(sung)
+    if tk:
+        st = sing_take(tk, timeline, n)
+        TAKE["used"] = tk[0]
     return st, hook_lead, timeline
+
+
+# ---------- the ACE-Step take ----------
+
+def take_lines(lyrics, timeline):
+    """The lines in singing order with the words actually sung (numbers spelled out), for visitor_take.py."""
+    spoken = {d: sp for sec in lyrics.values() for d, sp, _ in sec}
+    import re
+    say = lambda t: re.sub(r"\[\[[^\]]*\]\]", "Nishal", t)  # Piper phoneme spellings mean nothing to ACE-Step
+    sing_as = {"Neck-oh droid": "Neko droid"}  # respelled for singing only; the lyrics on screen keep the real names
+    piper = say
+
+    def say(t):
+        t = piper(t)
+        for x, y in sing_as.items():
+            t = t.replace(x, y)
+        return t
+    return [dict(section=l["section"], text=say(spoken.get(l["text"], l["text"])), who="Nishal K", display=l["text"])
+            for l in timeline]
+
+
+def load_take(sung):
+    """(json, voice) of a take made from exactly these lines, from CONTRIB_TAKE_DIR or the release; else None."""
+    import urllib.request
+    import visitor_take as T
+    T.use_contribution()
+    want = T.lyrics_hash(sung)
+    d = os.environ.get("CONTRIB_TAKE_DIR") or tempfile.mkdtemp()
+    try:
+        for f in ("contribution-take.json", "contribution-take-vocals.wav"):
+            p = os.path.join(d, f)
+            if os.path.exists(p):
+                continue
+            if f.endswith(".json") or json.load(open(os.path.join(d, "contribution-take.json"))).get("hash") == want:
+                with urllib.request.urlopen(urllib.request.Request(TAKE_RELEASE + f, headers={"User-Agent": USER}), timeout=60) as r:
+                    write_atomic(p, r.read())
+        tk = json.load(open(os.path.join(d, "contribution-take.json")))
+        if tk.get("hash") != want:
+            print("song: the last ACE-Step take was for other lyrics, so Piper sings tonight")
+            return None
+        voice = T.decode(os.path.join(d, "contribution-take-vocals.wav"))
+        print(f"song: sung by ACE-Step ({tk['engine']}, {tk['accuracy_voice']:.0%} of words heard)")
+        return tk, voice
+    except Exception as e:  # noqa: BLE001
+        print(f"song: no ACE-Step take ({e}), so Piper sings")
+        return None
+
+
+def engine_where(engine):
+    """Where tonight's take was sung, for the credits."""
+    cloud, cpu = "acemusic.ai" in engine, "CPU" in engine
+    if cloud and cpu:
+        return "on [acemusic.ai](https://acemusic.ai) and a GitHub Actions CPU"
+    return "on [acemusic.ai](https://acemusic.ai)" if cloud else "on a GitHub Actions CPU"
+
+
+def stretch(x, factor):
+    """Speed a stereo clip up by factor (pitch kept) with ffmpeg's atempo."""
+    if factor <= 1.01:
+        return x
+    with tempfile.TemporaryDirectory() as d:
+        a, b = os.path.join(d, "a.wav"), os.path.join(d, "b.wav")
+        from scipy.io import wavfile
+        wavfile.write(a, SR, x.T.astype(np.float32))
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", a, "-af", f"atempo={min(factor, 2.0):.4f}", b], check=True)
+        return wavfile.read(b)[1].T.astype(np.float64)
+
+
+def sing_take(tk, timeline, n):
+    """Each take line, cut from the separated voice by its word times, on the bars the arrangement gives it."""
+    meta, voice = tk
+    st = {k: np.zeros((2, n)) for k in ("rap", "sing", "throws")}
+    lead_only = np.zeros(n)
+    starts = [l["start"] for l in timeline] + [n / SR]
+    for i, (slot, ln) in enumerate(zip(timeline, meta["lines"])):
+        a, b = max(0, int((ln["t"] - 0.08) * SR)), int((ln["end"] + 0.22) * SR)
+        x = voice[:, a:b]
+        room = max(0.5, starts[i + 1] - slot["start"] - 0.06)
+        x = stretch(x, (x.shape[1] / SR) / room)[:, :int(room * SR)]
+        x = np.stack([edge_fade(c, 25) for c in x])
+        sing = slot["section"] in ("Chorus", "Breakdown")
+        place(st["sing" if sing else "rap"], x, slot["start"])
+        if sing:
+            S.add(lead_only, x.mean(0), slot["start"])
+        slot["end"] = slot["start"] + x.shape[1] / SR
+    st["lead_only"] = lead_only
+    return st
 
 
 # ---------- mix / master ----------
@@ -507,13 +609,14 @@ def mixdown(inst, kicks, vox, hook_lead, n, length, stems=False):
         x = x + 0.4 * signal.sosfilt(S.sos("bandpass", [2000, 5000]), x, axis=1)  # a little presence
         return np.stack([V.deess(c) for c in x])
 
-    rap = norm(clean(vox["rap"], 100), 0.55)
+    lift = 10 ** (3 / 20) if TAKE["used"] else 1.0  # the take's voice a little further forward
+    rap = norm(clean(vox["rap"], 100), 0.55 * lift)
     sing = clean(vox["sing"], 120)
     # gentle warmth (low mids) and air (top shelf) on the female voice
     sing = (sing + 0.25 * signal.sosfilt(S.sos("bandpass", [180, 450]), sing, axis=1)
             + 0.2 * signal.sosfilt(S.sos("highpass", 9000), sing, axis=1))
     sing_peak = np.max(np.abs(sing)) + 1e-9
-    sing = sing / sing_peak * 0.62
+    sing = sing / sing_peak * 0.62 * lift
     throws = S.delay(vox["throws"] / sing_peak * 0.5, BEAT * 0.75, feedback=0.4, repeats=4)
     voc = vocoder(sing, n) if VOCODER else 0
     vocal_bus = rap + sing + voc
@@ -612,7 +715,10 @@ def lyrics_md(timeline, s, length):
             cur = line["section"]
             out += ["", f"## {cur}", ""]
         out.append(f"`{mmss(line['start'])}` {line['text']}  ")
-    out += ["", "[Play it in the browser](https://nishal21.github.io/nishal21/player/) or "
+    out += ["", "**Vocals:** " + (f"[ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5) by ACE Studio × StepFun (Apache-2.0), "
+                                  "sung tonight a section at a time " + engine_where(TAKE["used"]["engine"])
+                                  if TAKE["used"] else "Piper TTS, two voices"),
+            "", "[Play it in the browser](https://nishal21.github.io/nishal21/player/) or "
             "[download the MP3](https://nishal21.github.io/nishal21/player/contribution-song.mp3).", ""]
     return "\n".join(out).replace("\n\n\n", "\n\n")
 
@@ -635,6 +741,7 @@ def song_json(s, facts, weeks, timeline, length, song, langs=None, events=None, 
         acc += nb
     data = dict(
         title="Contribution song", artist="Nishal K", length=round(length, 3), bpm=BPM, key="A minor",
+        engine=TAKE["used"]["engine"] if TAKE["used"] else "Piper",
         bar=round(BAR, 6), generated=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         rules=[dict(name=n, min=m) for n, m in RULES], sections=sections,
         stats=dict(total=s["total"], active=s["active"], days=s["n"], first=str(s["first"]), last=str(s["last"]),
@@ -696,7 +803,7 @@ def render_card(s, length, wave_peaks, t):
             continue
         out.append(f'<text x="{(xa + xb) / 2:.1f}" y="152" text-anchor="middle" font-family="{FONT}" font-size="10" fill="{t["muted"]}">{esc(short)}</text>')
     out.append(f'<text x="25" y="{h-18}" font-family="{FONT}" font-size="11.5" fill="{t["text"]}"><tspan font-weight="700">{mmss(length)}</tspan> · {s["total"]} contributions · {len(SECTIONS)} sections</text>')
-    out.append(f'<text x="{w-25}" y="{h-18}" text-anchor="end" font-family="{FONT}" font-size="10" fill="{t["muted"]}">vocals: Piper TTS, two voices</text>')
+    out.append(f'<text x="{w-25}" y="{h-18}" text-anchor="end" font-family="{FONT}" font-size="10" fill="{t["muted"]}">{"vocals: ACE-Step 1.5 (" + TAKE["used"]["engine"] + ")" if TAKE["used"] else "vocals: Piper TTS, two voices"}</text>')
     out.append("</svg>\n")
     return "\n".join(out)
 

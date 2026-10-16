@@ -18,3 +18,9 @@ Visitor song voice and music
   unavailable, from the same open model running on a GitHub Actions CPU. The player, the lyrics page and the video
   credits name which one made the current take. Voice and music are separated with Demucs (MIT, Meta) for the
   vocal-forward mix, and the lyrics are timed with faster-whisper (MIT) using OpenAI Whisper (MIT).
+
+Contribution song voice
+  When a take passes its checks, the contribution song's vocals are sung by the same ACE-Step 1.5 model, a section
+  at a time (acemusic.ai first, a GitHub Actions CPU for any section it can't sing well), separated with Demucs and
+  placed on the song's own beat grid. Otherwise the two Piper TTS voices sing it. The lyrics page, the card and
+  contribution-song.json name tonight's engine.

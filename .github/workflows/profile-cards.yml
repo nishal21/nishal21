@@ -3,7 +3,7 @@
 # The song MP3, its player page and the video page (/video/) are published to GitHub Pages (https://nishal21.github.io/nishal21/player/)
 # instead of being committed, so the repo doesn't grow by 1.5 MB every night.
 # Each generator runs on its own; if one fails, its previous image stays in place and Pages keeps the last song.
-# Uses only the built-in GITHUB_TOKEN and public endpoints. No extra secrets.
+# Uses the built-in GITHUB_TOKEN and public endpoints; ACESTEP_API_KEY (optional) lets acemusic.ai sing the song.
 # One-time setting: Settings > Pages > Build and deployment > Source: GitHub Actions.
 
 name: Profile cards
@@ -29,7 +29,7 @@ concurrency:
 jobs:
   cards:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 120  # ACE-Step can take an hour on the CPU when the lyrics change and the cloud is busy
     permissions:
       contents: write
     outputs:
@@ -98,6 +98,103 @@ jobs:
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CONTRIB_LINES_OUT: /tmp/contribution-lines.json
+        run: python scripts/contribution_song.py
+
+      # ACE-Step sings the lyrics a section at a time (acemusic.ai first, the CPU for any section it can't sing well),
+      # every section Whisper-checked; the song is rendered again on its own beat grid with the stitched voice.
+      # Without a take that passes, the Piper vocals rendered above stay.
+      - name: Does the song need a new take?
+        id: take
+        if: steps.song.outcome == 'success'
+        continue-on-error: true
+        env:
+          TAKE_LINES: /tmp/contribution-lines.json
+        run: python scripts/visitor_take.py --contribution --check >> "$GITHUB_OUTPUT"
+
+      - name: Install the singing tools
+        if: steps.take.outputs.needed == 'true'
+        run: |
+          pip install --quiet torch==2.10.0 torchaudio==2.10.0 torchvision==0.25.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet demucs==4.1.0 faster-whisper==1.2.1 soundfile torchcodec
+
+      - name: Restore Whisper and Demucs
+        id: tools
+        if: steps.take.outputs.needed == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/huggingface/hub/models--Systran--faster-whisper-small.en
+            ~/.cache/torch/hub/checkpoints
+          key: visitor-take-tools-v1
+
+      - name: Get ACE-Step for the CPU
+        if: steps.take.outputs.needed == 'true'
+        run: |
+          git clone --quiet https://github.com/ace-step/ACE-Step-1.5 ~/ace-step
+          git -C ~/ace-step checkout --quiet ca1e85fe9430179831e6bc6be790c332190a3866
+
+      - name: Restore the ACE-Step models
+        id: acemodels
+        if: steps.take.outputs.needed == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/ace-step/checkpoints
+          key: ace-step-v15-turbo-bf16-lm06-ca1e85f
+
+      - name: Sing the contribution song
+        id: sing
+        if: steps.take.outputs.needed == 'true'
+        continue-on-error: true
+        env:
+          ACESTEP_API_KEY: ${{ secrets.ACESTEP_API_KEY }}
+          ACE_STEP_DIR: /home/runner/ace-step
+          TAKE_LINES: /tmp/contribution-lines.json
+          VISITOR_TAKE_TRIES: "3"
+        run: |
+          pip install --quiet "transformers>=4.51.0,<4.58.0" "diffusers>=0.37.0" einops accelerate loguru diskcache numba \
+            vector-quantize-pytorch "torchao>=0.16.0,<0.17.0" toml peft modelscope matplotlib huggingface_hub safetensors pytorch_wavelets PyWavelets
+          python scripts/visitor_take.py --prepare-cpu
+          echo "prepared=true" >> "$GITHUB_OUTPUT"  # only complete models get cached
+          python scripts/visitor_take.py --contribution --sections /tmp/ctake
+
+      - name: Save Whisper and Demucs
+        if: always() && steps.take.outputs.needed == 'true' && steps.tools.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/huggingface/hub/models--Systran--faster-whisper-small.en
+            ~/.cache/torch/hub/checkpoints
+          key: visitor-take-tools-v1
+
+      - name: Save the ACE-Step models
+        if: always() && steps.sing.outputs.prepared == 'true' && steps.acemodels.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ~/ace-step/checkpoints
+          key: ace-step-v15-turbo-bf16-lm06-ca1e85f
+
+      - name: Publish the take
+        if: steps.sing.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          test -s /tmp/ctake/contribution-take-vocals.wav && test -s /tmp/ctake/contribution-take.json
+          gh release view contribution-song-take >/dev/null 2>&1 || gh release create contribution-song-take \
+            --title "Contribution song take" --notes "The ACE-Step vocal take for the contribution song." --latest=false
+          gh release upload contribution-song-take /tmp/ctake/contribution-take.mp3 /tmp/ctake/contribution-take.json \
+            /tmp/ctake/contribution-take-vocals.wav --clobber
+          python -c "import json; t = json.load(open('/tmp/ctake/contribution-take.json')); print(f\"::notice::Contribution song sung by {t['engine']}: {t['accuracy_voice']:.0%} of words heard\")"
+
+      - name: Contribution song with the take
+        if: steps.sing.outcome == 'success'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CONTRIB_TAKE_DIR: /tmp/ctake
         run: python scripts/contribution_song.py
 
       - name: Visitor song
