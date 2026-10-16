@@ -71,7 +71,7 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         bg = os.path.join(tmp, "bg.png")
         card(data, bg)
-        Image.open(bg).convert("RGB").save(os.path.join(out, "visitor-poster.jpg"), quality=86)
+        Image.open(bg).convert("RGB").resize((640, 360), Image.LANCZOS).save(os.path.join(out, "visitor-poster.jpg"), quality=84)  # thumbnail size, like the other posters
         card(data, bg, envelope(mp3))
         dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", mp3],
                                    capture_output=True, text=True, check=True).stdout.strip() or 30)
