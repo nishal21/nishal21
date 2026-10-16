@@ -300,14 +300,17 @@ def upload(e, out, tag):
 
 
 def relink(e, tag):
-    """Posters used to be committed under assets/visitor-posters/; point an earlier reply at the release instead."""
-    old = f"https://raw.githubusercontent.com/{USER}/{USER}/main/assets/visitor-posters/{e['issue']}-"
-    new = f"https://github.com/{USER}/{USER}/releases/download/{tag}/{e['issue']}-"
+    """Bring an earlier reply's poster section up to date (release links and the previews of every size)."""
+    e = dict(e, poster=tag)
+    section = VS.poster_md(e).strip()
     try:
         for c in VS.gh("GET", f"/repos/{USER}/{USER}/issues/{e['issue']}/comments?per_page=100") or []:
-            if old in (c.get("body") or ""):
-                VS.gh("PATCH", f"/repos/{USER}/{USER}/issues/comments/{c['id']}", {"body": c["body"].replace(old, new)})
-                print(f"#{e['issue']}: comment {c['id']} now links to the release")
+            body = c.get("body") or ""
+            at = body.find("Here's a poster of your part to share:")
+            if at < 0 or f"/{e['issue']}-square.jpg" not in body or body[at:].strip() == section:
+                continue
+            VS.gh("PATCH", f"/repos/{USER}/{USER}/issues/comments/{c['id']}", {"body": body[:at] + section})
+            print(f"#{e['issue']}: comment {c['id']} updated")
     except Exception as x:  # noqa: BLE001
         print(f"#{e['issue']}: couldn't update the old comment ({x})")
 
@@ -326,6 +329,8 @@ def main():
         if not VS.lines_of(e) or ("only" in opt and str(e["issue"]) != opt["only"]):
             continue
         if "--release" in args and e.get("poster"):
+            if e.get("replied"):
+                relink(e, e["poster"])
             continue
         if "--missing" in args and all(os.path.exists(os.path.join(out, f"{e['issue']}-{z}.jpg")) for z in SIZES):
             continue  # posters are made once; a rebuild never changes someone's poster

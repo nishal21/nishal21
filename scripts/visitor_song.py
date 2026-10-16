@@ -440,7 +440,10 @@ def poster_md(x):
     base = f"https://github.com/{USER}/{USER}/releases/download/{tag}/{x['issue']}"
     sizes = [("Story", "story", "1080×1920"), ("Post", "feed", "1080×1350"), ("Square", "square", "1080×1080"),
              ("Wide", "wide", "1200×630")]
+    thumbs = " ".join(f'<a href="{base}-{key}.jpg"><img src="{base}-{key}.jpg" height="200" alt="{name} {dim}"></a>'
+                      for name, key, dim in sizes if key != "square")
     return (f"\n\nHere's a poster of your part to share:\n\n<img src=\"{base}-square.jpg\" width=\"420\" alt=\"Visitor song poster for @{x['user']}\">\n\n"
+            f"Also sized for stories, posts and link previews:\n\n{thumbs}\n\n"
             + " · ".join(f"[{name} {dim}]({base}-{key}.jpg)" for name, key, dim in sizes))
 
 
