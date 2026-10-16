@@ -303,7 +303,7 @@ const TRAILER = {
   download: { href: "trailer.mp4", name: "nishal-year-trailer.mp4", label: "Download trailer" },
   share: "trailer", artist: "Nishal K",
 };
-// the visitor song as a video: its card and a live waveform over the audio (scripts/visitor_video.py)
+// the visitor song as a lyric video: kinetic type, credits for every line, a credits roll (scripts/visitor_video.py)
 const VISITOR = {
   key: "visitor", kind: "file", src: new URL("visitor-song.mp4", SITE).href, shape: "wide",
   eyebrow: "Visitor song · grows every night", title: "The visitor song, one note per visitor", thumb: "visitor-poster.jpg",
