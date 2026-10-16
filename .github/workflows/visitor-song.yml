@@ -13,7 +13,8 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["scripts/visitor_poster.py"]  # a new poster design is uploaded for visitors who don't have one yet
+    # a new poster design is uploaded for visitors who don't have one yet; a change to the singing makes a new take
+    paths: ["scripts/visitor_poster.py", "scripts/visitor_take.py", ".github/workflows/visitor-song.yml"]
 
 concurrency:
   group: visitor-song
