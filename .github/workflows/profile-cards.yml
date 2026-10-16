@@ -142,6 +142,15 @@ jobs:
           path: ~/ace-step/checkpoints
           key: ace-step-v15-turbo-bf16-lm06-ca1e85f
 
+      # sections that passed are kept, so a rerun only sings the ones that didn't (and lines whose numbers changed)
+      - name: Restore the sung sections
+        if: steps.take.outputs.needed == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/ctake/sections
+          key: contribution-sections-${{ github.run_id }}
+          restore-keys: contribution-sections-
+
       - name: Sing the contribution song
         id: sing
         if: steps.take.outputs.needed == 'true'
@@ -157,6 +166,14 @@ jobs:
           python scripts/visitor_take.py --prepare-cpu
           echo "prepared=true" >> "$GITHUB_OUTPUT"  # only complete models get cached
           python scripts/visitor_take.py --contribution --sections /tmp/ctake
+
+      - name: Save the sung sections
+        if: always() && steps.take.outputs.needed == 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/ctake/sections
+          key: contribution-sections-${{ github.run_id }}
 
       - name: Save Whisper and Demucs
         if: always() && steps.take.outputs.needed == 'true' && steps.tools.outputs.cache-hit != 'true'

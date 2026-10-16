@@ -53,7 +53,8 @@ CAPTION = ("intimate indie pop ballad, 96 BPM, A minor, 4/4. Male lead vocal upf
 CPU_LM = "acestep-5Hz-lm-0.6B"
 CLOUD_BUDGET = int(os.environ.get("ACEMUSIC_BUDGET", "900"))  # seconds of retrying a busy acemusic.ai before the CPU
 TRIES = int(os.environ.get("VISITOR_TAKE_TRIES", "4"))
-GOOD, FLOOR = 0.85, 0.75   # aim for 85% of words heard; never publish below 75%
+GOOD, FLOOR = 0.85, 0.75
+LINE_FLOOR = 0.4  # sectioned songs: every line of the stitched take at least this much heard   # aim for 85% of words heard; never publish below 75%
 SR = 44100
 
 
@@ -653,10 +654,10 @@ def run_sections(out_dir):
             print(f"::warning::{sec}: some lines were never heard")
             failed.append(sec)
             continue
-        if not enough():
-            print(f"::warning::{sec}: best lines {', '.join(f'{p[0]:.0%}' for p in pool)}, short of the bar")
-            failed.append(sec)
-            continue
+        passed = enough()
+        if not passed:  # its best take is used anyway; the whole stitched song decides below
+            print(f"::warning::{sec}: best lines {', '.join(f'{p[0]:.0%}' for p in pool)}, short of the section bar, "
+                  "so its best take is used if the whole song still passes")
         gap = np.zeros((2, int(0.35 * SR)))
         voice, lns, t = [], [], 0.0
         for la, clip, ln, label, seed in pool:
@@ -667,6 +668,8 @@ def run_sections(out_dir):
         done[k] = dict(voice=np.concatenate(voice, axis=1), lines=lns, cut=0.0, engine=" + ".join(eng),
                        seed=[p[4] for p in pool], acc=sum(p[0] * len(p[2]["words"]) for p in pool) / sum(len(p[2]["words"]) for p in pool))
         print(f"{sec}: {done[k]['engine']}, {done[k]['acc']:.1%}")
+        if not passed:
+            continue  # only sections that passed are kept for the next run; this one is sung again then
         os.makedirs(os.path.dirname(keep), exist_ok=True)
         write_wav(keep + ".wav", done[k]["voice"])
         json.dump({x: y for x, y in done[k].items() if x != "voice"}, open(keep + ".json", "w"))
@@ -689,8 +692,11 @@ def run_sections(out_dir):
     from scipy import signal
     whole = check(lines, words_heard(signal.resample_poly(np.mean(voice, 0), 160, 441).astype(np.float32)))
     print(f"stitched: {whole['accuracy']:.1%} of words, missing {len(whole['missing'])}, repeated {len(whole['repeated'])}")
-    if not whole["good"]:
-        print(f"::warning::the stitched take isn't good enough (missing {whole['missing']}, repeated {whole['repeated']})")
+    weakest = min(whole["line_acc"])
+    print(f"stitched lines: {', '.join(f'{a:.0%}' for a in whole['line_acc'])}")
+    if whole["accuracy"] < GOOD or weakest < LINE_FLOOR or whole["repeated"]:
+        print(f"::warning::the stitched take isn't good enough ({whole['accuracy']:.1%} of words, weakest line {weakest:.0%}, "
+              f"repeated {whole['repeated']}); it needs {GOOD:.0%} overall and every line at least {LINE_FLOOR:.0%}")
         return 1
     engines = sorted({e for u in used for e in u["engine"].split(" + ")})
     label = engines[0] if len(engines) == 1 else " + ".join(engines)
