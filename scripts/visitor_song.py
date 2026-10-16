@@ -432,18 +432,16 @@ def collect(state):
             state["declined"].append(dict(issue=issue["number"], user=issue["user"]["login"], reason=reason, replied=False))
 
 
-POSTERS = os.path.join(ASSETS, "visitor-posters")
-
-
 def poster_md(x):
-    """The visitor's own poster (scripts/visitor_poster.py), shown inline with links to every size."""
-    if not os.path.exists(os.path.join(POSTERS, f"{x['issue']}-square.jpg")):
+    """The visitor's own poster (scripts/visitor_poster.py, stored on a release), inline with links to every size."""
+    tag = x.get("poster")
+    if not tag:
         return ""
-    raw = f"https://raw.githubusercontent.com/{USER}/{USER}/main/assets/visitor-posters/{x['issue']}"
+    base = f"https://github.com/{USER}/{USER}/releases/download/{tag}/{x['issue']}"
     sizes = [("Story", "story", "1080×1920"), ("Post", "feed", "1080×1350"), ("Square", "square", "1080×1080"),
              ("Wide", "wide", "1200×630")]
-    return (f"\n\nHere's a poster of your part to share:\n\n<img src=\"{raw}-square.jpg\" width=\"420\" alt=\"Visitor song poster for @{x['user']}\">\n\n"
-            + " · ".join(f"[{name} {dim}]({raw}-{key}.jpg)" for name, key, dim in sizes))
+    return (f"\n\nHere's a poster of your part to share:\n\n<img src=\"{base}-square.jpg\" width=\"420\" alt=\"Visitor song poster for @{x['user']}\">\n\n"
+            + " · ".join(f"[{name} {dim}]({base}-{key}.jpg)" for name, key, dim in sizes))
 
 
 def reply(state):

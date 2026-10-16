@@ -9,8 +9,11 @@ Every visitor gets their own look: a layout, a palette and a drawing picked from
 a rebuild gives the same poster, and no two visitors share the same drawing + layout + palette (the drawing itself
 is kept unique for as long as there are unused ones).
 
-Usage: visitor_poster.py OUT_DIR [--state data/visitor-song.json] [--only ISSUE] [--missing] [--no-avatar]
-Writes OUT_DIR/<issue>-<size>.jpg.
+Usage: visitor_poster.py OUT_DIR [--state data/visitor-song.json] [--only ISSUE] [--missing] [--no-avatar] [--release]
+Writes OUT_DIR/<issue>-<size>.jpg. With --release (the nightly workflow), posters live on GitHub releases instead of
+in the repo: each visitor without one gets theirs rendered and uploaded with gh to "visitor-posters-<n>" (200
+visitors per release, 4 files each, well under the 1000-asset limit), and the tag is saved on their entry in the
+state file so the reply can link to it. Posters are made once and never re-encoded.
 """
 import hashlib
 import io
@@ -274,6 +277,41 @@ def where(entries):
     return out
 
 
+PER_RELEASE = 200  # visitors per release: 800 files, under GitHub's 1000 assets per release
+
+
+def release_tag(entries, e):
+    """Stable: entries are only ever appended, so a visitor's place (and release) never changes."""
+    k = [x["issue"] for x in entries if VS.lines_of(x)].index(e["issue"])
+    return f"visitor-posters-{k // PER_RELEASE + 1}"
+
+
+def upload(e, out, tag):
+    import subprocess
+    if subprocess.run(["gh", "release", "view", tag], capture_output=True).returncode:
+        subprocess.run(["gh", "release", "create", tag, "--latest=false", "--title", f"Visitor posters {tag.rsplit('-', 1)[1]}",
+                        "--notes", "Share posters for people who added lines to the visitor song (scripts/visitor_poster.py)."],
+                       check=True)
+    files = [os.path.join(out, f"{e['issue']}-{z}.jpg") for z in SIZES]
+    subprocess.run(["gh", "release", "upload", tag, *files, "--clobber"], check=True)
+    e["poster"] = tag
+    if e.get("replied"):
+        relink(e, tag)
+
+
+def relink(e, tag):
+    """Posters used to be committed under assets/visitor-posters/; point an earlier reply at the release instead."""
+    old = f"https://raw.githubusercontent.com/{USER}/{USER}/main/assets/visitor-posters/{e['issue']}-"
+    new = f"https://github.com/{USER}/{USER}/releases/download/{tag}/{e['issue']}-"
+    try:
+        for c in VS.gh("GET", f"/repos/{USER}/{USER}/issues/{e['issue']}/comments?per_page=100") or []:
+            if old in (c.get("body") or ""):
+                VS.gh("PATCH", f"/repos/{USER}/{USER}/issues/comments/{c['id']}", {"body": c["body"].replace(old, new)})
+                print(f"#{e['issue']}: comment {c['id']} now links to the release")
+    except Exception as x:  # noqa: BLE001
+        print(f"#{e['issue']}: couldn't update the old comment ({x})")
+
+
 def main():
     args = sys.argv[1:]
     out = args[0] if args and not args[0].startswith("--") else "posters"
@@ -287,6 +325,8 @@ def main():
     for e in entries:
         if not VS.lines_of(e) or ("only" in opt and str(e["issue"]) != opt["only"]):
             continue
+        if "--release" in args and e.get("poster"):
+            continue
         if "--missing" in args and all(os.path.exists(os.path.join(out, f"{e['issue']}-{z}.jpg")) for z in SIZES):
             continue  # posters are made once; a rebuild never changes someone's poster
         when = datetime.strptime(e.get("added", "2026-01-01"), "%Y-%m-%d").strftime("%-d %b %Y")
@@ -295,8 +335,13 @@ def main():
             issues = []
             render(e, looks[e["issue"]], at[e["issue"]], when, size, "--no-avatar" not in args, issues).save(p, quality=86, optimize=True, progressive=True)
             bad.extend(issues)
+        if "--release" in args and not any(str(e["issue"]) == b.split()[0][1:] for b in bad):
+            upload(e, out, release_tag(entries, e))
         print(f"posters for #{e['issue']} @{e['user']}: {looks[e['issue']]['layout']}, {os.path.basename(looks[e['issue']]['art'])}")
 
+    if "--release" in args:
+        with open(opt.get("state", VS.STATE), "w") as f:
+            json.dump(state, f, indent=1)
     if bad:
         print("\n".join(bad))
         sys.exit(f"{len(bad)} layout problems")

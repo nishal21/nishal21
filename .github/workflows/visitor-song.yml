@@ -9,6 +9,9 @@ on:
   schedule:
     - cron: "15 18 * * *"  # 23:45 IST, just before the profile cards
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["scripts/visitor_poster.py"]  # a new poster design is uploaded for visitors who don't have one yet
 
 concurrency:
   group: visitor-song
@@ -39,7 +42,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python scripts/visitor_song.py --no-audio
-          python scripts/visitor_poster.py assets/visitor-posters --missing || echo "posters not made"
 
       - name: Commit changes
         id: commit
@@ -49,7 +51,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           files="assets/visitor-song-dark.svg assets/visitor-song-light.svg assets/visitor-song-lyrics.md
-                 assets/visitor-song.lrc assets/visitor-song.json data/visitor-song.json assets/visitor-posters"
+                 assets/visitor-song.lrc assets/visitor-song.json data/visitor-song.json"
           # These files are generated, so a rebase conflict is never worth resolving: if main moved,
           # start again from the new main and read the notes once more.
           for i in 1 2 3; do
@@ -67,8 +69,7 @@ jobs:
             git fetch --quiet origin main
             git reset --quiet --hard origin/main
             python scripts/visitor_song.py --no-audio
-            python scripts/visitor_poster.py assets/visitor-posters --missing || echo "posters not made"
-          done
+            done
           exit 1
 
       # The player site is built and deployed by the profile-cards workflow; run it now so the new notes are live.
@@ -77,6 +78,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run profile-cards.yml --ref main
+
+      # Share posters go on "visitor-posters-<n>" releases, not in the repo; only visitors without one get a new one.
+      - name: Visitor posters
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/visitor_poster.py /tmp/visitor-posters --release
 
       - name: Reply to visitors
         env:
