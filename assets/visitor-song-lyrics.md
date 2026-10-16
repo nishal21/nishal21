@@ -9,32 +9,32 @@ Someone stopped by late on a quiet night
 <sub>lyric: Nishal K · [0:05](https://nishal21.github.io/nishal21/player/?song=visitor&t=5)</sub>  
 
 left a single note and went on their way  
-<sub>lyric: Nishal K · [0:07](https://nishal21.github.io/nishal21/player/?song=visitor&t=7)</sub>  
-
-I never got their name until the credits  
 <sub>lyric: Nishal K · [0:10](https://nishal21.github.io/nishal21/player/?song=visitor&t=10)</sub>  
 
+I never got their name until the credits  
+<sub>lyric: Nishal K · [0:15](https://nishal21.github.io/nishal21/player/?song=visitor&t=15)</sub>  
+
 now it plays here every single day  
-<sub>lyric: Nishal K · [0:12](https://nishal21.github.io/nishal21/player/?song=visitor&t=12)</sub>  
+<sub>lyric: Nishal K · [0:20](https://nishal21.github.io/nishal21/player/?song=visitor&t=20)</sub>  
 
 ## Chorus
 
 One note at a time  
-<sub>lyric: Nishal K · [0:15](https://nishal21.github.io/nishal21/player/?song=visitor&t=15)</sub>  
+<sub>lyric: Nishal K · [0:25](https://nishal21.github.io/nishal21/player/?song=visitor&t=25)</sub>  
 
 from people passing through  
-<sub>lyric: Nishal K · [0:17](https://nishal21.github.io/nishal21/player/?song=visitor&t=17)</sub>  
+<sub>lyric: Nishal K · [0:30](https://nishal21.github.io/nishal21/player/?song=visitor&t=30)</sub>  
 
 a name beside a line  
-<sub>lyric: Nishal K · [0:20](https://nishal21.github.io/nishal21/player/?song=visitor&t=20)</sub>  
+<sub>lyric: Nishal K · [0:35](https://nishal21.github.io/nishal21/player/?song=visitor&t=35)</sub>  
 
 and part of it is you  
-<sub>lyric: Nishal K · [0:22](https://nishal21.github.io/nishal21/player/?song=visitor&t=22)</sub>  
+<sub>lyric: Nishal K · [0:40](https://nishal21.github.io/nishal21/player/?song=visitor&t=40)</sub>  
 
 ## Outro
 
 Leave yours and the song gets one beat longer  
-<sub>lyric: Nishal K · [0:25](https://nishal21.github.io/nishal21/player/?song=visitor&t=25)</sub>  
+<sub>lyric: Nishal K · [0:45](https://nishal21.github.io/nishal21/player/?song=visitor&t=45)</sub>  
 
 ## Credits
 

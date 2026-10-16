@@ -11,7 +11,8 @@ With --reply (run after the push) it comments on each processed issue with a lin
 their part plays, and closes it. Declined issues get a short, kind reason and are closed too.
 
 Arrangement: 96 BPM, A minor, one visitor note per beat over a soft pad and a quiet kick on 1 and 3.
-The song grows by one beat per note; each lyric line gets the bar its writer's note starts in.
+The song grows by one beat per note; every lyric line is sung over two bars
+by the same Piper voice as the contribution song's chorus (song_vocals.py), at its natural pitch and an unhurried speed.
 State lives in data/visitor-song.json so a rerun never adds the same issue twice.
 """
 import argparse
@@ -44,6 +45,7 @@ BEAT = 60 / BPM
 BAR = 4 * BEAT
 INTRO_BARS = 2
 OUTRO_BARS = 2
+LINE_BARS = 2  # each sung line gets two bars (5 s), so nothing is rushed
 MAX_LINE = 60
 
 NOTES = {"A": 57, "B": 59, "C": 60, "D": 62, "E": 64, "F": 65, "G": 67, "A (high)": 69}
@@ -164,11 +166,11 @@ def lyric_sheet(entries):
 
 
 def timed_sheet(entries):
-    """Every lyric line, base or visitor, gets one bar in order, starting after the intro."""
+    """Every lyric line, base or visitor, gets LINE_BARS bars in order, starting after the intro."""
     out, k = [], 0
     for name, lines in lyric_sheet(entries):
         for item in lines:
-            out.append((name, item[0], item[1], item[2] if len(item) == 3 else None, INTRO_BARS * BAR + k * BAR))
+            out.append((name, item[0], item[1], item[2] if len(item) == 3 else None, INTRO_BARS * BAR + k * LINE_BARS * BAR))
             k += 1
     return out
 
@@ -181,7 +183,7 @@ def note_time(i):
 
 def length(entries):
     lines = sum(len(l) for _, l in lyric_sheet(entries))
-    bars = INTRO_BARS + max(-(-max(1, len(entries)) // 4), lines) + OUTRO_BARS
+    bars = INTRO_BARS + max(-(-max(1, len(entries)) // 4), lines * LINE_BARS) + OUTRO_BARS
     return bars * BAR
 
 
@@ -197,6 +199,30 @@ def voice(inst, note, n):
     if inst == "Bass":
         return S.pluck(note - 24, n, 0.6, bright=600)
     return S.warm_pad([note], n, cutoff=1400).mean(axis=0) * 0.5  # mono, panned by the caller
+
+
+def vocals(entries, n):
+    """Every lyric line sung slowly by the contribution song's chorus voice. Returns mono, or None when
+    Piper is not available (the song then plays as an instrumental)."""
+    try:
+        import song_vocals as V
+        from scipy import signal
+        voice = V.load(V.SING_VOICE)
+    except Exception as e:  # noqa: BLE001
+        print(f"visitor song: no vocals ({e})")
+        return None
+    out = np.zeros(n)
+    window = LINE_BARS * BAR
+    for _, text, _, _, t in timed_sheet(entries):
+        x = V.phrase(voice, text, 2.1, window * 0.9)  # slower than the chorus; phrase() speeds up only if a line will not fit
+        x = S.compress(x / (np.max(np.abs(x)) + 1e-9), thr_db=-16, ratio=2.5, attack=0.01, release=0.12)
+        f = int(0.02 * SR)
+        x[:f] *= np.linspace(0, 1, f); x[-f:] *= np.linspace(1, 0, f)
+        S.add(out, x, t + 0.1)
+    out = signal.sosfilt(S.sos("highpass", 120), out)
+    out = out + 0.3 * signal.sosfilt(S.sos("bandpass", [2000, 5000]), out)  # a little presence
+    out = V.deess(out)
+    return out / (np.max(np.abs(out)) + 1e-9) * 0.5
 
 
 def render(entries):
@@ -216,6 +242,9 @@ def render(entries):
         x = voice(e["instrument"], NOTES[e["note"]], int(BEAT * 1.6 * SR))
         S.add(mix, S.pan(x * 0.6, ((i * 7) % 11) / 10 - 0.5), note_time(i))  # add() takes seconds
     mix = mix + 0.25 * S.reverb(mix, 2.6, 0.6)
+    vox = vocals(entries, n)
+    if vox is not None:
+        mix = mix * 0.6 + S.pan(vox, 0.0) + 0.18 * S.reverb(S.pan(vox, 0.0), 1.8, 0.5)
     # bring it up to about the loudness of the contribution song (-15 dBFS mean): gain, limit, measure, repeat
     for _ in range(3):
         rms = float(np.sqrt(np.mean(mix ** 2))) or 1e-9
@@ -323,7 +352,7 @@ def player_json(entries, audio_buf=None):
         t = note_time(i)
         beats[int(t // BAR)][int(round((t % BAR) / BEAT)) % 4] += 1
     sheet = timed_sheet(entries)
-    lines = [dict(t=round(t, 3), end=round(t + BAR * 0.92, 3), section=name,
+    lines = [dict(t=round(t, 3), end=round(t + LINE_BARS * BAR * 0.92, 3), section=name,
                   text=text if who == "Nishal K" else f"{text} ({who})") for name, text, who, _, t in sheet]
     secs = [dict(name="Intro", start=0.0, bars=INTRO_BARS)]
     for name, _, _, _, t in sheet:
