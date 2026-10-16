@@ -104,24 +104,23 @@ def fit_text(text, width, max_rows, sizes):
     return f, VV.wrap(text.split(), f, width)
 
 
-def text_block(d, lines, box, colour, max_size):
+def text_block(d, lines, box, colour, max_size, rec):
     """Each lyric line as its own block, sized to fill the box. Returns the height used."""
     x, y, w, hgt = box
-    sizes = [s for s in range(max_size, 30, -6)]
-    for s in sizes:
+    for s in range(max_size, 27, -4):
         f = VV.font(s)
         rows = [r for ln in lines for r in VV.wrap(ln.split(), f, w)]
-        gap = int(s * 0.45) * (len(lines) - 1)
-        total = int(s * 1.06) * len(rows) + gap
-        if total <= hgt:
+        if int(s * 1.06) * len(rows) + int(s * 0.45) * (len(lines) - 1) <= hgt:
             break
     yy = y
-    for i, ln in enumerate(lines):
+    for ln in lines:
         for r in VV.wrap(ln.split(), f, w):
-            d.text((x, yy), " ".join(r), font=f, fill=colour)
+            txt = " ".join(r)
+            d.text((x, yy), txt, font=f, fill=colour)
+            rec("lyric", d.textbbox((x, yy), txt, font=f))
             yy += int(s * 1.06)
         yy += int(s * 0.45)
-    return yy - y
+    return yy - int(s * 0.45) - y
 
 
 def grain(im, amount=10):
@@ -129,87 +128,141 @@ def grain(im, amount=10):
     return Image.blend(im, Image.merge("RGB", (noise, noise, noise)), 0.06)
 
 
-def drawing(path, look, box_w, box_h):
-    bg, ink, acc = look
-    im = VV.raster(path, ink, acc, box_w, box_h)
-    return im
+M = 48  # nothing comes closer than this to an edge, a frame line or a colour band
 
 
-def render(e, info, n, when, size, fetch_avatar=True):
+def fit_mono(text, size, width, weight="Medium"):
+    while size > 12 and VV.font(size, weight, True).getlength(text) > width:
+        size -= 1
+    return VV.font(size, weight, True)
+
+
+def render(e, info, n, when, size, fetch_avatar=True, check=None):
     W, H = SIZES[size]
     bg, ink, acc = info["palette"]
     layout = info["layout"]
+    wide = size == "wide"
+    if wide and layout == "framed":
+        layout = "stack"  # too short for a frame
     im = Image.new("RGB", (W, H), bg)
     d = ImageDraw.Draw(im)
     lines = VS.lines_of(e)
     t = n["t"]
     url = f"{SITE}/video/?v=visitor&t={int(t)}"
+    boxes, limits = [], []
+
+    def rec(name, b, area=None):
+        boxes.append((name, tuple(int(v) for v in b), area))
+
     # safe area: stories keep 250 px at the top and 340 px at the bottom free for the app's own UI
-    pad = 72 if size != "wide" else 56
+    pad = 72 if not wide else 56
     top = 250 if size == "story" else pad
     bottom = H - (340 if size == "story" else pad)
     left, right = pad, W - pad
-    wide = size == "wide"
+    canvas_area = (M, M, W - M, H - M)
 
-    # the mark
-    d.text((left, top), "nishal21 · visitor song", font=VV.font(26 if not wide else 22, "Medium", True), fill=ink)
+    # the mark, above everything (and above the frame)
+    mf = VV.font(26 if not wide else 22, "Medium", True)
+    d.text((left, top), "nishal21 · visitor song", font=mf, fill=ink)
+    rec("mark", d.textbbox((left, top), "nishal21 · visitor song", font=mf), canvas_area)
+    top += 50 if not wide else 40
+
+    if layout == "framed":
+        fw = 6
+        frame = (left - 24, top, right + 24, bottom + 24)
+        d.rectangle(frame, outline=ink, width=fw)
+        left, top, right, bottom = frame[0] + fw + M, frame[1] + fw + M, frame[2] - fw - M, frame[3] - fw - M
+    area = (left, top, right, bottom)
+
+    # foot: the QR at the bottom right, three short lines beside it that shrink to fit
+    qs = 170 if not wide else 120
+    qx, qy = right - qs, bottom - qs
+    qbg = PAPER if bg != PAPER else (255, 255, 255)
+    d.rectangle((qx - 14, qy - 14, right, bottom), fill=qbg)
+    im.paste(qr(url, qs - 14, INK, qbg), (qx, qy))
+    rec("qr", (qx - 14, qy - 14, right, bottom), area)
+    foot_w = qx - 14 - 28 - left
+    which = f"line {n['k']} of the visitor song" + (f" (and {n['k'] + 1})" if len(lines) > 1 else "")
+    foot = [(which, fit_mono(which, 24 if not wide else 20, foot_w)),
+            (f"{when} · plays at {int(t) // 60}:{int(t) % 60:02d}", None),
+            (f"{USER}.github.io/{USER}/video/?v=visitor", None)]
+    foot[1] = (foot[1][0], fit_mono(foot[1][0], 24 if not wide else 20, foot_w))
+    foot[2] = (foot[2][0], fit_mono(foot[2][0], 20 if not wide else 16, foot_w, "Regular"))
+    fy = bottom
+    for txt, f in reversed(foot):
+        hgt = f.getbbox(txt)[3]
+        fy -= hgt + 10
+        d.text((left, fy), txt, font=f, fill=ink)
+        rec("foot", d.textbbox((left, fy), txt, font=f), area)
+    foot_top = min(fy, qy - 14) - 36
 
     # where the drawing and the words go
+    av = 84 if not wide else 64
+    credit_h = av + 8
     if wide:
-        art_box = (int(W * 0.62), top + 40, right, bottom - 10)
-        text_box = (left, top + 70, int(W * 0.58) - left, bottom - top - 220)
+        art_box = (int(W * 0.62), top, right, qy - 14 - 30)
+        text_box = (left, top, int(W * 0.58) - left, foot_top - top - credit_h - 24)
     elif layout == "doodle-top":
-        art_box = (left + 80, top + 60, right - 80, top + int((bottom - top) * 0.36))
-        text_box = (left, art_box[3] + 40, right - left, bottom - art_box[3] - 330)
+        cut = top + int((foot_top - top) * 0.40)
+        art_box = (left + 60, top, right - 60, cut)
+        text_box = (left, cut + 40, right - left, foot_top - cut - 40 - credit_h - 24)
     elif layout == "split":
-        cut = top + int((bottom - top) * 0.42)
-        d.rectangle((0, top + 50, W, cut), fill=acc)
-        art_box = (left + 40, top + 70, right - 40, cut - 20)
-        text_box = (left, cut + 50, right - left, bottom - cut - 380)
-    elif layout == "framed":
-        d.rectangle((left - 24, top + 54, right + 24, bottom + 0), outline=ink, width=6)
-        art_box = (int(W * 0.58), bottom - 300 - int((bottom - top) * 0.22), right - 20, bottom - 300)
-        text_box = (left + 24, top + 110, right - left - 48, art_box[1] - top - 140)
-    else:  # stack: words top-left, drawing lower right
-        art_box = (int(W * 0.45), bottom - 290 - int((bottom - top) * 0.3), right, bottom - 290)
-        text_box = (left, top + 90, right - left, art_box[1] - top - 120)
+        cut = top + int((foot_top - top) * 0.42)
+        d.rectangle((0, top, W, cut), fill=acc)
+        art_box = (left, top + M, right, cut - M)
+        text_box = (left, cut + M, right - left, foot_top - cut - M - credit_h - 24)
+    else:  # stack and framed: words at the top, the drawing below to the right
+        art_top = top + int((foot_top - top) * 0.58)
+        art_box = (left + int((right - left) * 0.42), art_top, right, foot_top)
+        text_box = (left, top, right - left, art_top - top - credit_h - 40)
 
-    # the drawing (recoloured to this palette; on the split band it takes the band's colours)
     look = (acc, ink, bg) if layout == "split" and not wide else (bg, ink, acc)
-    art = drawing(info["art"], look, art_box[2] - art_box[0], art_box[3] - art_box[1])
+    art = VV.raster(info["art"], look[1], look[2], art_box[2] - art_box[0], art_box[3] - art_box[1])
     ax = art_box[0] + (art_box[2] - art_box[0] - art.width) // 2
     ay = art_box[1] + (art_box[3] - art_box[1] - art.height) // 2
     im.paste(art.convert("RGB"), (ax, ay), art.getchannel("A"))
+    rec("art", (ax, ay, ax + art.width, ay + art.height), area)
 
-    # the lyric
     max_size = {"story": 140, "feed": 124, "square": 108, "wide": 72}[size]
-    used = text_block(d, lines, text_box, ink, max_size)
+    used = text_block(d, lines, text_box, ink, max_size, lambda nm, b: rec(nm, b, area))
 
-    # credit: avatar + lyric by @user
-    cy = text_box[1] + used + (10 if not wide else 0)
-    av = 84 if not wide else 64
+    # credit: avatar + lyric by @user, right under the words
+    cy = text_box[1] + used + 24
     a_im, a_mask = avatar(e["user"], av, fetch_avatar)
-    d.ellipse((left - 4, cy - 4, left + av + 4, cy + av + 4), fill=acc if layout != "split" else ink)
-    im.paste(a_im, (left, cy), a_mask)
-    d.text((left + av + 22, cy + 4), "lyric by", font=VV.font(22 if not wide else 18, "Medium", True), fill=ink)
+    d.ellipse((left, cy, left + av + 8, cy + av + 8), fill=acc if layout != "split" else ink)
+    im.paste(a_im, (left + 4, cy + 4), a_mask)
+    lab = VV.font(22 if not wide else 18, "Medium", True)
+    tx = left + av + 30
+    d.text((tx, cy + 6), "lyric by", font=lab, fill=ink)
     uname = "@" + e["user"]
+    maxw = (text_box[0] + text_box[2]) - tx
     us = 40 if not wide else 30
-    maxw = (right - left - av - 22 - 170 - 40) if not wide else (text_box[2] - av - 22)
-    while us > 20 and VV.font(us, "Bold").getlength(uname) > maxw:
+    while us > 18 and VV.font(us, "Bold").getlength(uname) > maxw:
         us -= 2
-    d.text((left + av + 22, cy + (34 if not wide else 26)), uname, font=VV.font(us, "Bold"), fill=ink)
+    d.text((tx, cy + (36 if not wide else 28)), uname, font=VV.font(us, "Bold"), fill=ink)
+    ub = d.textbbox((tx, cy + (36 if not wide else 28)), uname, font=VV.font(us, "Bold"))
+    rec("credit", (left, cy, max(ub[2], tx + lab.getlength("lyric by")), max(cy + av + 8, ub[3])), area)
 
-    # foot: which line and when, the QR and the link
-    qs = 170 if not wide else 120
-    qx, qy = right - qs, bottom - qs
-    d.rectangle((qx - 14, qy - 14, right + 14, bottom + 14), fill=PAPER if bg != PAPER else (255, 255, 255))
-    im.paste(qr(url, qs, INK, PAPER if bg != PAPER else (255, 255, 255)), (qx, qy))
-    fs = VV.font(24 if not wide else 20, "Medium", True)
-    which = f"line {n['k']} of the visitor song" + (f" (and {n['k'] + 1})" if len(lines) > 1 else "")
-    d.text((left, bottom - (96 if not wide else 70)), which, font=fs, fill=ink)
-    d.text((left, bottom - (60 if not wide else 44)), f"{when} · plays at {int(t) // 60}:{int(t) % 60:02d}", font=fs, fill=ink)
-    d.text((left, bottom - (24 if not wide else 18)), f"{USER}.github.io/{USER}/video/?v=visitor", font=VV.font(20 if not wide else 16, "Regular", True), fill=ink)
+    if check is not None:
+        check.extend(problems(boxes, size, e))
     return grain(im)
+
+
+def problems(boxes, size, e):
+    """Every element inside its area (the frame's inner margin or the page margin), and no two elements touching."""
+    out = []
+    for name, b, area in boxes:
+        if area and (b[0] < area[0] or b[1] < area[1] or b[2] > area[2] or b[3] > area[3]):
+            out.append(f"#{e['issue']} {size}: {name} {b} outside {area}")
+    solid = [(n, b) for n, b, _ in boxes if n != "mark"]
+    for i in range(len(solid)):
+        for j in range(i + 1, len(solid)):
+            (n1, a), (n2, b) = solid[i], solid[j]
+            if n1 == n2 and n1 in ("lyric", "foot"):
+                continue
+            if a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]:
+                out.append(f"#{e['issue']} {size}: {n1} {a} overlaps {n2} {b}")
+    return out
 
 
 def where(entries):
@@ -230,6 +283,7 @@ def main():
     entries = state["entries"]
     looks, at = assign(entries), where(entries)
     os.makedirs(out, exist_ok=True)
+    bad = []
     for e in entries:
         if not VS.lines_of(e) or ("only" in opt and str(e["issue"]) != opt["only"]):
             continue
@@ -238,8 +292,14 @@ def main():
         when = datetime.strptime(e.get("added", "2026-01-01"), "%Y-%m-%d").strftime("%-d %b %Y")
         for size in SIZES:
             p = os.path.join(out, f"{e['issue']}-{size}.jpg")
-            render(e, looks[e["issue"]], at[e["issue"]], when, size, "--no-avatar" not in args).save(p, quality=86, optimize=True, progressive=True)
+            issues = []
+            render(e, looks[e["issue"]], at[e["issue"]], when, size, "--no-avatar" not in args, issues).save(p, quality=86, optimize=True, progressive=True)
+            bad.extend(issues)
         print(f"posters for #{e['issue']} @{e['user']}: {looks[e['issue']]['layout']}, {os.path.basename(looks[e['issue']]['art'])}")
+
+    if bad:
+        print("\n".join(bad))
+        sys.exit(f"{len(bad)} layout problems")
 
 
 if __name__ == "__main__":
