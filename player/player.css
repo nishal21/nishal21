@@ -946,13 +946,13 @@ kbd {
 }
 
 /* page doodles: quiet, static, beside the headings; they take their own space so they never cover text */
-.block-head { position: relative; padding-right: 136px; min-height: 90px; }
+.block-head:has(.deco) { position: relative; padding-right: 136px; min-height: 90px; }
 .block-head .deco { position: absolute; right: 0; top: 50%; translate: 0 -50%; width: 120px; height: 90px; opacity: 0.9; pointer-events: none; }
 .foot { position: relative; }
 .foot .deco { display: block; width: 140px; height: 105px; margin: 0 auto var(--s3, 12px); opacity: 0.9; pointer-events: none; }
 .deco:not([src]) { visibility: hidden; }
 @media (max-width: 600px) {
-  .block-head { padding-right: 88px; min-height: 60px; }
+  .block-head:has(.deco) { padding-right: 88px; min-height: 60px; }
   .block-head .deco { width: 80px; height: 60px; }
 }
 /* no deck part may grow wider than its column (long event chips used to push the editorial panel off screen) */
