@@ -41,6 +41,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import USER  # noqa: E402
 
 RELEASE = "visitor-song"
+NAME = "visitor-take"
 TAKE_URL = f"https://github.com/{USER}/{USER}/releases/download/{RELEASE}/"
 API = "https://api.acemusic.ai/v1/chat/completions"
 VERSION = 1  # bump to re-sing the song after changing the brief or the mix
@@ -58,7 +59,11 @@ SR = 44100
 # ---------- the lyrics ----------
 
 def sheet():
-    """[(section, text, who)] in singing order, from visitor_song's lyric sheet."""
+    """[(section, text, who)] in singing order, from visitor_song's lyric sheet (or, for the contribution song,
+    from the lines file contribution_song.py writes)."""
+    if os.environ.get("TAKE_LINES"):
+        with open(os.environ["TAKE_LINES"]) as f:
+            return json.load(f)["lines"]
     import visitor_song as VS
     state = VS.load_state()
     return [dict(section=name, text=it[0], who=it[1]) for name, items in VS.lyric_sheet(state["entries"]) for it in items]
@@ -75,6 +80,9 @@ def ace_lyrics(lines):
 
 
 def duration(lines):
+    if os.environ.get("TAKE_LINES"):
+        with open(os.environ["TAKE_LINES"]) as f:
+            return int(round(json.load(f)["length"]))
     return int(round(10 + 5 * len(lines) + 10))  # an intro, two bars a line at 96 BPM, a short outro
 
 
@@ -85,7 +93,7 @@ def lyrics_hash(lines):
 
 def last_take():
     try:
-        with urllib.request.urlopen(urllib.request.Request(TAKE_URL + "visitor-take.json",
+        with urllib.request.urlopen(urllib.request.Request(TAKE_URL + NAME + ".json",
                                                            headers={"User-Agent": f"{USER}-visitor-song"}), timeout=30) as r:
             return json.load(r)
     except Exception:  # noqa: BLE001
@@ -93,6 +101,16 @@ def last_take():
 
 
 # ---------- engines ----------
+
+def cpu_bf16():
+    """bf16 is only fast on CPUs with native bf16 maths (AVX512-BF16 or AMX); elsewhere, such as most GitHub runners,
+    PyTorch emulates it and the LM alone takes about 20 minutes, so those run in float32."""
+    try:
+        flags = open("/proc/cpuinfo").read()
+    except OSError:
+        return False
+    return "avx512_bf16" in flags or "amx_bf16" in flags
+
 
 class Failed(Exception):
     pass
@@ -148,7 +166,7 @@ class CpuSinger:
         try:
             import torch
             m, ok = self.lm.initialize(checkpoint_dir=os.path.join(root, "checkpoints"), lm_model_path=CPU_LM, backend="pt",
-                                       device="cpu", dtype=torch.bfloat16)
+                                       device="cpu", dtype=torch.bfloat16 if cpu_bf16() else torch.float32)
             self.think = bool(ok)
             print(f"LM {CPU_LM}: {'ready' if ok else m}")
         except Exception as e:  # noqa: BLE001
@@ -186,7 +204,11 @@ def prepare_cpu():
         open(os.path.join(ck, ".bf16"), "w").close()
     if not os.path.exists(os.path.join(ck, CPU_LM, "config.json")):
         snapshot_download(f"ACE-Step/{CPU_LM}", local_dir=os.path.join(ck, CPU_LM))
-    # ACE-Step picks float32 on CPU; bf16 halves the memory (about 9 GB down to 5) and was tested to sing the same
+    # ACE-Step picks float32 on CPU. Where the CPU does bf16 natively, bf16 halves the memory and sings the same;
+    # elsewhere float32 is much faster (the weights are cached as bf16 either way and upcast when loaded)
+    print(f"CPU bf16: {'native, using bf16' if cpu_bf16() else 'emulated, using float32'}")
+    if not cpu_bf16():
+        return
     f = os.path.join(root, "acestep", "core", "generation", "handler", "init_service_orchestrator.py")
     src = open(f).read()
     new = src.replace('torch.bfloat16 if resolved_device == "xpu" else torch.float32',
@@ -426,6 +448,7 @@ def run(engine, out_dir):
             if best is None or rep["score"] > best[0]["score"]:
                 mix, before, after = polish(v, m)
                 best = (rep, seed, mix, before, after, took)
+                write_wav(os.path.join(out_dir, NAME + "-vocals.wav"), v)
         if (best and best[0]["good"]) or sung >= TRIES:
             break
     if not best or not best[0]["ok"] or best[0]["accuracy"] < FLOOR:
@@ -433,7 +456,7 @@ def run(engine, out_dir):
                                            f"repeated {best[0]['repeated']})" if best else ""))
         return 1
     rep, seed, mix, before, after, took = best
-    mp3 = os.path.join(out_dir, "visitor-take.mp3")
+    mp3 = os.path.join(out_dir, NAME + ".mp3")
     lufs, peak = master(mix, mp3)
     final = check(lines, words_heard(decode(mp3, 16000, mono=True)))  # what listeners hear, after the mix
     take = dict(hash=h, engine=label, model="ACE-Step 1.5 turbo (acestep-v15-turbo)", seed=seed, bpm=BPM, key=KEY,
@@ -441,7 +464,7 @@ def run(engine, out_dir):
                 length=round(mix.shape[1] / SR, 3), accuracy_voice=rep["accuracy"], accuracy_mix=final["accuracy"],
                 balance_db=dict(before=round(before, 1), after=round(after, 1)), lufs=lufs, peak_db=peak,
                 seconds=round(took, 1), lines=timed_lines(lines, rep["words"]))
-    with open(os.path.join(out_dir, "visitor-take.json"), "w") as f:
+    with open(os.path.join(out_dir, NAME + ".json"), "w") as f:
         json.dump(take, f, indent=1)
     print(f"take written: {label}, seed {seed}, {rep['accuracy']:.1%} of words (voice), {final['accuracy']:.1%} (mix), "
           f"voice {before:+.1f} -> {after:+.1f} dB over the music, {lufs} LUFS")
@@ -449,8 +472,24 @@ def run(engine, out_dir):
     return 0
 
 
+CONTRIB_CAPTION = ("hip hop, 140 BPM half-time, A minor, 4/4. Confident male rap verses and a warm female sung chorus, "
+                   "lead vocal upfront and dry, clear diction, every word clear and on the beat. Sparse beat kept low under "
+                   "the voice: soft 808, light hats, airy pad. No ad-libs, no backing vocals.")
+
+
+def use_contribution():
+    """Switch to the contribution song: its own release, brief, tempo and the lines file from contribution_song.py."""
+    global RELEASE, NAME, TAKE_URL, BPM, CAPTION
+    RELEASE, NAME, BPM, CAPTION = "contribution-song-take", "contribution-take", 140, CONTRIB_CAPTION
+    TAKE_URL = f"https://github.com/{USER}/{USER}/releases/download/{RELEASE}/"
+    os.environ.setdefault("TAKE_LINES", "/tmp/contribution-lines.json")
+
+
 def main():
     sys.stdout.reconfigure(line_buffering=True)  # progress shows up in the Actions log as it happens
+    if "--contribution" in sys.argv:
+        sys.argv.remove("--contribution")
+        use_contribution()
     ap = argparse.ArgumentParser()
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--check", action="store_true")

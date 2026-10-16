@@ -100,7 +100,7 @@ jobs:
           VISITOR_TAKE_TRIES: "3"
         run: |
           pip install --quiet "transformers>=4.51.0,<4.58.0" "diffusers>=0.37.0" einops accelerate loguru diskcache numba \
-            vector-quantize-pytorch "torchao>=0.16.0,<0.17.0" toml peft modelscope matplotlib huggingface_hub safetensors
+            vector-quantize-pytorch "torchao>=0.16.0,<0.17.0" toml peft modelscope matplotlib huggingface_hub safetensors pytorch_wavelets PyWavelets
           python scripts/visitor_take.py --prepare-cpu
           echo "prepared=true" >> "$GITHUB_OUTPUT"  # only complete models get cached
           python scripts/visitor_take.py --cpu /tmp/take
