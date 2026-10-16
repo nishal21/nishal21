@@ -148,7 +148,7 @@ More edits and remixes on [my channel](https://www.youtube.com/@DemonKing0.___).
   </a>
 </p>
 
-<p align="center"><a href="https://github.com/nishal21/nishal21/issues/new?template=visitor-note.yml">Add a note to the visitor song</a> · <a href="https://nishal21.github.io/nishal21/player/?song=visitor">Listen</a> · <a href="assets/visitor-song-lyrics.md">Lyrics and credits</a><br>Pick a note and an instrument, and if you like, write one line for the lyrics. It joins the song that night, with your name in the credits.</p>
+<p align="center"><a href="https://github.com/nishal21/nishal21/issues/new?template=visitor-note.yml">Add a note to the visitor song</a> · <a href="https://nishal21.github.io/nishal21/player/?song=visitor">Listen</a> · <a href="assets/visitor-song-lyrics.md">Lyrics and credits</a><br>Pick a note and an instrument, and if you like, write up to two lines for the lyrics. It joins the song that night, with your name in the credits.</p>
 
 <p align="center">
   <picture>

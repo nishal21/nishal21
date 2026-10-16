@@ -39,7 +39,7 @@ async function fresh(req, key) {
 self.addEventListener("fetch", (e) => {
   const req = e.request, url = new URL(req.url);
   if (req.method !== "GET" || req.headers.has("range") || url.origin !== location.origin) return;
-  if (/\.(mp4|webm|mov|m4v|mkv|ogv|m3u8|mpd|m4s|ts)$/i.test(url.pathname)) return;
+  if (/\.(mp4|webm|mov|m4v|mkv|ogv|m3u8|mpd|m4s|ts|mp3)$/i.test(url.pathname)) return;
   if (req.mode === "navigate") { e.respondWith(fresh(req, new URL("./", self.registration.scope).href)); return; }
   if (/\/thumbs\/[\w-]+(-amb)?\.jpg$/.test(url.pathname) || /\/(clip|trailer)-poster\.jpg$/.test(url.pathname)) {
     e.respondWith(caches.open(THUMBS).then(async (c) => {

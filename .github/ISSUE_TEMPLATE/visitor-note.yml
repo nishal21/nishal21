@@ -1,5 +1,5 @@
 name: Add a note to the visitor song
-description: Pick one note and an instrument, and if you like, write one line for the lyrics.
+description: Pick one note and an instrument, and if you like, write up to two lines for the lyrics.
 title: "Visitor note"
 labels: ["visitor-note"]
 body:
@@ -31,6 +31,14 @@ body:
       label: One lyric line (optional)
       description: Up to 60 characters. Keep it kind. Your GitHub username goes next to it in the credits.
       placeholder: "late night builds and a cup of tea"
+    validations:
+      required: false
+  - type: input
+    id: lyric2
+    attributes:
+      label: A second lyric line (optional)
+      description: Another line of up to 60 characters, sung right after your first one and credited to you as well.
+      placeholder: "the kettle hums along to the fan"
     validations:
       required: false
   - type: checkboxes

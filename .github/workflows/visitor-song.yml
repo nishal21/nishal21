@@ -37,7 +37,9 @@ jobs:
       - name: Read new notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python scripts/visitor_song.py --no-audio
+        run: |
+          python scripts/visitor_song.py --no-audio
+          python scripts/visitor_poster.py assets/visitor-posters --missing || echo "posters not made"
 
       - name: Commit changes
         id: commit
@@ -47,7 +49,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           files="assets/visitor-song-dark.svg assets/visitor-song-light.svg assets/visitor-song-lyrics.md
-                 assets/visitor-song.lrc assets/visitor-song.json data/visitor-song.json"
+                 assets/visitor-song.lrc assets/visitor-song.json data/visitor-song.json assets/visitor-posters"
           # These files are generated, so a rebase conflict is never worth resolving: if main moved,
           # start again from the new main and read the notes once more.
           for i in 1 2 3; do
@@ -65,6 +67,7 @@ jobs:
             git fetch --quiet origin main
             git reset --quiet --hard origin/main
             python scripts/visitor_song.py --no-audio
+            python scripts/visitor_poster.py assets/visitor-posters --missing || echo "posters not made"
           done
           exit 1
 

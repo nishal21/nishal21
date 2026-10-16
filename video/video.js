@@ -303,11 +303,13 @@ const TRAILER = {
   download: { href: "trailer.mp4", name: "nishal-year-trailer.mp4", label: "Download trailer" },
   share: "trailer", artist: "Nishal K",
 };
-// the visitor song as a lyric video: kinetic type, credits for every line, a credits roll (scripts/visitor_video.py)
+// the visitor song as a lyric video, drawn live over the song by lyric-video.js (timings from scripts/visitor_video.py);
+// the rendered MP4 lives on the rolling "visitor-song" release so the site and the repo stay small
+const VISITOR_MP4 = "https://github.com/nishal21/nishal21/releases/download/visitor-song/visitor-song.mp4";
 const VISITOR = {
-  key: "visitor", kind: "file", src: new URL("visitor-song.mp4", SITE).href, shape: "wide",
+  key: "visitor", kind: "file", src: new URL("visitor-video.mp3", SITE).href, lyric: new URL("visitor-video.json", SITE).href, shape: "wide",
   eyebrow: "Visitor song · grows every night", title: "The visitor song, one note per visitor", thumb: "visitor-poster.jpg",
-  download: { href: "visitor-song.mp4", name: "nishal-visitor-song.mp4", label: "Download video" },
+  download: { href: VISITOR_MP4, name: "nishal-visitor-song.mp4", label: "Download video" },
   share: "visitor", artist: "Nishal K and visitors",
 };
 const OWN = (it) => it === CLIP || it === TRAILER || it === VISITOR;
@@ -597,6 +599,17 @@ function loadScript(src) {
     document.head.append(s);
   });
 }
+// a song drawn as a lyric video on a canvas over the <video> element, which plays the audio
+function attachLyric(a, it, seq) {
+  let lv = null, gone = false;
+  const done = a.destroy;
+  a.destroy = () => { gone = true; lv?.destroy(); done.call(a); };
+  (window.LyricVideo ? Promise.resolve() : loadScript("lyric-video.js?v=dev")).then(() => {
+    if (gone || seq !== loadSeq) return;
+    lv = window.LyricVideo.attach({ stage, video, planUrl: it.lyric, reduce: reduceMotion });
+  }).catch(() => {});
+}
+
 function nativeAdapter(it) {
   const a = {
     native: true,
@@ -1079,6 +1092,7 @@ function load(it, { play = false, push = true, focus = false } = {}) {
   else if (it.kind === "vimeo") P = vimeoAdapter(it);
   else if (it.kind === "embed") P = embedAdapter(it);
   else P = nativeAdapter(it);
+  if (it.lyric) attachLyric(P, it, seq);
   P.setVol(prefs.volume, prefs.muted);
   P.setLoop(loop);
   syncToggles();
@@ -2662,7 +2676,7 @@ async function boot() {
     VISITOR.length = visitor.length;
     const n = visitor.stats?.total ?? 0, v = encodeURIComponent(visitor.generated || "");
     VISITOR.metaText = `${fmt(visitor.length || 0)} · ${n} visitor note${n === 1 ? "" : "s"} so far`;
-    VISITOR.src += `?v=${v}`; VISITOR.thumb += `?v=${v}`;
+    VISITOR.src += `?v=${v}`; VISITOR.thumb += `?v=${v}`; VISITOR.lyric += `?v=${v}`;
   }
   if (vids?.channel) channel = { ...channel, ...vids.channel };
   $("#channel-link").href = channel.url;

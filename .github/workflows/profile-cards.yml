@@ -136,6 +136,19 @@ jobs:
         with:
           path: _site
 
+      # The visitor song's lyric video as an MP4 for downloading and sharing. It goes on a rolling "visitor-song"
+      # release (the file is replaced every night) instead of the repo or the Pages site, which play it live.
+      - name: Visitor video release
+        if: steps.song.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/visitor_video.py /tmp/visitor-video
+          gh release view visitor-song >/dev/null 2>&1 || gh release create visitor-song --title "Visitor song video" \
+            --notes "The visitor song's lyric video, rebuilt every night as visitors add lines. Watch it live: https://nishal21.github.io/nishal21/video/?v=visitor" --latest=false
+          gh release upload visitor-song /tmp/visitor-video/visitor-song.mp4 --clobber
+
   pages:
     needs: cards
     if: needs.cards.outputs.song == 'success'

@@ -771,3 +771,7 @@ kbd { display: inline-block; min-width: 1.7em; padding: 1px 6px; border-radius: 
 
 /* hold on the left half to rewind */
 .hold-pill.rew .hp-arrows { scale: -1 1; }
+
+/* the visitor song's live lyric video (lyric-video.js) sits over the audio-only <video> */
+.lyric-canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; background: #000; }
+.stage:not([data-kind="file"]) .lyric-canvas { display: none; }

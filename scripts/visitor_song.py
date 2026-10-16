@@ -1,7 +1,7 @@
 """Visitor song: a small track made from notes and lyric lines that visitors add through an issue.
 
 Separate from the contribution song. Visitors open an issue with the "visitor-note" template and pick a note,
-an instrument and, if they like, one lyric line. Every night this script:
+an instrument and, if they like, up to two lyric lines. Every night this script:
   1. reads open issues labelled visitor-note,
   2. checks each one (one per person per ISO week, line length, blocklist),
   3. appends accepted notes to the track and accepted lines to the lyrics (between the base lines),
@@ -130,12 +130,16 @@ def review(issue, state, words, taken):
     if note not in NOTES or inst not in INSTRUMENTS:
         return None, "the note or instrument didn't come through, so please open a new one from the template"
     line = clean_line(field(body, "One lyric line (optional)"))
-    if len(line) > MAX_LINE:
-        return None, f"the lyric line is longer than {MAX_LINE} characters"
-    if line and blocked(line, words):
-        return None, "the lyric line didn't pass the word filter"
+    line2 = clean_line(field(body, "A second lyric line (optional)"))
+    for k, ln in (("first", line), ("second", line2)):
+        if len(ln) > MAX_LINE:
+            return None, f"the {k} lyric line is longer than {MAX_LINE} characters"
+        if ln and blocked(ln, words):
+            return None, f"the {k} lyric line didn't pass the word filter"
+    if line2 and not line:
+        line, line2 = line2, ""
     taken.add((user.lower(), week))
-    return dict(issue=issue["number"], user=user, week=week, note=note, instrument=inst, line=line or None,
+    return dict(issue=issue["number"], user=user, week=week, note=note, instrument=inst, line=line or None, line2=line2 or None,
                 added=datetime.now(timezone.utc).strftime("%Y-%m-%d"), replied=False), None
 
 
@@ -156,12 +160,17 @@ def base_sections():
     return secs or [("Opening", [])]
 
 
+def lines_of(e):
+    """A visitor's lyric lines: up to two, both credited to them."""
+    return [l for l in (e.get("line"), e.get("line2")) if l]
+
+
 def lyric_sheet(entries):
     """Base lines first in each section, then visitor lines spread across sections in the order they arrived."""
     secs = base_sections()
     visitor = [e for e in entries if e["line"]]
     per = [visitor[i::len(secs)] for i in range(len(secs))]
-    return [(name, [(l, "Nishal K") for l in base] + [(e["line"], "@" + e["user"], e) for e in per[i]])
+    return [(name, [(l, "Nishal K") for l in base] + [(l, "@" + e["user"], e) for e in per[i] for l in lines_of(e)])
             for i, (name, base) in enumerate(secs)]
 
 
@@ -284,7 +293,7 @@ def lyrics_md(entries):
             out += [f"## {name}", ""]
             section = name
         link = f"[{mmss(t)}]({PLAYER}?song=visitor&t={int(t)})"
-        out += [f"{esc(text)}  \n<sub>lyric: {who} · {link}</sub>  ", ""]
+        out += [f"{esc(text)}  \n<sub>lyric: {who} · {link}</sub>  " if e else f"{esc(text)}  \n<sub>{link}</sub>  ", ""]
     out += ["## Credits", "", "**Lyrics:** Nishal K (base lyrics)" +
             "".join(f", @{e['user']}" for e in entries if e["line"]), "",
             "**Notes, in the order they play:**", ""]
@@ -295,7 +304,7 @@ def lyrics_md(entries):
 
 def lyrics_lrc(entries):
     out = ["[ti:Visitor song]", f"[ar:{USER} and visitors]"]
-    out += [f"[{int(t // 60):02d}:{t % 60:05.2f}]{text} ({who})" for _, text, who, _, t in timed_sheet(entries)]
+    out += [f"[{int(t // 60):02d}:{t % 60:05.2f}]{text}" + (f" ({who})" if e else "") for _, text, who, e, t in timed_sheet(entries)]
     return "\n".join(out) + "\n"
 
 
@@ -307,7 +316,7 @@ def card(theme, entries):
     t = THEMES[theme]
     total = length(entries)
     people = len({e["user"].lower() for e in entries})
-    lines = sum(1 for e in entries if e["line"])
+    lines = sum(len(lines_of(e)) for e in entries)
     label = f"Visitor song · {mmss(total)} · {len(entries)} notes from {people} people"
     s = [card_open(t, label=label)]
     s.append(f'<text x="25" y="35" font-family="{FONT}" font-size="18" font-weight="600" fill="{t["title"]}">Visitor song</text>')
@@ -376,10 +385,10 @@ def player_json(entries, audio_buf=None):
                    best_n=len(entries), month=today[:7], month_n=len(entries), streak=0, streak_start=today,
                    streak_end=today, recent=["@" + p for p in people[-3:]], langs=[]),
         items=[["Notes", len(entries), "one beat each"], ["People", len(people), "one note a week each"],
-               ["Lyric lines", sum(1 for x in entries if x["line"]), "credited by name"],
+               ["Lyric lines", sum(len(lines_of(x)) for x in entries), "credited by name"],
                ["Length", mmss(total), f"{BPM} BPM, A minor"]],
-        about=("This song is made by people who visit my GitHub profile. Each visitor adds one note, and can add one line "
-               "to the lyrics with their name next to it. A GitHub Action adds new notes every night."),
+        about=("This song is made by people who visit my GitHub profile. Each visitor adds one note, and can add up to two lines "
+               "to the lyrics with their name next to them. A GitHub Action adds new notes every night."),
         add=f"https://github.com/{USER}/{USER}/issues/new?template=visitor-note.yml",
         notes=[dict(t=round(note_time(i), 3), user=x["user"], note=x["note"], instrument=x["instrument"], line=x["line"])
                for i, x in enumerate(entries)])
@@ -423,6 +432,20 @@ def collect(state):
             state["declined"].append(dict(issue=issue["number"], user=issue["user"]["login"], reason=reason, replied=False))
 
 
+POSTERS = os.path.join(ASSETS, "visitor-posters")
+
+
+def poster_md(x):
+    """The visitor's own poster (scripts/visitor_poster.py), shown inline with links to every size."""
+    if not os.path.exists(os.path.join(POSTERS, f"{x['issue']}-square.jpg")):
+        return ""
+    raw = f"https://raw.githubusercontent.com/{USER}/{USER}/main/assets/visitor-posters/{x['issue']}"
+    sizes = [("Story", "story", "1080×1920"), ("Post", "feed", "1080×1350"), ("Square", "square", "1080×1080"),
+             ("Wide", "wide", "1200×630")]
+    return (f"\n\nHere's a poster of your part to share:\n\n<img src=\"{raw}-square.jpg\" width=\"420\" alt=\"Visitor song poster for @{x['user']}\">\n\n"
+            + " · ".join(f"[{name} {dim}]({raw}-{key}.jpg)" for name, key, dim in sizes))
+
+
 def reply(state):
     idx = {x["issue"]: i for i, x in enumerate(state["entries"])}
     for x in state["entries"]:
@@ -431,10 +454,12 @@ def reply(state):
         i = idx[x["issue"]]
         msg = (f"Thanks @{x['user']}, your {x['note']} on {x['instrument'].lower()} is in the visitor song now. "
                f"It plays at [{mmss(note_time(i))}]({part_link(i)}).")
-        if x["line"]:
+        if lines_of(x):
             lt = line_time(state["entries"], x["issue"])
-            msg += (f'\n\nYour line "{x["line"]}" is in the lyrics with your name next to it, '
-                    f'at [{mmss(lt)}]({PLAYER}?song=visitor&t={int(lt)}).')
+            said = " and ".join(f'"{l}"' for l in lines_of(x))
+            msg += (f'\n\nYour line{"s" if len(lines_of(x)) > 1 else ""} {said} {"are" if len(lines_of(x)) > 1 else "is"} in the lyrics '
+                    f'with your name next to {"them" if len(lines_of(x)) > 1 else "it"}, at [{mmss(lt)}]({PLAYER}?song=visitor&t={int(lt)}).')
+        msg += poster_md(x)
         gh("POST", f"/repos/{USER}/{USER}/issues/{x['issue']}/comments", {"body": msg})
         gh("PATCH", f"/repos/{USER}/{USER}/issues/{x['issue']}", {"state": "closed", "state_reason": "completed"})
         x["replied"] = True

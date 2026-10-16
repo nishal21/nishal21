@@ -395,11 +395,11 @@ class Video:
         if sung_now and leave < 0.5:                      # an underline that follows the voice
             x, y, adv = sung_now
             d.rectangle((x, y + f.size * 1.02, x + adv, y + f.size * 1.02 + 7), fill=acc)
-        # who wrote it: a small card under the line
+        # who wrote it: a small card under a visitor's line
         cy = y0 + block + 34
         p = ease((t - start - 0.3) / 0.6) * (1 - leave)
-        if p > 0.02:
-            visitor = r["who"].startswith("@")
+        if p > 0.02 and r["who"].startswith("@"):  # only visitor lines get a card; Nishal is in the end credits
+            visitor = True
             lab, lw = word_img("lyric by" if visitor else "words by", font(24, "Medium", True), ink)
             nm, nw = word_img(r["who"][:40], font(38, "Bold"), INK if visitor else ink)
             cw = int(max(lw, nw)) + 48
@@ -464,10 +464,32 @@ def overlaps(a, b):
     return a and b and a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
 
 
+def wrapped(text):
+    f, rows = layout(text)
+    return dict(size=f.size, rows=rows)  # the page uses the same line breaks, so both look the same
+
+
+def plan(v, art_url):
+    """Everything the Videos page needs to draw the same video live in the browser (video/lyric-video.js)."""
+    return dict(
+        total=round(v.total, 3), song=round(v.song, 3), first=v.first, roll_start=round(v.roll_start, 3),
+        speed=v.speed, end_card=round(v.end_card, 3), notes=v.notes, people=len(v.people),
+        looks={k: dict(bg=x[0], ink=x[1], acc=x[2]) for k, x in LOOKS.items()},
+        lines=[dict(t=r["t"], next=r["next"], text=r["text"], who=r["who"], section=r["section"],
+                    words=[[w, round(t, 3)] for w, t in r["words"]], **wrapped(r["text"])) for r in v.rows],
+        credits=[[k, h] for k, h in v.credit_rows],
+        art={slot: art_url + os.path.relpath(path, ART).replace(os.sep, "/") for slot, path in v.art.items()},
+        mp4="https://github.com/nishal21/nishal21/releases/download/visitor-song/visitor-song.mp4",
+    )
+
+
 def main():
+    """OUT [--web] [--lrc F --json F --mp3 F] [--frames t1,t2]
+    --web writes what the Videos page plays live: visitor-video.json (the plan), visitor-video.mp3 (the song with a
+    quiet tail for the credits roll) and visitor-poster.jpg. Without it, the MP4 is rendered too (for the release)."""
     args = sys.argv[1:]
     out = args[0] if args and not args[0].startswith("--") else "."
-    opt = {args[i][2:]: args[i + 1] for i in range(len(args) - 1) if args[i].startswith("--")}
+    opt = {args[i][2:]: args[i + 1] for i in range(len(args) - 1) if args[i].startswith("--") and not args[i + 1].startswith("--")}
     lrc = opt.get("lrc", os.path.join(ASSETS, "visitor-song.lrc"))
     js = opt.get("json", os.path.join(ASSETS, "visitor-song.json"))
     mp3 = opt.get("mp3", os.path.join(ASSETS, "visitor-song.mp3"))
@@ -481,15 +503,22 @@ def main():
             v.frame(float(s)).save(os.path.join(out, f"frame-{float(s):06.2f}.png"))
         return
     t0 = time.time()
-    poster_at = max(0.5, v.first - 1.2)
-    v.frame(poster_at).resize((1280, 720), Image.LANCZOS).save(os.path.join(out, "visitor-poster.jpg"), quality=86)
+    v.frame(max(0.5, v.first - 1.2)).resize((1280, 720), Image.LANCZOS).save(os.path.join(out, "visitor-poster.jpg"), quality=86)
+    if "--web" in args:
+        with open(os.path.join(out, "visitor-video.json"), "w") as f:
+            json.dump(plan(v, "../player/art/"), f, separators=(",", ":"))
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", mp3, "-af", f"apad,atrim=0:{v.total:.3f}",
+                        "-c:a", "libmp3lame", "-b:a", "160k", os.path.join(out, "visitor-video.mp3")], check=True)
+        print(f"{out}/visitor-video.json and .mp3 written ({v.total:.1f} s, {len(rows)} lines)")
+        return
     n = int(math.ceil(v.total * FPS))
     target = os.path.join(out, "visitor-song.mp4")
+    # light grain only: heavy per-frame noise is what makes a flat-colour video big
     cmd = ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS),
            "-i", "-", "-i", mp3,
-           "-filter_complex", f"[0:v]noise=c0s=7:c0f=t,format=yuv420p[v];[1:a]apad,atrim=0:{v.total:.3f}[a]",
-           "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "24", "-tune", "film",
-           "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", "-t", f"{v.total:.3f}", target]
+           "-filter_complex", f"[0:v]noise=c0s=3:c0f=t,format=yuv420p[v];[1:a]apad,atrim=0:{v.total:.3f}[a]",
+           "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "medium", "-crf", "27", "-tune", "animation",
+           "-x264-params", "keyint=96", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "-t", f"{v.total:.3f}", target]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     clashes = 0
     for i in range(n):
