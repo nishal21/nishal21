@@ -422,7 +422,7 @@ def take_lines(lyrics, timeline):
     spoken = {d: sp for sec in lyrics.values() for d, sp, _ in sec}
     import re
     say = lambda t: re.sub(r"\[\[[^\]]*\]\]", "Nishal", t)  # Piper phoneme spellings mean nothing to ACE-Step
-    sing_as = {"Neck-oh droid": "Neko droid"}  # respelled for singing only; the lyrics on screen keep the real names
+    sing_as = {"Neck-oh droid": "Neko"}  # respelled for singing only; the lyrics on screen keep the real names
     piper = say
 
     def say(t):

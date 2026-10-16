@@ -234,11 +234,9 @@ def build_lyrics(s, facts, user):
                     f"One repo of my own, in {langs[0][1]}, one line at a time") if langs
                   else L("One repo of my own, one line at a time"))
     elif len(langs) >= 2:
-        # short and easy to sing: ACE-Step garbled "... JavaScript and TypeScript most of the time"
-        v2.append(fit(L(f"{fmt(n_own)} repos, mostly {langs[0][0]}, {langs[1][0]}",
-                        f"{num_words(n_own)} repos, mostly {langs[0][1]}, {langs[1][1]}"),
-                      L(f"{fmt(n_own)} repos, mostly {langs[0][0]}",
-                        f"{num_words(n_own)} repos, mostly {langs[0][1]}")))
+        # short and easy to sing: ACE-Step garbled two language names in one line
+        v2.append(L(f"{fmt(n_own)} repos, {langs[0][0]} most of all",
+                    f"{num_words(n_own)} repos, {langs[0][1]} most of all"))
     elif langs:
         v2.append(fit(L(f"{fmt(n_own)} repos of my own, {langs[0][0]} most of the time",
                         f"{num_words(n_own)} repos of my own, {langs[0][1]} most of the time"),
