@@ -180,11 +180,13 @@ jobs:
               echo "pushed=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
+            echo "::notice::main moved while this ran (try $i), so the notes are read again on the new main"
             sleep 10
             git fetch --quiet origin main
             git reset --quiet --hard origin/main
-            python scripts/visitor_song.py --no-audio
+            python scripts/visitor_song.py --no-audio  # the take is already on the release, so nothing is lost
             done
+          echo "::error::Couldn't push the visitor song after 3 tries; the take is on the release and the next run commits it"
           exit 1
 
       # The player site is built and deployed by the profile-cards workflow; run it now so the new notes are live.
