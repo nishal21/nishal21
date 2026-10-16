@@ -25,7 +25,7 @@ Every bar is one week of my GitHub contribution calendar, in order. Busier weeks
 ## Verse 2
 
 `0:44` Right now I'm deep in motion-skill and nekodroid-docs  
-`0:48` 64 repos, JavaScript and TypeScript most of the time  
+`0:48` 64 repos, mostly JavaScript, TypeScript  
 `0:51` Cut it like an AMV, every frame in place  
 `0:54` Mix it like a mashup, every verse in rhyme  
 
@@ -44,5 +44,7 @@ Every bar is one week of my GitHub contribution calendar, in order. Busier weeks
 
 `1:22` That was 928 contributions from nishal21  
 `1:26` Tomorrow the numbers change, and the song does too  
+
+**Vocals:** Piper TTS, two voices
 
 [Play it in the browser](https://nishal21.github.io/nishal21/player/) or [download the MP3](https://nishal21.github.io/nishal21/player/contribution-song.mp3).
