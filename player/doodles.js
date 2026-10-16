@@ -69,28 +69,41 @@
     const gap = small ? 140 : 190;  // minimum distance between doodles (Poisson-disc style)
     const sizes = small ? [84, 72, 64] : [140, 120, 104, 90, 78, 68, 60];
     const capH = 20, step = 12;
-    // all free spots for each size, found on a coarse grid, then visited in random order
+    // free spots for every size on a coarse grid
     const order = [...set.keys()].sort(() => rnd() - 0.5);
     let k = 0;
-    for (const w of sizes) {
-      if (placed.length >= want) break;
-      const h = Math.round(w * 0.75), spots = [];
+    const free = sizes.map((w) => {
+      const h = Math.round(w * 0.75), list = [];
       for (let y = 64; y + h + capH < H - 16; y += step)
         for (let x = 8; x + w < W - 8; x += step) {
           const box = [x, y, x + w, y + h + capH];
-          if (!hit(box, block)) spots.push(box);
+          if (!hit(box, block)) list.push(box);
         }
-      spots.sort(() => rnd() - 0.5);
-      for (const box of spots) {
-        if (placed.length >= want) break;
-        const cx = (box[0] + box[2]) / 2, cy = (box[1] + box[3]) / 2;
-        if (placed.some((p) => Math.hypot((p[0] + p[2]) / 2 - cx, (p[1] + p[3]) / 2 - cy) < gap)) continue;
-        placed.push(box);
+      return list;
+    });
+    const far = (box) => { const cx = (box[0] + box[2]) / 2, cy = (box[1] + box[3]) / 2;
+      return !placed.some((p) => Math.hypot((p[0] + p[2]) / 2 - cx, (p[1] + p[3]) / 2 - cy) < gap); };
+    // stratified: split the page into equal bands and give each band one doodle, so they spread over the whole height
+    const picks = [];
+    const bands = want, bh = H / bands;
+    const bandOrder = [...Array(bands).keys()].sort(() => rnd() - 0.5);
+    for (const pass of [0, 1]) for (const bi of bandOrder) {
+      if (picks.length >= want) break;
+      if (pass === 0 && picks.some((p) => p.band === bi)) continue;
+      let got = null;
+      for (let si = 0; si < sizes.length && !got; si++) {
+        const c = free[si].filter((bx) => { const cy = (bx[1] + bx[3]) / 2; return cy >= bi * bh && cy < (bi + 1) * bh && far(bx); });
+        if (c.length) got = { box: c[Math.floor(rnd() * c.length)], w: sizes[si] };
+      }
+      if (got) { placed.push(got.box); picks.push({ ...got, band: bi }); }
+    }
+    for (const { box, w } of picks) {
+      {
         const idx = order[k % order.length], [, word] = set[idx], text = texts[idx]; k++;
         if (!text) continue;
         const fig = document.createElement("figure");
         fig.className = "doodle";
-        fig.style.cssText = `left:${box[0]}px;top:${box[1]}px;width:${w}px;--rot:${(rnd() * 10 - 5).toFixed(1)}deg;--d:${(placed.length - 1) * 0.35}s`;
+        fig.style.cssText = `left:${box[0]}px;top:${box[1]}px;width:${w}px;--rot:${(rnd() * 10 - 5).toFixed(1)}deg;--d:${(k - 1) * 0.35}s`;
         fig.innerHTML = text.replace('fill="#000"', `fill="${ink}"`).replace('fill="#FF5678"', `fill="${acc}"`).replace("<svg ", '<svg focusable="false" ');
         fig.querySelectorAll("path").forEach((p) => { p.setAttribute("pathLength", "1"); p.style.stroke = p.getAttribute("fill") || "currentColor"; });
         const cap = document.createElement("figcaption");

@@ -1034,3 +1034,20 @@ kbd {
   .remix-open .rx-status { grid-area: status; }
   .remix-open .rx-length { grid-area: length; }
 }
+
+/* remix on mid-width desktops with short screens: compact rows so the panel fits without its own scroll */
+@media (min-width: 900px) and (max-width: 1199px) and (max-height: 900px) {
+  :root[data-persona] .remix-open .remix-pane { gap: 10px; }
+  :root[data-persona] .remix-open .rx-head p, :root[data-persona] .remix-open .rx-hint { display: none; }
+  :root[data-persona] .remix-open .rx-stem { padding-block: 4px; min-height: 0; }
+  :root[data-persona] .remix-open .rx-stem .rx-m, :root[data-persona] .remix-open .rx-stem .rx-s { width: 28px; height: 28px; }
+  :root[data-persona] .remix-open .rx-knob { --size: 40px; width: 40px; height: 40px; }
+  :root[data-persona] .remix-open .rx-stems { gap: 0; }
+  :root[data-persona] .remix-open .rx-scale { display: none; }
+  :root[data-persona] .remix-open .rx-sound { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--s3); }
+  :root[data-persona] .remix-open .rx-knobs { gap: var(--s3); }
+  :root[data-persona] .remix-open .rx-kitbox > .rx-cap { display: none; }
+  :root[data-persona] .remix-open .rx-stem { padding-block: 1px; }
+  :root[data-persona] .remix-open .rx-knob { --size: 34px; width: 34px; height: 34px; }
+  :root[data-persona] .remix-open .rx-tempo { gap: var(--s2); }
+}
