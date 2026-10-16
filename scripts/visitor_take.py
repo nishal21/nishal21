@@ -51,6 +51,7 @@ CAPTION = ("intimate indie pop ballad, 96 BPM, A minor, 4/4. Male lead vocal upf
            "gentle warm pad, light brushed drums, soft round bass, lots of space around the vocal. Cinematic, warm, mellow, "
            "no backing vocals, no ad-libs.")
 CPU_LM = "acestep-5Hz-lm-0.6B"
+CLOUD_BUDGET = int(os.environ.get("ACEMUSIC_BUDGET", "900"))  # seconds of retrying a busy acemusic.ai before the CPU
 TRIES = int(os.environ.get("VISITOR_TAKE_TRIES", "4"))
 GOOD, FLOOR = 0.85, 0.75   # aim for 85% of words heard; never publish below 75%
 SR = 44100
@@ -426,7 +427,8 @@ def run(engine, out_dir):
     seed0 = int(h[:6], 16) % 100000
     tries = TRIES + (2 if engine == "cloud" else 0)  # cloud takes are quick, so reroll a few more before the CPU
     print(f"{label}: {len(lines)} lines, {dur} s of song requested, up to {tries} takes")
-    for k in range(tries + (3 if engine == "cloud" else 0)):  # room for a few server errors on top of the takes
+    start = time.time()
+    for k in range(tries + (12 if engine == "cloud" else 0)):  # room for a few server errors on top of the takes
         seed = seed0 + 7919 * k
         t0 = time.time()
         try:
@@ -434,9 +436,13 @@ def run(engine, out_dir):
         except Failed as e:
             fails += 1
             print(f"::warning::{label} take {k + 1} failed: {e}")
-            if fails >= 4 and best is None:
+            if re.search(r"HTTP 40[0-3]", str(e)):  # a bad key or request won't get better by waiting
                 break
-            time.sleep(min(60, 20 * fails))  # back off: 20, 40, 60 s
+            # a busy server answers every request with a 504 (even a 20 s song), so wait it out within a budget
+            if time.time() - start > CLOUD_BUDGET:
+                print(f"::warning::{label}: still failing after {CLOUD_BUDGET // 60} min, giving up")
+                break
+            time.sleep(min(120, 30 * fails))  # back off: 30, 60, 90, 120 s
             continue
         took = time.time() - t0
         sung += 1
