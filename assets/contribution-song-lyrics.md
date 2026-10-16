@@ -45,6 +45,6 @@ Every bar is one week of my GitHub contribution calendar, in order. Busier weeks
 `1:22` That was 933 contributions from nishal21  
 `1:26` Tomorrow the numbers change, and the song does too  
 
-**Vocals:** Piper TTS, two voices
+**Vocals:** [ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5) by ACE Studio × StepFun (Apache-2.0), sung tonight a section at a time on [acemusic.ai](https://acemusic.ai) and a GitHub Actions CPU
 
 [Play it in the browser](https://nishal21.github.io/nishal21/player/) or [download the MP3](https://nishal21.github.io/nishal21/player/contribution-song.mp3).
