@@ -945,18 +945,27 @@ kbd {
   :root[data-persona] .skipbtn, :root[data-persona] .play, :root[data-persona] .ly, :root[data-persona] .line > span { transition: none !important; }
 }
 
-/* page doodles: quiet, static, beside the headings; they take their own space so they never cover text */
-.block-head:has(.deco) { position: relative; padding-right: 136px; min-height: 90px; }
-.block-head .deco { position: absolute; right: 0; top: 50%; translate: 0 -50%; width: 120px; height: 90px; opacity: 0.9; pointer-events: none; }
-.foot { position: relative; }
-.foot .deco { display: block; width: 140px; height: 105px; margin: 0 auto var(--s3, 12px); opacity: 0.9; pointer-events: none; }
-.deco:not([src]) { visibility: hidden; }
-@media (max-width: 600px) {
-  .block-head:has(.deco) { padding-right: 88px; min-height: 60px; }
-  .block-head .deco { width: 80px; height: 60px; }
-}
+/* page doodles (doodles.js): an absolute layer over the whole page, placed only in empty space */
+.doodles { position: absolute; top: 0; left: 0; width: 100%; overflow: hidden; pointer-events: none; z-index: 0; }
+.doodle { position: absolute; margin: 0; rotate: var(--rot); opacity: 0.92; }
+.doodle svg { display: block; width: 100%; height: auto; }
+.doodle path { stroke-width: 0; }
+.doodle figcaption { margin-top: 2px; text-align: center; font: 500 0.75rem/16px var(--mono); letter-spacing: 0.04em; color: var(--fg-3); white-space: nowrap; }
+:root[data-persona="poster"] .doodle figcaption, :root[data-persona="editorial"] .doodle figcaption { font-family: Bricolage, sans-serif; font-size: 0.8125rem; }
+:root[data-persona="sketch"] .doodle figcaption { font-family: Bricolage, sans-serif; font-weight: 700; text-transform: uppercase; }
+/* entrance: the outline draws on like a pen line, the fill settles in, the caption types and tracks out */
+.doodle.enter path { stroke-width: 6; stroke-dasharray: 1; stroke-dashoffset: 1; fill-opacity: 0;
+  animation: pen 1.6s cubic-bezier(.45,.05,.3,1) var(--d) forwards, ink 0.8s ease var(--d) forwards; animation-delay: var(--d), calc(var(--d) + 1.2s); }
+.doodle.enter figcaption { animation: track 1.2s ease calc(var(--d) + 1.3s) both; }
+.doodle.enter figcaption span { opacity: 0; animation: type 0.01s steps(1) calc(var(--d) + 1.3s + var(--k) * 70ms) forwards; }
+@keyframes pen { to { stroke-dashoffset: 0; } }
+@keyframes ink { to { fill-opacity: 1; stroke-width: 0; } }
+@keyframes type { to { opacity: 1; } }
+@keyframes track { from { letter-spacing: 0; } to { letter-spacing: 0.04em; } }
+@media (prefers-reduced-motion: reduce) { .doodle.enter path, .doodle.enter figcaption, .doodle.enter figcaption span { animation: none; stroke-width: 0; stroke-dashoffset: 0; fill-opacity: 1; opacity: 1; } }
 /* no deck part may grow wider than its column (long event chips used to push the editorial panel off screen) */
-.np > *, .scrub, .now-badge { min-width: 0; max-width: 100%; }
+.np > :not(.remix-pane, .lyrics-pane), .scrub, .now-badge { min-width: 0; max-width: 100%; }
+.np > :is(.remix-pane, .lyrics-pane) { min-width: 0; }
 .now-badge .chip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 479px) {
   /* poster: the header buttons become two equal round icons so the title gets the room */
@@ -969,4 +978,33 @@ kbd {
   .downloads #clip-dl, .downloads .to-notes { grid-column: 1 / -1; }
   .downloads .to-notes { justify-self: center; }
   .downloads .dl span, .downloads .dl small { white-space: nowrap; }
+}
+/* phones with Lyrics or Remix open: the compact layout wins over every look's own grid (the looks' grid rules are
+   more specific, which collapsed the deck into the 64 px cover column) */
+@media (max-width: 899px) {
+  :root[data-persona] body.lyrics-mode .np {
+    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "art meta" "lyrics lyrics" "scrub scrub" "controls controls";
+  }
+  :root[data-persona] body.remix-open .np {
+    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    grid-template-areas: "art meta" "scrub scrub" "controls controls" "remix remix";
+  }
+  :root[data-persona] body:is(.lyrics-mode, .remix-open) .art { width: 64px; }
+  :root[data-persona] body:is(.lyrics-mode, .remix-open) .meta { flex-wrap: nowrap; min-width: 0; }
+  :root[data-persona] body:is(.lyrics-mode, .remix-open) .meta h1 { font-size: 1.125rem; }
+  :root[data-persona] body:is(.lyrics-mode, .remix-open) .play { width: 64px; height: 64px; }
+}
+/* every look: a thin, quiet edge around the cover so it never melts into the page colour */
+:root[data-persona] #sleeve { box-shadow: 0 0 0 1px color-mix(in oklab, var(--fg) 16%, transparent); }
+:root[data-persona="poster"] #sleeve { border-radius: 6px; }
+:root[data-persona="editorial"] #sleeve { border-radius: 10px; }
+:root[data-persona="poster"] .pill[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+/* very narrow phones: tighter header so the tabs and the two icon buttons fit in 320 px */
+@media (max-width: 359px) {
+  .top-end { gap: 0; }
+  .top-end button { width: 36px; height: 36px; }
+  .tabs a, .tabs [role="tab"] { padding-inline: 8px; font-size: 0.8125rem; }
 }

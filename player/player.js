@@ -53,7 +53,7 @@ let pulse = 0;
 const schemeMeta = $('meta[name="color-scheme"]');
 const sysDark = matchMedia("(prefers-color-scheme: dark)");
 const rendered = () => (schemeMeta.content === "light dark" ? (sysDark.matches ? "dark" : "light") : schemeMeta.content);
-function schemeChanged() { setThemeColor(); drawWave(); drawBackdrop(); decorate(); }
+function schemeChanged() { setThemeColor(); drawWave(); drawBackdrop(); window.layoutDoodles?.(false); }
 $("#theme").addEventListener("click", () => {
   const target = rendered() === "dark" ? "light" : "dark";
   const system = sysDark.matches ? "dark" : "light";
@@ -153,7 +153,6 @@ function setPersona(p, { save = true, hash = true } = {}) {
   $$('#looks input[name="look"]').forEach((r) => (r.checked = r.value === p));
   discImg = null;
   if (song) { drawSleeve(); drawWave(); layoutLyrics(true); update(true); }
-  decorate();
 }
 $$('#looks input[name="look"]').forEach((r) => {
   r.checked = r.value === persona;
@@ -185,27 +184,6 @@ function art(name, ink, accent) {
   artImgs[key] = img;
   return null;
 }
-// Page decoration: a different set of Open Doodles per look, next to the section headings and the footer.
-// Static, decorative only (aria-hidden), recoloured to the look's colours.
-const DECO = {
-  vinyl: ["chilling", "float", "laying"],
-  poster: ["levitate", "roller-skating", "strolling"],
-  editorial: ["reading", "sitting-reading", "meditating"],
-  sketch: ["coffee", "swinging", "plant"],
-};
-const decoSrc = {};
-function decorate() {
-  const slots = document.querySelectorAll(".deco");
-  const names = DECO[root.dataset.persona] || DECO.vinyl;
-  const ink = cssColor("var(--fg-2)"), acc = cssColor("var(--accent)");
-  slots.forEach((img, i) => {
-    const name = names[i % names.length];
-    const set = (t) => { img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(t.replace('fill="#000"', `fill="${ink}"`).replace('fill="#FF5678"', `fill="${acc}"`)); };
-    if (decoSrc[name]) return set(decoSrc[name]);
-    fetch(`art/page/${name}.svg`).then((r) => (r.ok ? r.text() : Promise.reject())).then((t) => { decoSrc[name] = t; if ((DECO[root.dataset.persona] || DECO.vinyl)[i % 3] === name) set(t); }).catch(() => {});
-  });
-}
-decorate();
 let letter = null;
 const letterTint = {};
 function handwriting(color) {

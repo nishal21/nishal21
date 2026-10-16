@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 rm -rf _site
 mkdir -p _site/player/fonts
-cp player/index.html player/player.css player/player.js player/remix.js player/remix-worklet.js _site/player/
+cp player/index.html player/player.css player/player.js player/doodles.js player/remix.js player/remix-worklet.js _site/player/
 cp player/fonts/*.woff2 player/fonts/LICENSE.txt _site/player/fonts/
 # artwork for the player looks (Open Doodles, CC0, and a public domain letter; see player/art/CREDITS.txt)
 mkdir -p _site/player/art && cp -R player/art/. _site/player/art/
@@ -46,6 +46,7 @@ sed -i -e "s/video\.css?v=dev/video.css?v=$(h _site/video/video.css)/" \
        -e "s/videos\.json?v=dev/videos.json?v=$(h _site/video/videos.json)/" _site/video/index.html
 sed -i -e "s/player\.css?v=dev/player.css?v=$(h _site/player/player.css)/" \
        -e "s/player\.js?v=dev/player.js?v=$(h _site/player/player.js)/" \
+       -e "s/doodles\.js?v=dev/doodles.js?v=$(h _site/player/doodles.js)/" \
        -e "s/remix\.js?v=dev/remix.js?v=$(h _site/player/remix.js)/" \
        -e "s/menu\.css?v=dev/menu.css?v=$(h _site/video/menu.css)/" \
        -e "s/menu\.js?v=dev/menu.js?v=$(h _site/video/menu.js)/" _site/player/index.html
