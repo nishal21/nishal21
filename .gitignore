@@ -7,3 +7,5 @@ assets/contribution-song.mp3
 assets/stems/
 # the visitor song MP3 is rebuilt and published to Pages by profile-cards, like the contribution song
 assets/visitor-song.mp3
+# ACE-Step writes a scratch cache in the working directory when the visitor song is sung on the CPU
+.cache/

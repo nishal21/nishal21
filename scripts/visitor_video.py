@@ -7,7 +7,8 @@ used once in the whole video, so when the song has more lines than drawings, som
 A title card opens it and a credits roll lists everyone at the end.
 
 Timing comes from assets/visitor-song.lrc (line starts and credits) and assets/visitor-song.json (sections, length);
-inside a line the words are spread by syllables over the time the voice takes to sing it.
+inside a line each word lights up at the time Whisper heard it in the sung take (visitor_take.py), or, for the
+Piper fallback, the words are spread by syllables over the time the voice takes to sing it.
 
 Writes visitor-song.mp4 and visitor-poster.jpg into the given folder. Needs ffmpeg, Pillow and CairoSVG.
 Usage: visitor_video.py OUT_DIR [--lrc FILE --json FILE --mp3 FILE] [--frames t1,t2,...]
@@ -192,6 +193,7 @@ def load(lrc_path, json_path, mp3):
         rows.append(dict(t=t, text=body, who=who))
     rows.sort(key=lambda r: r["t"])
     secs = {round(l["t"], 2): l.get("section", "Verse") for l in data.get("lines", [])}
+    sung_words = {l["t"]: l["words"] for l in data.get("lines", []) if l.get("words")}
     for i, r in enumerate(rows):
         r["section"] = secs.get(round(r["t"], 2), "Verse")
         nxt = rows[i + 1]["t"] if i + 1 < len(rows) else r["t"] + 5.0
@@ -202,6 +204,9 @@ def load(lrc_path, json_path, mp3):
         for w, s in zip(r["text"].split(), sy):
             r["words"].append((w, acc))
             acc += sung * s / sum(sy)
+        heard = next((v for k, v in sung_words.items() if abs(k - r["t"]) < 0.02), None)
+        if heard and len(heard) == len(r["words"]):  # a sung take: each word lights up when the voice reaches it
+            r["words"] = [(w, max(r["t"] - 0.05, float(t) - 0.05)) for (w, _), (_, t) in zip(r["words"], heard)]
     length = float(data.get("length") or 0)
     if os.path.exists(mp3):
         out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", mp3],
@@ -222,6 +227,7 @@ class Video:
                 seen.add(r["who"].lower())
                 self.people.append((r["who"], r["text"]))
         self.notes = len(data.get("notes", []))
+        self.engine = data.get("engine", "Piper")
         # credits roll: starts as the last line clears, scrolls at a calm, readable speed
         self.roll_start = max(self.last_end - 0.6, 1.0)
         self.credit_rows = self.build_credits()
@@ -250,8 +256,15 @@ class Video:
             for who, line in self.people:
                 out.append((f"person:{who}|{line}", 118))
             out.append(("gap:", 50))
-        out += [("label:words, music and the rest of the lyrics", 80), ("person:Nishal K|github.com/nishal21", 118),
-                ("gap:", 40), ("label:drawings", 80), ("person:Open Doodles|by Pablo Stanley, CC0", 118),
+        if self.engine == "Piper":
+            out += [("label:words, music and the rest of the lyrics", 80), ("person:Nishal K|github.com/nishal21", 118)]
+        else:
+            where = "free ACE-Step cloud, sang this take" if self.engine == "acemusic.ai" else "ACE-Step on CPU, sang this take"
+            out += [("label:the rest of the lyrics", 80), ("person:Nishal K|github.com/nishal21", 118),
+                    ("gap:", 40), ("label:voice and music", 80),
+                    ("person:ACE-Step 1.5|ACE Studio x StepFun · Apache-2.0", 118),
+                    (f"person:{'acemusic.ai' if self.engine == 'acemusic.ai' else 'GitHub Actions'}|{where}", 118)]
+        out += [("gap:", 40), ("label:drawings", 80), ("person:Open Doodles|by Pablo Stanley, CC0", 118),
                 ("gap:", 40), ("label:notes in the song", 80), (f"big:{self.notes} and counting", 150)]
         return out
 

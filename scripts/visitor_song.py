@@ -10,9 +10,11 @@ The MP3 is not committed: the profile-cards workflow runs this with --rebuild an
 With --reply (run after the push) it comments on each processed issue with a link to the second
 their part plays, and closes it. Declined issues get a short, kind reason and are closed too.
 
-Arrangement: 96 BPM, A minor, one visitor note per beat over a soft pad and a quiet kick on 1 and 3.
-The song grows by one beat per note; every lyric line is sung over two bars
-by the same Piper voice as the contribution song's chorus (song_vocals.py), at its natural pitch and an unhurried speed.
+Voice and music: ACE-Step 1.5 sings the lyrics (scripts/visitor_take.py makes a "take" whenever the lyrics change and
+keeps it on the "visitor-song" release, with line and word timings from Whisper), and each visitor's note plays over it
+at its beat. Until the first take exists, it falls back to the original arrangement: 96 BPM, A minor, one visitor note
+per beat over a soft pad and a quiet kick on 1 and 3, every lyric line sung over two bars by the Piper voice of the
+contribution song's chorus (song_vocals.py).
 State lives in data/visitor-song.json so a rerun never adds the same issue twice.
 """
 import argparse
@@ -47,10 +49,52 @@ INTRO_BARS = 2
 OUTRO_BARS = 2
 LINE_BARS = 2  # each sung line gets two bars (5 s), so nothing is rushed
 MAX_LINE = 60
+TAKE_DIR = os.environ.get("VISITOR_TAKE_DIR") or os.path.expanduser("~/.cache/visitor-take")
+ACE_STEP = "https://github.com/ace-step/ACE-Step-1.5"
 
 NOTES = {"A": 57, "B": 59, "C": 60, "D": 62, "E": 64, "F": 65, "G": 67, "A (high)": 69}
 INSTRUMENTS = ("Piano", "Pluck", "Bell", "Bass", "Pad")
 PROG = [[57, 60, 64, 67], [53, 57, 60, 64], [48, 55, 60, 64], [55, 59, 62, 67]]  # Am7 Fmaj7 C G
+
+
+# ---------- the sung take ----------
+
+_take = False
+
+
+def take():
+    """The last good ACE-Step take from the release (or VISITOR_TAKE_DIR when it already holds one), or None, and
+    then Piper sings. A take for older lyrics is still used: the song stays the last good one until a new take passes."""
+    global _take
+    if _take is not False:
+        return _take
+    _take = None
+    if os.environ.get("VISITOR_NO_TAKE"):
+        return None
+    import urllib.request
+    try:
+        for f in ("visitor-take.json", "visitor-take.mp3"):
+            p = os.path.join(TAKE_DIR, f)
+            if os.environ.get("VISITOR_TAKE_DIR") and os.path.exists(p):
+                continue
+            url = f"https://github.com/{USER}/{USER}/releases/download/visitor-song/{f}"
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": f"{USER}-visitor-song"}), timeout=60) as r:
+                write_atomic(p, r.read())
+        with open(os.path.join(TAKE_DIR, "visitor-take.json")) as f:
+            t = json.load(f)
+        if t.get("lines") and os.path.getsize(os.path.join(TAKE_DIR, "visitor-take.mp3")) > 10000:
+            _take = t
+    except Exception as e:  # noqa: BLE001
+        print(f"visitor song: no ACE-Step take yet ({e}), so Piper sings")
+    return _take
+
+
+def engine_credit():
+    t = take()
+    if not t:
+        return "Voice: Piper (the contribution song's chorus voice)"
+    where = "on acemusic.ai" if t.get("engine") == "acemusic.ai" else "on a GitHub Actions CPU"
+    return f"Voice and music: ACE-Step 1.5 by ACE Studio × StepFun (Apache-2.0), sung {where}"
 
 
 # ---------- issues ----------
@@ -175,7 +219,14 @@ def lyric_sheet(entries):
 
 
 def timed_sheet(entries):
-    """Every lyric line, base or visitor, gets LINE_BARS bars in order, starting after the intro."""
+    """Every lyric line, base or visitor, gets LINE_BARS bars in order, starting after the intro.
+    With a sung take, the lines and their times are the take's (what you actually hear)."""
+    tk = take()
+    if tk:
+        by = {(("@" + e["user"]).lower(), l): e for e in entries for l in lines_of(e)}
+        return [(ln["section"], ln["text"], ln["who"],
+                 (by.get((ln["who"].lower(), ln["text"])) or dict(issue=None, user=ln["who"][1:])) if ln["who"].startswith("@") else None,
+                 ln["t"]) for ln in tk["lines"]]
     out, k = [], 0
     for name, lines in lyric_sheet(entries):
         for item in lines:
@@ -191,6 +242,8 @@ def note_time(i):
 
 
 def length(entries):
+    if take():
+        return max(float(take()["length"]), note_time(len(entries)) + 2 * BEAT)
     lines = sum(len(l) for _, l in lyric_sheet(entries))
     bars = INTRO_BARS + max(-(-max(1, len(entries)) // 4), lines * LINE_BARS) + OUTRO_BARS
     return bars * BAR
@@ -234,7 +287,24 @@ def vocals(entries, n):
     return out / (np.max(np.abs(out)) + 1e-9) * 0.5
 
 
+def render_take(entries, tk):
+    """The take, with every visitor's note at its beat, quietly on top."""
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", os.path.join(TAKE_DIR, "visitor-take.mp3"), "-ac", "2", "-ar", str(SR),
+                          "-f", "f32le", "-"], capture_output=True, check=True).stdout
+    x = np.frombuffer(raw, np.float32).reshape(-1, 2).T.astype(np.float64)
+    total = length(entries)
+    mix = np.zeros((2, int(total * SR)))
+    mix[:, :min(mix.shape[1], x.shape[1])] = x[:, :mix.shape[1]]
+    for i, e in enumerate(entries):
+        v = voice(e["instrument"], NOTES[e["note"]], int(BEAT * 1.6 * SR))
+        S.add(mix, S.pan(v * 0.22, ((i * 7) % 11) / 10 - 0.5), note_time(i))
+    return S.limit(mix, -1.0)
+
+
 def render(entries):
+    tk = take()
+    if tk:
+        return render_take(entries, tk)
     total = length(entries)
     n = int(total * SR) + SR
     mix = np.zeros((2, n))
@@ -296,6 +366,8 @@ def lyrics_md(entries):
         out += [f"{esc(text)}  \n<sub>lyric: {who} · {link}</sub>  " if e else f"{esc(text)}  \n<sub>{link}</sub>  ", ""]
     out += ["## Credits", "", "**Lyrics:** Nishal K (base lyrics)" +
             "".join(f", @{e['user']}" for e in entries if e["line"]), "",
+            f"**{engine_credit().split(':')[0]}:** {engine_credit().split(': ', 1)[1]}" +
+            (f" · [ACE-Step]({ACE_STEP}) · [acemusic.ai](https://acemusic.ai)" if take() else ""), "",
             "**Notes, in the order they play:**", ""]
     out += [f"{i + 1}. @{e['user']} · {e['note']} on {e['instrument'].lower()} · [{mmss(note_time(i))}]({part_link(i)})"
             for i, e in enumerate(entries)]
@@ -363,6 +435,10 @@ def player_json(entries, audio_buf=None):
     sheet = timed_sheet(entries)
     lines = [dict(t=round(t, 3), end=round(t + LINE_BARS * BAR * 0.92, 3), section=name,
                   text=text if who == "Nishal K" else f"{text} ({who})") for name, text, who, _, t in sheet]
+    tk = take()
+    if tk:  # the take's own line ends and word times, so the lyrics follow the voice word by word
+        for ln, tl in zip(lines, tk["lines"]):
+            ln["end"], ln["words"] = tl["end"], tl["words"]
     secs = [dict(name="Intro", start=0.0, bars=INTRO_BARS)]
     for name, _, _, _, t in sheet:
         if secs[-1]["name"] != name:
@@ -388,7 +464,8 @@ def player_json(entries, audio_buf=None):
                ["Lyric lines", sum(len(lines_of(x)) for x in entries), "credited by name"],
                ["Length", mmss(total), f"{BPM} BPM, A minor"]],
         about=("This song is made by people who visit my GitHub profile. Each visitor adds one note, and can add up to two lines "
-               "to the lyrics with their name next to them. A GitHub Action adds new notes every night."),
+               "to the lyrics with their name next to them. A GitHub Action adds new notes every night. " + engine_credit() + "."),
+        engine=(take() or {}).get("engine", "Piper"),
         add=f"https://github.com/{USER}/{USER}/issues/new?template=visitor-note.yml",
         notes=[dict(t=round(note_time(i), 3), user=x["user"], note=x["note"], instrument=x["instrument"], line=x["line"])
                for i, x in enumerate(entries)])
@@ -458,8 +535,12 @@ def reply(state):
         if lines_of(x):
             lt = line_time(state["entries"], x["issue"])
             said = " and ".join(f'"{l}"' for l in lines_of(x))
-            msg += (f'\n\nYour line{"s" if len(lines_of(x)) > 1 else ""} {said} {"are" if len(lines_of(x)) > 1 else "is"} in the lyrics '
-                    f'with your name next to {"them" if len(lines_of(x)) > 1 else "it"}, at [{mmss(lt)}]({PLAYER}?song=visitor&t={int(lt)}).')
+            if lt is None:  # the song hasn't been sung with it yet; the next good take adds it
+                msg += (f'\n\nYour line{"s" if len(lines_of(x)) > 1 else ""} {said} {"are" if len(lines_of(x)) > 1 else "is"} in the lyrics '
+                        f'with your name next to {"them" if len(lines_of(x)) > 1 else "it"}, and will be sung in the next version of the song.')
+            else:
+                msg += (f'\n\nYour line{"s" if len(lines_of(x)) > 1 else ""} {said} {"are" if len(lines_of(x)) > 1 else "is"} in the lyrics '
+                        f'with your name next to {"them" if len(lines_of(x)) > 1 else "it"}, at [{mmss(lt)}]({PLAYER}?song=visitor&t={int(lt)}).')
         msg += poster_md(x)
         gh("POST", f"/repos/{USER}/{USER}/issues/{x['issue']}/comments", {"body": msg})
         gh("PATCH", f"/repos/{USER}/{USER}/issues/{x['issue']}", {"state": "closed", "state_reason": "completed"})

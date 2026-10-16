@@ -148,7 +148,7 @@ More edits and remixes on [my channel](https://www.youtube.com/@DemonKing0.___).
   </a>
 </p>
 
-<p align="center"><a href="https://github.com/nishal21/nishal21/issues/new?template=visitor-note.yml">Add a note to the visitor song</a> · <a href="https://nishal21.github.io/nishal21/player/?song=visitor">Listen</a> · <a href="assets/visitor-song-lyrics.md">Lyrics and credits</a><br>Pick a note and an instrument, and if you like, write up to two lines for the lyrics. It joins the song that night, with your name in the credits.</p>
+<p align="center"><a href="https://github.com/nishal21/nishal21/issues/new?template=visitor-note.yml">Add a note to the visitor song</a> · <a href="https://nishal21.github.io/nishal21/player/?song=visitor">Listen</a> · <a href="assets/visitor-song-lyrics.md">Lyrics and credits</a><br>Pick a note and an instrument, and if you like, write up to two lines for the lyrics. It joins the song that night, with your name in the credits.<br><sub>Sung by <a href="https://github.com/ace-step/ACE-Step-1.5">ACE-Step 1.5</a> (ACE Studio x StepFun, Apache-2.0), on <a href="https://acemusic.ai">acemusic.ai</a> or, as a fallback, on a GitHub Actions CPU. The <a href="assets/visitor-song-lyrics.md">lyrics page</a> names which one sang tonight's take.</sub></p>
 
 <p align="center">
   <picture>

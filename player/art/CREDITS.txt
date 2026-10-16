@@ -10,3 +10,11 @@ Handwriting texture
   U.S. National Archives (NARA 192847), public domain.
   https://commons.wikimedia.org/wiki/File:Abraham_Lincoln_Letter_to_Mr._Brayman_September_23,_1854_-_NARA_-_192847.jpg
   Cropped and turned into a transparent ink layer.
+
+Visitor song voice and music
+  The visitor song is sung by ACE-Step 1.5 (acestep-v15-turbo) by ACE Studio x StepFun.
+  https://github.com/ace-step/ACE-Step-1.5  License: Apache-2.0.
+  Each take comes from acemusic.ai, the ACE-Step team's free hosted API (https://acemusic.ai), or, when that is
+  unavailable, from the same open model running on a GitHub Actions CPU. The player, the lyrics page and the video
+  credits name which one made the current take. Voice and music are separated with Demucs (MIT, Meta) for the
+  vocal-forward mix, and the lyrics are timed with faster-whisper (MIT) using OpenAI Whisper (MIT).
