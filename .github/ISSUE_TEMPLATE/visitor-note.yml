@@ -8,7 +8,7 @@ body:
       value: |
         This is a small song made by people who visit my profile, separate from my contribution song.
         Every night a script adds new notes to the track, puts accepted lines into the lyrics and credits you by name.
-        You'll get a comment here with a link to the exact second your part plays, and then the issue closes.
+        You'll get a comment here with a link to the exact second your part plays, also get posters to share on social media and then the issue closes.
         One note per person per week.
   - type: dropdown
     id: note
