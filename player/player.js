@@ -53,7 +53,7 @@ let pulse = 0;
 const schemeMeta = $('meta[name="color-scheme"]');
 const sysDark = matchMedia("(prefers-color-scheme: dark)");
 const rendered = () => (schemeMeta.content === "light dark" ? (sysDark.matches ? "dark" : "light") : schemeMeta.content);
-function schemeChanged() { setThemeColor(); drawWave(); drawBackdrop(); }
+function schemeChanged() { setThemeColor(); drawWave(); drawBackdrop(); decorate(); }
 $("#theme").addEventListener("click", () => {
   const target = rendered() === "dark" ? "light" : "dark";
   const system = sysDark.matches ? "dark" : "light";
@@ -153,6 +153,7 @@ function setPersona(p, { save = true, hash = true } = {}) {
   $$('#looks input[name="look"]').forEach((r) => (r.checked = r.value === p));
   discImg = null;
   if (song) { drawSleeve(); drawWave(); layoutLyrics(true); update(true); }
+  decorate();
 }
 $$('#looks input[name="look"]').forEach((r) => {
   r.checked = r.value === persona;
@@ -184,6 +185,27 @@ function art(name, ink, accent) {
   artImgs[key] = img;
   return null;
 }
+// Page decoration: a different set of Open Doodles per look, next to the section headings and the footer.
+// Static, decorative only (aria-hidden), recoloured to the look's colours.
+const DECO = {
+  vinyl: ["chilling", "float", "laying"],
+  poster: ["levitate", "roller-skating", "strolling"],
+  editorial: ["reading", "sitting-reading", "meditating"],
+  sketch: ["coffee", "swinging", "plant"],
+};
+const decoSrc = {};
+function decorate() {
+  const slots = document.querySelectorAll(".deco");
+  const names = DECO[root.dataset.persona] || DECO.vinyl;
+  const ink = cssColor("var(--fg-2)"), acc = cssColor("var(--accent)");
+  slots.forEach((img, i) => {
+    const name = names[i % names.length];
+    const set = (t) => { img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(t.replace('fill="#000"', `fill="${ink}"`).replace('fill="#FF5678"', `fill="${acc}"`)); };
+    if (decoSrc[name]) return set(decoSrc[name]);
+    fetch(`art/page/${name}.svg`).then((r) => (r.ok ? r.text() : Promise.reject())).then((t) => { decoSrc[name] = t; if ((DECO[root.dataset.persona] || DECO.vinyl)[i % 3] === name) set(t); }).catch(() => {});
+  });
+}
+decorate();
 let letter = null;
 const letterTint = {};
 function handwriting(color) {
@@ -218,7 +240,9 @@ const LOOKS = {
     const target = reduceMotion.matches ? 0.12 : media.paused ? 0.04 : 0.16;
     slide += (target - slide) * (reduceMotion.matches ? 1 : 0.08);
     if (Math.abs(target - slide) > 0.002) requestAnimationFrame(() => drawSleeve());
-    const R = H * 0.3, rx = W - R * 0.35 + W * slide - W * 0.12, ry = H * 0.3;
+    // the record stays inside the cover: tucked in when paused, its right edge at the cover edge when playing
+    const E = W * 0.74, R = Math.min(H * 0.24, W * 0.24), out = clamp(slide / 0.16, 0, 1);
+    const rx = E - R * 0.45 + out * (W * 0.985 - R - (E - R * 0.45)), ry = H * 0.3;
     x.fillStyle = col("var(--ink-panel)"); x.beginPath(); x.arc(rx, ry, R, 0, Math.PI * 2); x.fill();
     x.strokeStyle = col("color-mix(in oklab, var(--on-panel) 18%, transparent)"); x.lineWidth = Math.max(1, W / 800);
     for (let g = 0; g < 8; g++) { x.beginPath(); x.arc(rx, ry, R * (0.42 + g * 0.07), 0, Math.PI * 2); x.stroke(); }
@@ -226,18 +250,18 @@ const LOOKS = {
     const turn = reduceMotion.matches ? 0 : t * 1.4;
     x.fillStyle = col("var(--ink-panel)"); x.beginPath(); x.arc(rx + Math.cos(turn) * R * 0.17, ry + Math.sin(turn) * R * 0.17, R * 0.04, 0, Math.PI * 2); x.fill();
     // sleeve edge
-    x.fillStyle = field; x.fillRect(0, 0, W * 0.86, H);
-    x.fillStyle = ink; x.fillRect(W * 0.86 - Math.max(1.5, W / 300), 0, Math.max(1.5, W / 300), H);
+    x.fillStyle = field; x.fillRect(0, 0, E, H);
+    x.fillStyle = ink; x.fillRect(E - Math.max(1.5, W / 300), 0, Math.max(1.5, W / 300), H);
     // handwriting along the bottom
     const hw = handwriting(col("color-mix(in oklab, var(--fg) 50%, transparent)"));
-    if (hw) { x.save(); x.beginPath(); x.rect(0, H * 0.62, W * 0.86, H * 0.38); x.clip(); place(x, hw, -W * 0.1, H * 0.5, W * 1.1, H * 0.7, "cover"); x.restore(); }
+    if (hw) { x.save(); x.beginPath(); x.rect(0, H * 0.62, E, H * 0.38); x.clip(); place(x, hw, -W * 0.1, H * 0.5, W * 1.1, H * 0.7, "cover"); x.restore(); }
     // the title, as big as it fits
     x.fillStyle = ink; x.textBaseline = "alphabetic"; x.textAlign = "left";
     const words = song.title.toLowerCase().split(" ");
     let fs = H * 0.3;
     x.font = `600 ${fs}px Bricolage, sans-serif`;
     const widest = Math.max(...words.map((w) => x.measureText(w).width));
-    fs = Math.min(fs, (fs * W * 0.7) / widest);
+    fs = Math.min(fs, (fs * W * 0.64) / widest);
     x.font = `600 ${fs}px Bricolage, sans-serif`;
     x.letterSpacing = `${-fs * 0.05}px`;
     words.forEach((w, i) => x.fillText(w, W * 0.05, H * 0.06 + fs * 0.82 * (i + 1)));
@@ -246,7 +270,7 @@ const LOOKS = {
     x.fillText(`${song.bpm} bpm · ${String(song.key).toLowerCase()} · ${fmt(song.length)}`, W * 0.055, H * 0.06 + fs * 0.82 * words.length + W * 0.06);
     // the dancer, standing on the title
     const d = art("dancing", ink, acc === ink ? field : acc);
-    if (d) place(x, d, W * 0.3, H * 0.36, W * 0.66, H * 0.66);
+    if (d) place(x, d, W * 0.2, H * 0.38, W * 0.52, H * 0.6);  // still, inside the sleeve
     // sticker band
     x.save(); x.translate(W * 0.15, H * 0.9); x.rotate(-0.42);
     x.fillStyle = ink; roundRect(x, -W * 0.22, -W * 0.034, W * 0.44, W * 0.068, W * 0.034); x.fill();
@@ -319,11 +343,8 @@ const LOOKS = {
     x.textAlign = "center"; x.textBaseline = "middle"; x.font = `700 ${W * 0.03}px Bricolage, sans-serif`;
     x.fillText(String(song.bpm), 0, -W * 0.012); x.font = `600 ${W * 0.018}px Bricolage, sans-serif`; x.fillText("BPM", 0, W * 0.02);
     x.restore();
-    // the dancer nods on each beat
-    const beat = (t / (song.bar / 4)) % 1;
-    const bob = reduceMotion.matches || media.paused ? 0 : -Math.max(0, 1 - beat * 4) * W * 0.012;
-    const d = art("groovy", ink, acc);
-    if (d) place(x, d, W * 0.1, H * 0.3 + bob, W * 0.7, H * 0.62);
+    const d = art("groovy", ink, acc);  // still: the cover never moves the figure
+    if (d) place(x, d, W * 0.1, H * 0.3, W * 0.7, H * 0.62);
     x.fillStyle = ink; x.font = `700 ${W * 0.032}px Bricolage, sans-serif`; x.textAlign = "left"; x.textBaseline = "alphabetic";
     x.fillText(`SIDE A · ${sectionAt(t).name.toUpperCase()}`, m * 1.9, H - m * 1.9);
   },
@@ -361,13 +382,6 @@ function renderDisc(S) {
   x.strokeStyle = "rgba(255,255,255,0.055)";
   x.lineWidth = Math.max(0.6, S / 1200);
   for (let g = 0; g < 60; g++) { const r = R * (0.34 + (0.64 * g) / 59); x.beginPath(); x.arc(m, m, r, 0, Math.PI * 2); x.stroke(); }
-  // a soft sheen, like light on vinyl
-  if (x.createConicGradient) {
-    const sh = x.createConicGradient(-Math.PI / 4, m, m);
-    sh.addColorStop(0, "rgba(255,255,255,0)"); sh.addColorStop(0.08, "rgba(255,255,255,0.07)"); sh.addColorStop(0.16, "rgba(255,255,255,0)");
-    sh.addColorStop(0.5, "rgba(255,255,255,0)"); sh.addColorStop(0.58, "rgba(255,255,255,0.05)"); sh.addColorStop(0.66, "rgba(255,255,255,0)"); sh.addColorStop(1, "rgba(255,255,255,0)");
-    x.fillStyle = sh; x.beginPath(); x.arc(m, m, R, 0, Math.PI * 2); x.fill();
-  }
   const weeks = song.weeks, n = weeks.length;
   const dim = mix(INK, ground, 0.3);
   weeks.forEach((w, i) => {

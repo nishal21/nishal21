@@ -944,3 +944,29 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   :root[data-persona] .skipbtn, :root[data-persona] .play, :root[data-persona] .ly, :root[data-persona] .line > span { transition: none !important; }
 }
+
+/* page doodles: quiet, static, beside the headings; they take their own space so they never cover text */
+.block-head { position: relative; padding-right: 136px; min-height: 90px; }
+.block-head .deco { position: absolute; right: 0; top: 50%; translate: 0 -50%; width: 120px; height: 90px; opacity: 0.9; pointer-events: none; }
+.foot { position: relative; }
+.foot .deco { display: block; width: 140px; height: 105px; margin: 0 auto var(--s3, 12px); opacity: 0.9; pointer-events: none; }
+.deco:not([src]) { visibility: hidden; }
+@media (max-width: 600px) {
+  .block-head { padding-right: 88px; min-height: 60px; }
+  .block-head .deco { width: 80px; height: 60px; }
+}
+/* no deck part may grow wider than its column (long event chips used to push the editorial panel off screen) */
+.np > *, .scrub, .now-badge { min-width: 0; max-width: 100%; }
+.now-badge .chip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 479px) {
+  /* poster: the header buttons become two equal round icons so the title gets the room */
+  :root[data-persona="poster"] .lyrics-toggle { width: 48px; height: 48px; padding: 0; justify-content: center; border-radius: 50%; }
+  :root[data-persona="poster"] .lyrics-toggle .pill-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  :root[data-persona="poster"] .remix-toggle { width: 48px; height: 48px; }
+  /* every look: downloads in a tidy two-column grid instead of a ragged wrap */
+  .downloads { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .downloads .dl { justify-content: center; min-width: 0; }
+  .downloads #clip-dl, .downloads .to-notes { grid-column: 1 / -1; }
+  .downloads .to-notes { justify-self: center; }
+  .downloads .dl span, .downloads .dl small { white-space: nowrap; }
+}
