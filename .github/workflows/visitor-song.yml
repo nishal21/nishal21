@@ -24,6 +24,10 @@ jobs:
   visitor-song:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}  # optional; only raises Hugging Face download limits
+      HF_HUB_VERBOSITY: error
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
     permissions:
       contents: write
       issues: write

@@ -116,15 +116,21 @@ class Failed(Exception):
     pass
 
 
+CLOUD = {"think": os.environ.get("ACEMUSIC_THINKING", "1") != "0"}
+
+
 def sing_cloud(lyrics, dur, seed, key):
-    """One take from acemusic.ai. Streaming keeps Cloudflare's 60 s limit from cutting the request off."""
-    body = dict(model="acemusic/acestep-v15-turbo", stream=True, seed=seed,
+    """One take from acemusic.ai.
+    The API sends nothing (not even headers, despite stream=true) until the song is done, and Cloudflare in front of
+    it gives up at about 60 s with a 504. With the LM planning ("thinking") a take takes 35-60 s, so a busy server tips
+    it over; without it a take takes about 17 s. So after a 504 the next tries skip the LM."""
+    body = dict(model="acemusic/acestep-v15-turbo", stream=True, seed=seed, thinking=CLOUD["think"],
                 messages=[dict(role="user", content=CAPTION)], lyrics=lyrics,
                 audio_config=dict(duration=dur, bpm=BPM, key_scale=KEY, time_signature="4", vocal_language="en", format="mp3"))
     req = urllib.request.Request(API, json.dumps(body).encode(), {
         "Content-Type": "application/json", "Authorization": "Bearer " + key,
         "User-Agent": "curl/8.5.0"})  # Cloudflare turns away Python's default user agent (error 1010)
-    audio = None
+    audio, t0 = None, time.time()
     try:
         with urllib.request.urlopen(req, timeout=900) as r:
             for raw in r:
@@ -139,7 +145,11 @@ def sing_cloud(lyrics, dur, seed, key):
                     if a:
                         audio = a[0]["audio_url"]["url"]
     except urllib.error.HTTPError as e:
-        raise Failed(f"acemusic.ai HTTP {e.code}: {e.read()[:200]!r}") from None
+        if e.code == 504 and CLOUD["think"]:
+            CLOUD["think"] = False
+            raise Failed(f"acemusic.ai HTTP 504 after {time.time() - t0:.0f} s (Cloudflare's ~60 s limit); "
+                         "the next tries skip the LM planning so they finish in time") from None
+        raise Failed(f"acemusic.ai HTTP {e.code} after {time.time() - t0:.0f} s: {e.read()[:200]!r}") from None
     except (urllib.error.URLError, TimeoutError, OSError) as e:
         raise Failed(f"acemusic.ai: {e}") from None
     if not audio:
@@ -414,7 +424,9 @@ def run(engine, out_dir):
     os.makedirs(out_dir, exist_ok=True)
     best, fails, sung = None, 0, 0
     seed0 = int(h[:6], 16) % 100000
-    for k in range(TRIES + (3 if engine == "cloud" else 0)):  # room for a few server errors on top of the takes
+    tries = TRIES + (2 if engine == "cloud" else 0)  # cloud takes are quick, so reroll a few more before the CPU
+    print(f"{label}: {len(lines)} lines, {dur} s of song requested, up to {tries} takes")
+    for k in range(tries + (3 if engine == "cloud" else 0)):  # room for a few server errors on top of the takes
         seed = seed0 + 7919 * k
         t0 = time.time()
         try:
@@ -443,13 +455,13 @@ def run(engine, out_dir):
             from scipy import signal
             v16 = signal.resample_poly(np.mean(v, 0), 160, 441).astype(np.float32)
             rep = check(lines, words_heard(v16))
-            print(f"take {k + 1} (seed {seed}, {took:.0f} s): {rep['accuracy']:.1%} of words, extra {rep['extra']:.1%}, "
+            print(f"take {k + 1} (seed {seed}, made in {took:.0f} s, {x.shape[1] / SR:.0f} s long): {rep['accuracy']:.1%} of words, extra {rep['extra']:.1%}, "
                   f"missing {len(rep['missing'])}, repeated {len(rep['repeated'])}")
             if best is None or rep["score"] > best[0]["score"]:
                 mix, before, after = polish(v, m)
                 best = (rep, seed, mix, before, after, took)
                 write_wav(os.path.join(out_dir, NAME + "-vocals.wav"), v)
-        if (best and best[0]["good"]) or sung >= TRIES:
+        if (best and best[0]["good"]) or sung >= tries:
             break
     if not best or not best[0]["ok"] or best[0]["accuracy"] < FLOOR:
         print(f"::warning::{label}: no take was good enough" + (f" (best {best[0]['accuracy']:.1%}, missing {best[0]['missing']}, "
