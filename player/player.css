@@ -819,7 +819,7 @@ kbd {
   --accent: light-dark(#111111, #3df06a);
   --on-accent: light-dark(#e3fb1d, #111111);
   --mark: var(--accent);
-  --art-bg: var(--bg);
+  --art-bg: color-mix(in oklab, var(--bg), light-dark(#fff, #000) 22%);  /* a shade off the page so the sleeve reads as an object */
   --ink-panel: #1d1d1d;
   --on-panel: #f1f1ec;
   .np { grid-template-areas: "meta" "art" "scrub" "controls" "downloads"; }
@@ -872,7 +872,7 @@ kbd {
   --accent: var(--fg);
   --on-accent: var(--bg);
   --mark: var(--fg);
-  --art-bg: var(--bg);
+  --art-bg: color-mix(in oklab, var(--bg), light-dark(#fff, #000) 45%);
   --card: light-dark(#eceef1, #4a4e55);
   .np { grid-template-areas: "art" "scrub" "controls" "meta" "downloads"; }
   .art { aspect-ratio: 4 / 3; margin-bottom: var(--s4); }
@@ -998,7 +998,10 @@ kbd {
   :root[data-persona] body:is(.lyrics-mode, .remix-open) .play { width: 64px; height: 64px; }
 }
 /* every look: a thin, quiet edge around the cover so it never melts into the page colour */
-:root[data-persona] #sleeve { box-shadow: 0 0 0 1px color-mix(in oklab, var(--fg) 16%, transparent); }
+/* (the looks reset the cover's shadow with more specific rules, so this one is marked important) */
+:root[data-persona] #sleeve { box-shadow: 0 0 0 1px color-mix(in oklab, var(--fg) 20%, transparent) !important; }
+/* light mode: the cover can share the page colour, so it also gets a soft, short shadow (none in dark mode) */
+:root[data-persona] #sleeve { box-shadow: 0 0 0 1px color-mix(in oklab, var(--fg) 20%, transparent), 0 10px 24px -14px light-dark(rgb(0 0 0 / 0.3), transparent) !important; }
 :root[data-persona="poster"] #sleeve { border-radius: 6px; }
 :root[data-persona="editorial"] #sleeve { border-radius: 10px; }
 :root[data-persona="poster"] .pill[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
@@ -1007,4 +1010,27 @@ kbd {
   .top-end { gap: 0; }
   .top-end button { width: 36px; height: 36px; }
   .tabs a, .tabs [role="tab"] { padding-inline: 8px; font-size: 0.8125rem; }
+}
+.doodle { transition: opacity 0.4s ease; }
+.doodle.away { opacity: 0; }
+/* wide screens: the remix desk uses the whole right column, stems on the left, tempo, loop, kit and knobs on
+   the right, so it fits common laptop heights without scrolling inside */
+@media (min-width: 1200px) {
+  :root[data-persona] .remix-open .remix-pane {
+    display: grid; width: 100%; max-width: 1040px; column-gap: var(--s6); row-gap: var(--s4);
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-areas: "head head" "bar bar" "presets presets" "stems tempo" "stems loop" "stems sound" "stems actions" "status status" "length length";
+    align-content: start;
+  }
+  .remix-open .rx-grab { grid-column: 1 / -1; }
+  .remix-open .rx-head { grid-area: head; }
+  .remix-open .rx-bar { grid-area: bar; }
+  .remix-open .rx-presets { grid-area: presets; }
+  .remix-open .rx-stems { grid-area: stems; align-self: start; }
+  .remix-open .rx-tempo { grid-area: tempo; }
+  .remix-open .rx-loopbox { grid-area: loop; }
+  .remix-open .rx-sound { grid-area: sound; }
+  .remix-open .rx-actions { grid-area: actions; flex-wrap: wrap; }
+  .remix-open .rx-status { grid-area: status; }
+  .remix-open .rx-length { grid-area: length; }
 }
