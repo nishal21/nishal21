@@ -732,6 +732,23 @@ def run_sections(out_dir):
     return 0
 
 
+def check_song(mp3):
+    """0 when the voice in a finished song is there and Whisper hears 85% of the lyrics with every line at least 40%."""
+    lines = sheet()
+    with tempfile.TemporaryDirectory() as d:
+        v, m = separate(mp3, d)
+    from scipy import signal
+    level = db(np.sqrt(np.mean(v ** 2)))
+    rep = check(lines, words_heard(signal.resample_poly(np.mean(v, 0), 160, 441).astype(np.float32)))
+    print(f"song check: voice at {level:.1f} dBFS, {rep['accuracy']:.1%} of words heard, missing {len(rep['missing'])}")
+    weakest = min(rep["line_acc"]) if rep["line_acc"] else 0.0
+    print("lines heard: " + ", ".join(f"{a:.0%}" for a in rep["line_acc"]))
+    ok = level > -40 and rep["accuracy"] >= GOOD and weakest >= LINE_FLOOR  # the same bar as the stitched take
+    if not ok:
+        print(f"::warning::the finished song's voice failed the check (voice {level:.1f} dBFS, {rep['accuracy']:.1%} heard)")
+    return 0 if ok else 1
+
+
 def use_contribution():
     """Switch to the contribution song: its own release, brief, tempo and the lines file from contribution_song.py."""
     global RELEASE, NAME, TAKE_URL, BPM, CAPTION
@@ -753,6 +770,7 @@ def main():
     g.add_argument("--cloud", metavar="OUT_DIR")
     g.add_argument("--cpu", metavar="OUT_DIR")
     g.add_argument("--prepare-cpu", action="store_true")
+    g.add_argument("--check-song", metavar="MP3", help="contribution song: is the voice in the final mix heard?")
     g.add_argument("--sections", metavar="OUT_DIR", help="contribution song: a take per section, cloud then CPU")
     a = ap.parse_args()
     if a.check:
@@ -766,6 +784,8 @@ def main():
         return 0
     if a.sections:
         return run_sections(a.sections)
+    if a.check_song:
+        return check_song(a.check_song)
     return run("cloud" if a.cloud else "cpu", a.cloud or a.cpu)
 
 

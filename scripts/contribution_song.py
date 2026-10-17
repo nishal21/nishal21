@@ -408,10 +408,13 @@ def vocals(lyrics, n):
     if out:
         with open(out, "w") as f:
             json.dump(dict(lines=sung, length=len(bar_sections()) * BAR + 2.0), f)
-    tk = load_take(sung)
+    tk = None if os.environ.get("CONTRIB_NO_TAKE") else load_take(sung)
     if tk:
-        st = sing_take(tk, timeline, n)
-        TAKE["used"] = tk[0]
+        try:
+            st = sing_take(tk, timeline, n)
+            TAKE["used"] = tk[0]
+        except Exception as e:  # noqa: BLE001
+            print(f"song: the take didn't fit ({e}), so Piper sings")
     return st, hook_lead, timeline
 
 
@@ -477,8 +480,14 @@ def stretch(x, factor):
         a, b = os.path.join(d, "a.wav"), os.path.join(d, "b.wav")
         from scipy.io import wavfile
         wavfile.write(a, SR, x.T.astype(np.float32))
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", a, "-af", f"atempo={min(factor, 2.0):.4f}", b], check=True)
-        return wavfile.read(b)[1].T.astype(np.float64)
+        # float out: ffmpeg's default 16-bit WAV came back as integers up to 32767, and the vocal bus, normalised to
+        # its loudest sample, pushed every line that wasn't stretched down to silence (the 2026-10-17 song)
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", a, "-af", f"atempo={min(factor, 2.0):.4f}", "-c:a", "pcm_f32le", b],
+                       check=True)
+        y = wavfile.read(b)[1]
+        if y.dtype.kind == "i":
+            y = y / float(np.iinfo(y.dtype).max)
+        return y.T.astype(np.float64)
 
 
 def sing_take(tk, timeline, n):
@@ -487,6 +496,7 @@ def sing_take(tk, timeline, n):
     st = {k: np.zeros((2, n)) for k in ("rap", "sing", "throws")}
     lead_only = np.zeros(n)
     starts = [l["start"] for l in timeline] + [n / SR]
+    levels = []
     for i, (slot, ln) in enumerate(zip(timeline, meta["lines"])):
         a, b = max(0, int((ln["t"] - 0.08) * SR)), int((ln["end"] + 0.22) * SR)
         x = voice[:, a:b]
@@ -498,6 +508,10 @@ def sing_take(tk, timeline, n):
         if sing:
             S.add(lead_only, x.mean(0), slot["start"])
         slot["end"] = slot["start"] + x.shape[1] / SR
+        levels.append(float(np.sqrt(np.mean(x ** 2))))
+    # every line must come out at a similar level, or the mix would bury some of them
+    if not levels or min(levels) < 0.1 * float(np.median(levels)) or max(levels) > 10 * float(np.median(levels)):
+        raise RuntimeError(f"take lines at uneven levels {[round(v, 4) for v in levels]}")
     st["lead_only"] = lead_only
     return st
 

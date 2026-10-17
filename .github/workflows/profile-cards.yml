@@ -214,6 +214,26 @@ jobs:
           CONTRIB_TAKE_DIR: /tmp/ctake
         run: python scripts/contribution_song.py
 
+      # The final song is checked the way a listener hears it: Demucs pulls the voice out of the mixed MP3 and Whisper
+      # must hear the lyrics. If it doesn't, the song is rendered again with the Piper vocals.
+      - name: Check the song's vocals
+        if: steps.song.outcome == 'success'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAKE_LINES: /tmp/contribution-lines.json
+        run: |
+          if python -c "import json,sys; sys.exit(json.load(open('assets/contribution-song.json')).get('engine', 'Piper') != 'Piper')"; then
+            echo "Piper sings tonight, nothing to check"; exit 0
+          fi
+          python -c "import demucs, faster_whisper" 2>/dev/null || {
+            pip install --quiet torch==2.10.0 torchaudio==2.10.0 --index-url https://download.pytorch.org/whl/cpu
+            pip install --quiet demucs==4.1.0 faster-whisper==1.2.1 soundfile torchcodec; }
+          if ! python scripts/visitor_take.py --contribution --check-song assets/contribution-song.mp3; then
+            echo "::warning::The ACE-Step song didn't pass the listening check, so Piper sings tonight"
+            CONTRIB_NO_TAKE=1 python scripts/contribution_song.py
+          fi
+
       - name: Visitor song
         continue-on-error: true
         run: python scripts/visitor_song.py --rebuild
