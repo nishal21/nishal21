@@ -220,10 +220,71 @@ def deapi_model(key):
     return pick
 
 
+NUM_SYL = {"seven": "sev-en", "eleven": "e-lev-en", "thirteen": "thir-teen", "fourteen": "four-teen", "fifteen": "fif-teen",
+           "sixteen": "six-teen", "seventeen": "sev-en-teen", "eighteen": "eigh-teen", "nineteen": "nine-teen",
+           "twenty": "twen-ty", "thirty": "thir-ty", "forty": "for-ty", "fifty": "fif-ty", "sixty": "six-ty",
+           "seventy": "sev-en-ty", "eighty": "eigh-ty", "ninety": "nine-ty", "hundred": "hun-dred",
+           "thousand": "thou-sand", "million": "mil-lion", "zero": "ze-ro"}
+
+
+def syl_split(w):
+    """Rough syllable hyphens for a long lowercase word: V-CV and VC-CV between vowel groups, no split before a final e."""
+    if not w.islower():
+        return w  # names and CamelCase (JavaScript) stay whole
+    groups = [m.span() for m in re.finditer(r"[aeiouy]+", w)]
+    if groups and w.endswith("e") and groups[-1][0] == len(w) - 1 and len(groups) > 1:
+        groups = groups[:-1]
+    cuts = []
+    for (_, e1), (s2, _) in zip(groups, groups[1:]):
+        gap = s2 - e1
+        cuts.append(e1 if gap <= 1 else e1 + 1 if gap == 2 else s2 - 2)
+    out, k = [], 0
+    for c in cuts:
+        out.append(w[k:c])
+        k = c
+    out.append(w[k:])
+    return "-".join(p for p in out if p)
+
+
+def num_words(n):
+    """937 -> 'nine hundred thirty-seven'."""
+    if n < 20:
+        return ONES[n]
+    if n < 100:
+        return TENS[n // 10] + ("-" + ONES[n % 10] if n % 10 else "")
+    if n < 1000:
+        return ONES[n // 100] + " hundred" + (" " + num_words(n % 100) if n % 100 else "")
+    if n < 1000000:
+        return num_words(n // 1000) + " thousand" + (" " + num_words(n % 1000) if n % 1000 else "")
+    return str(n)
+
+
+def sung_lyrics(lyrics):
+    """Only what deAPI sings: numbers as words, number words and long words in short lines split by syllable, so the
+    model sings every syllable. Displayed lyrics, Piper and the Whisper reference keep the plain text."""
+    out = []
+    for line in lyrics.split("\n"):
+        if line.startswith("["):
+            out.append(line)
+            continue
+        line = re.sub(r"\d+", lambda m: num_words(int(m.group())), line)
+        short = len(line.split()) <= 6
+        def fix(m):
+            w = m.group()
+            parts = [NUM_SYL.get(p.lower(), p) for p in w.split("-")]
+            w2 = "-".join(parts)
+            if w2 == w and short and len(w) >= 8 and w.isalpha():
+                w2 = syl_split(w)
+            return w2
+        out.append(re.sub(r"[A-Za-z][A-Za-z'-]*", fix, line))
+    return "\n".join(out)
+
+
 def sing_deapi(lyrics, dur, seed, key):
     """One take from deAPI's hosted ACE-Step 1.5: submit the job, poll it (no long request for a proxy to cut), fetch the mp3.
     A 429 (1 a minute, 15 a day) waits for the minute window and tries again, three times at most."""
     slug, steps, g = deapi_model(key)
+    lyrics = sung_lyrics(lyrics)
     for n in range(4):
         try:
             job = deapi_call("/audio/music", key, dict(
