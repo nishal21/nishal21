@@ -160,6 +160,10 @@ def sing_cloud(lyrics, dur, seed, key):
 
 
 DEAPI = "https://api.deapi.ai/api/v2"
+DEAPI_CAPTION = {140: ("hip hop, 140 BPM half-time, A minor, 4/4. One clear lead vocal at a time, loud, dry and upfront: a "
+                       "male rapper with crisp diction on the verses, a warm female singer on the chorus. Every word "
+                       "pronounced clearly and slowly, on the beat. Very sparse quiet backing: soft 808, light hats. "
+                       "No ad-libs, no backing vocals, no harmonies, no vocal effects.")}
 DEAPI_MODEL = os.environ.get("DEAPI_MODEL", "AceStep_1_5_Turbo")
 SPENT = []  # credits deAPI reported for each take
 
@@ -182,11 +186,55 @@ def deapi_call(path, key, fields=None):
         raise Failed(f"deAPI: {e}") from None
 
 
+DEAPI_PICK = {}
+
+
+def deapi_model(key):
+    """(slug, steps, guidance): a base ACE-Step model with more steps if the account has one, else the turbo one with as
+    many steps as it allows (up to 30). Limits come from GET /api/v2/models, as the docs ask."""
+    if DEAPI_PICK:
+        return DEAPI_PICK["m"]
+    pick = (DEAPI_MODEL, 8, 1)
+    try:
+        ms = deapi_call("/models?per_page=100", key).get("data") or []
+        ace = [m for m in ms if "acestep" in str(m.get("slug", "")).lower()]
+        if not os.environ.get("DEAPI_MODEL"):
+            ace.sort(key=lambda m: ("turbo" in m["slug"].lower(), "1_5" not in m["slug"]))  # base first, then 1.5
+        else:
+            ace = [m for m in ace if m["slug"] == DEAPI_MODEL] or ace
+        if ace:
+            m = ace[0]
+            lim = ((m.get("info") or {}).get("limits") or {})
+            turbo = "turbo" in m["slug"].lower()
+            want = 30 if not turbo else 24
+            steps = int(min(float(lim.get("max_steps") or want), want))
+            steps = max(steps, int(float(lim.get("min_steps") or 1)))
+            g = float(lim.get("max_guidance") or 1) if turbo else min(7.0, float(lim.get("max_guidance") or 7))
+            g = max(g, float(lim.get("min_guidance") or 0))
+            pick = (m["slug"], steps, g)
+        print("deAPI music models:", [m.get("slug") for m in ace])
+    except Exception as e:  # noqa: BLE001
+        print(f"deAPI models list unavailable ({e}), using {DEAPI_MODEL}")
+    print(f"deAPI: {pick[0]}, {pick[1]} steps, guidance {pick[2]}")
+    DEAPI_PICK["m"] = pick
+    return pick
+
+
 def sing_deapi(lyrics, dur, seed, key):
-    """One take from deAPI's hosted ACE-Step 1.5: submit the job, poll it (no long request for a proxy to cut), fetch the mp3."""
-    job = deapi_call("/audio/music", key, dict(
-        model=DEAPI_MODEL, caption=CAPTION, lyrics=lyrics, duration=dur, bpm=BPM, keyscale=KEY, timesignature=4,
-        vocal_language="en", inference_steps=8, guidance_scale=1, seed=seed, format="mp3"))
+    """One take from deAPI's hosted ACE-Step 1.5: submit the job, poll it (no long request for a proxy to cut), fetch the mp3.
+    A 429 (1 a minute, 15 a day) waits for the minute window and tries again, three times at most."""
+    slug, steps, g = deapi_model(key)
+    for n in range(4):
+        try:
+            job = deapi_call("/audio/music", key, dict(
+                model=slug, caption=DEAPI_CAPTION.get(BPM, CAPTION), lyrics=lyrics, duration=dur, bpm=BPM, keyscale=KEY,
+                timesignature=4, vocal_language="en", inference_steps=steps, guidance_scale=g, seed=seed, format="mp3"))
+            break
+        except Failed as e:
+            if "HTTP 429" not in str(e) or n == 3:
+                raise
+            print("deAPI rate limit, waiting 61 s")
+            time.sleep(61)
     rid = job["data"]["request_id"]
     t0 = time.time()
     while time.time() - t0 < 900:
@@ -504,7 +552,7 @@ def attempts(lines, lyrics, dur, seed0, sing, label, tries, cloud, start):
         except Failed as e:
             fails += 1
             print(f"::warning::{label} take {k + 1} failed: {e}")
-            if re.search(r"HTTP (40[0-3]|422|429)", str(e)):  # bad key, no credit, rate limit: waiting won't help  # a bad key or request won't get better by waiting
+            if re.search(r"HTTP (40[0-3]|422|429)", str(e)):  # (deAPI waits out a 429 itself)  # bad key, no credit, rate limit: waiting won't help  # a bad key or request won't get better by waiting
                 break
             # a busy server answers every request with a 504 (even a 20 s song), so wait it out within a budget
             if time.time() - start > CLOUD_BUDGET:
@@ -564,18 +612,30 @@ def run(engine, out_dir):
             print(f"ACE-Step CPU unavailable: {e}")
             return 1
     os.makedirs(out_dir, exist_ok=True)
-    tries = 2 if engine == "deapi" else TRIES + (2 if engine == "cloud" else 0)  # deAPI costs credit: 2 at most; cloud takes are quick, so reroll a few more before the CPU
+    tries = int(os.environ.get("DEAPI_TRIES", "4")) if engine == "deapi" else TRIES + (2 if engine == "cloud" else 0)  # deAPI costs credit: 2 at most; cloud takes are quick, so reroll a few more before the CPU
     print(f"{label}: {len(lines)} lines, {dur} s of song requested, up to {tries} takes")
     best = attempts(lines, lyrics, dur, int(h[:6], 16) % 100000, sing, label, tries, engine == "cloud", time.time())
+    best_voice = best[2] if best else None
     if best:
         write_wav(os.path.join(out_dir, NAME + "-vocals.wav"), best[2])
         best = (best[0], best[1], *polish(best[2], best[3]), best[4])
-    if not best or not best[0]["ok"] or best[0]["accuracy"] < FLOOR:
+    if not best or (engine != "deapi" and (not best[0]["ok"] or best[0]["accuracy"] < FLOOR)):  # deAPI: its own gate below
         print(f"::warning::{label}: no take was good enough" + (f" (best {best[0]['accuracy']:.1%}, missing {best[0]['missing']}, "
                                            f"repeated {best[0]['repeated']})" if best else ""))
         return 1
     rep, seed, mix, before, after, took = best
     if engine == "deapi" and (rep["accuracy"] < GOOD or min(rep["line_acc"] or [0]) < LINE_FLOOR or rep["repeated"]):
+        keep = os.environ.get("DEAPI_SAVE_BEST")  # test runs: keep the best take anyway, so it can be heard
+        if keep:
+            try:
+                os.makedirs(keep, exist_ok=True)
+                master(mix, os.path.join(keep, NAME + ".mp3"))
+                write_wav(os.path.join(keep, NAME + "-vocals.wav"), best_voice)
+                with open(os.path.join(keep, NAME + ".json"), "w") as f:
+                    json.dump(dict(hash=h, engine=label, seed=seed, bpm=BPM, key=KEY, accuracy_voice=rep["accuracy"],
+                                   length=round(mix.shape[1] / SR, 3), lines=timed_lines(lines, rep["words"])), f, indent=1)
+            except Exception as e:  # noqa: BLE001
+                print(f"couldn't keep the best take whole: {e}")
         print(f"::warning::deAPI take not clear enough ({rep['accuracy']:.1%}, weakest line {min(rep['line_acc'] or [0]):.0%}, "
               f"repeated {rep['repeated']}); it needs {GOOD:.0%} and every line {LINE_FLOOR:.0%}")
         return 1

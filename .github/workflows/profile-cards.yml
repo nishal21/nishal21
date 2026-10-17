@@ -74,9 +74,11 @@ jobs:
         run: |
           mkdir -p /tmp/out
           CONTRIB_NO_TAKE=1 python scripts/contribution_song.py
-          python scripts/visitor_take.py --contribution --deapi /tmp/ctake | tee /tmp/out/deapi-log.txt || true
+          DEAPI_TRIES=6 DEAPI_SAVE_BEST=/tmp/cbest python scripts/visitor_take.py --contribution --deapi /tmp/ctake | tee /tmp/out/deapi-log.txt || true
+          [ -s /tmp/ctake/contribution-take.json ] || { mkdir -p /tmp/ctake; cp /tmp/cbest/* /tmp/ctake/ 2>/dev/null || true; }
+          cp /tmp/ctake/contribution-take.mp3 /tmp/out/deapi-best-take.mp3 2>/dev/null || true
           if [ -s /tmp/ctake/contribution-take.json ]; then
-            CONTRIB_TAKE_DIR=/tmp/ctake python scripts/contribution_song.py
+            CONTRIB_TAKE_DIR=/tmp/ctake python scripts/contribution_song.py || true
             cp assets/contribution-song.mp3 /tmp/out/deapi-song.mp3
             python scripts/visitor_take.py --contribution --check-song /tmp/out/deapi-song.mp3 | tee -a /tmp/out/deapi-log.txt || true
           fi
@@ -221,6 +223,7 @@ jobs:
         continue-on-error: true
         env:
           DEAPI_API_KEY: ${{ secrets.DEAPI_API_KEY }}
+          DEAPI_TRIES: "4"
           TAKE_LINES: /tmp/contribution-lines.json
         run: python scripts/visitor_take.py --contribution --deapi /tmp/ctake
 
