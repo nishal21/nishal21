@@ -159,6 +159,53 @@ def sing_cloud(lyrics, dur, seed, key):
     return base64.b64decode(audio.split(",", 1)[1]), "mp3"
 
 
+DEAPI = "https://api.deapi.ai/api/v2"
+DEAPI_MODEL = os.environ.get("DEAPI_MODEL", "AceStep_1_5_Turbo")
+SPENT = []  # credits deAPI reported for each take
+
+
+def deapi_call(path, key, fields=None):
+    """GET (no fields) or multipart POST to deAPI; returns the JSON."""
+    hdr = {"Authorization": "Bearer " + key, "Accept": "application/json", "User-Agent": "curl/8.5.0"}
+    body = None
+    if fields is not None:
+        b = "----vtake" + hashlib.sha256(str(time.time()).encode()).hexdigest()[:16]
+        body = b"".join(f'--{b}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode()
+                        for k, v in fields.items()) + f"--{b}--\r\n".encode()
+        hdr["Content-Type"] = f"multipart/form-data; boundary={b}"
+    try:
+        with urllib.request.urlopen(urllib.request.Request(DEAPI + path, body, hdr), timeout=60) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        raise Failed(f"deAPI HTTP {e.code}: {e.read()[:300]!r}") from None
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        raise Failed(f"deAPI: {e}") from None
+
+
+def sing_deapi(lyrics, dur, seed, key):
+    """One take from deAPI's hosted ACE-Step 1.5: submit the job, poll it (no long request for a proxy to cut), fetch the mp3."""
+    job = deapi_call("/audio/music", key, dict(
+        model=DEAPI_MODEL, caption=CAPTION, lyrics=lyrics, duration=dur, bpm=BPM, keyscale=KEY, timesignature=4,
+        vocal_language="en", inference_steps=8, guidance_scale=1, seed=seed, format="mp3"))
+    rid = job["data"]["request_id"]
+    t0 = time.time()
+    while time.time() - t0 < 900:
+        time.sleep(10)
+        d = deapi_call(f"/jobs/{rid}", key)["data"]
+        if d.get("status") == "done":
+            if d.get("price"):
+                SPENT.append(d["price"].get("amount"))
+                print(f"deAPI take cost {d['price'].get('amount')} credits")
+            try:
+                with urllib.request.urlopen(urllib.request.Request(d["result_url"], headers={"User-Agent": "curl/8.5.0"}), timeout=120) as r:
+                    return r.read(), "mp3"
+            except Exception as e:  # noqa: BLE001
+                raise Failed(f"deAPI result download: {e}") from None
+        if d.get("status") == "error":
+            raise Failed(f"deAPI job failed: {d.get('error_code')} {d.get('error_reason')} (refunded {d.get('refunded')})")
+    raise Failed("deAPI job still not done after 15 min")
+
+
 class CpuSinger:
     def __init__(self):
         root = os.environ.get("ACE_STEP_DIR", os.path.expanduser("~/ace-step"))
@@ -457,7 +504,7 @@ def attempts(lines, lyrics, dur, seed0, sing, label, tries, cloud, start):
         except Failed as e:
             fails += 1
             print(f"::warning::{label} take {k + 1} failed: {e}")
-            if re.search(r"HTTP 40[0-3]", str(e)):  # a bad key or request won't get better by waiting
+            if re.search(r"HTTP (40[0-3]|422|429)", str(e)):  # bad key, no credit, rate limit: waiting won't help  # a bad key or request won't get better by waiting
                 break
             # a busy server answers every request with a 504 (even a 20 s song), so wait it out within a budget
             if time.time() - start > CLOUD_BUDGET:
@@ -498,7 +545,13 @@ def run(engine, out_dir):
         print("no lyrics")
         return 1
     lyrics, dur, h = ace_lyrics(lines), duration(lines), lyrics_hash(lines)
-    if engine == "cloud":
+    if engine == "deapi":
+        key = os.environ.get("DEAPI_API_KEY", "").strip()
+        if not key:
+            print("::warning::DEAPI_API_KEY isn't set, so deAPI is skipped")
+            return 1
+        sing, label = (lambda ly, du, sd: sing_deapi(ly, du, sd, key)), "deAPI"
+    elif engine == "cloud":
         key = os.environ.get("ACESTEP_API_KEY", "").strip()
         if not key:
             print("::warning::ACESTEP_API_KEY isn't set, so the cloud is skipped and the CPU sings")
@@ -511,7 +564,7 @@ def run(engine, out_dir):
             print(f"ACE-Step CPU unavailable: {e}")
             return 1
     os.makedirs(out_dir, exist_ok=True)
-    tries = TRIES + (2 if engine == "cloud" else 0)  # cloud takes are quick, so reroll a few more before the CPU
+    tries = 2 if engine == "deapi" else TRIES + (2 if engine == "cloud" else 0)  # deAPI costs credit: 2 at most; cloud takes are quick, so reroll a few more before the CPU
     print(f"{label}: {len(lines)} lines, {dur} s of song requested, up to {tries} takes")
     best = attempts(lines, lyrics, dur, int(h[:6], 16) % 100000, sing, label, tries, engine == "cloud", time.time())
     if best:
@@ -522,11 +575,15 @@ def run(engine, out_dir):
                                            f"repeated {best[0]['repeated']})" if best else ""))
         return 1
     rep, seed, mix, before, after, took = best
+    if engine == "deapi" and (rep["accuracy"] < GOOD or min(rep["line_acc"] or [0]) < LINE_FLOOR or rep["repeated"]):
+        print(f"::warning::deAPI take not clear enough ({rep['accuracy']:.1%}, weakest line {min(rep['line_acc'] or [0]):.0%}, "
+              f"repeated {rep['repeated']}); it needs {GOOD:.0%} and every line {LINE_FLOOR:.0%}")
+        return 1
     mp3 = os.path.join(out_dir, NAME + ".mp3")
     lufs, peak = master(mix, mp3)
     final = check(lines, words_heard(decode(mp3, 16000, mono=True)))  # what listeners hear, after the mix
     take = dict(hash=h, engine=label, model="ACE-Step 1.5 turbo (acestep-v15-turbo)", seed=seed, bpm=BPM, key=KEY,
-                caption=CAPTION, made=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                caption=CAPTION, credits=round(sum(x or 0 for x in SPENT), 4), made=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 length=round(mix.shape[1] / SR, 3), accuracy_voice=rep["accuracy"], accuracy_mix=final["accuracy"],
                 balance_db=dict(before=round(before, 1), after=round(after, 1)), lufs=lufs, peak_db=peak,
                 seconds=round(took, 1), lines=timed_lines(lines, rep["words"]))
@@ -769,6 +826,7 @@ def main():
     g.add_argument("--check", action="store_true")
     g.add_argument("--cloud", metavar="OUT_DIR")
     g.add_argument("--cpu", metavar="OUT_DIR")
+    g.add_argument("--deapi", metavar="OUT_DIR", help="one whole-song take from deAPI (2 tries at most)")
     g.add_argument("--prepare-cpu", action="store_true")
     g.add_argument("--check-song", metavar="MP3", help="contribution song: is the voice in the final mix heard?")
     g.add_argument("--sections", metavar="OUT_DIR", help="contribution song: a take per section, cloud then CPU")
@@ -786,6 +844,8 @@ def main():
         return run_sections(a.sections)
     if a.check_song:
         return check_song(a.check_song)
+    if a.deapi:
+        return run("deapi", a.deapi)
     return run("cloud" if a.cloud else "cpu", a.cloud or a.cpu)
 
 
