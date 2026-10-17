@@ -1,0 +1,81 @@
+# A deAPI test song: runs when .github/deapi-test-trigger changes (or by hand). Nothing is committed or deployed;
+# the mp3s go to the deapi-test prerelease and an artifact.
+name: deAPI test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/deapi-test-trigger"
+
+concurrency:
+  group: deapi-test
+  cancel-in-progress: false
+
+jobs:
+  deapi-test:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+      - name: Install dependencies
+        run: |
+          pip install --quiet -r scripts/requirements.txt
+          command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg)
+          pip install --quiet torch==2.10.0 torchaudio==2.10.0 torchvision==0.25.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet demucs==4.1.0 faster-whisper==1.2.1 soundfile torchcodec
+      - uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/piper-voices
+          key: piper-voices-ryan-high-libritts_r-medium-v5
+      - uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/song-data
+          key: song-data-${{ github.run_id }}
+          restore-keys: song-data-
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/huggingface/hub/models--Systran--faster-whisper-small.en
+            ~/.cache/torch/hub/checkpoints
+          key: visitor-take-tools-v1
+      - name: Sing it on deAPI and build the song
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEAPI_API_KEY: ${{ secrets.DEAPI_API_KEY }}
+          CONTRIB_LINES_OUT: /tmp/contribution-lines.json
+          TAKE_LINES: /tmp/contribution-lines.json
+        run: |
+          mkdir -p /tmp/out
+          CONTRIB_NO_TAKE=1 python scripts/contribution_song.py
+          DEAPI_TRIES=6 DEAPI_SAVE_BEST=/tmp/cbest python scripts/visitor_take.py --contribution --deapi /tmp/ctake | tee /tmp/out/deapi-log.txt || true
+          [ -s /tmp/ctake/contribution-take.json ] || { mkdir -p /tmp/ctake; cp /tmp/cbest/* /tmp/ctake/ 2>/dev/null || true; }
+          cp /tmp/ctake/contribution-take.mp3 /tmp/out/deapi-best-take.mp3 2>/dev/null || true
+          if [ -s /tmp/ctake/contribution-take.json ]; then
+            CONTRIB_TAKE_DIR=/tmp/ctake python scripts/contribution_song.py || true
+            cp assets/contribution-song.mp3 /tmp/out/deapi-song.mp3
+            python scripts/visitor_take.py --contribution --check-song /tmp/out/deapi-song.mp3 | tee -a /tmp/out/deapi-log.txt || true
+          fi
+          cp /tmp/ctake/contribution-take.* /tmp/out/ 2>/dev/null || true
+      - name: Put the test mp3s on the deapi-test prerelease
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view deapi-test >/dev/null 2>&1 || gh release create deapi-test --prerelease --latest=false \
+            --title "deAPI test" --notes "Test takes only, not the live song."
+          gh release upload deapi-test /tmp/out/* --clobber || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deapi-test
+          path: /tmp/out
+

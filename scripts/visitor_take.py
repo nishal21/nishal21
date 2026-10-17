@@ -160,10 +160,10 @@ def sing_cloud(lyrics, dur, seed, key):
 
 
 DEAPI = "https://api.deapi.ai/api/v2"
-DEAPI_CAPTION = {140: ("hip hop, 140 BPM half-time, A minor, 4/4. One clear lead vocal at a time, loud, dry and upfront: a "
-                       "male rapper with crisp diction on the verses, a warm female singer on the chorus. Every word "
-                       "pronounced clearly and slowly, on the beat. Very sparse quiet backing: soft 808, light hats. "
-                       "No ad-libs, no backing vocals, no harmonies, no vocal effects.")}
+DEAPI_CAPTION = {140: ("hip hop, 140 BPM half-time, A minor. One loud dry lead vocal: male rapper verses, warm female "
+                       "chorus. Crisp slow diction, every word clear, on the beat. Very sparse quiet 808 and hats. "
+                       "No ad-libs, harmonies or backing vocals.")}
+DEAPI_CAPTION_MAX = 300  # deAPI rejects longer captions with a 422
 DEAPI_MODEL = os.environ.get("DEAPI_MODEL", "AceStep_1_5_Turbo")
 SPENT = []  # credits deAPI reported for each take
 
@@ -212,7 +212,11 @@ def deapi_model(key):
             g = float(lim.get("max_guidance") or 1) if turbo else min(7.0, float(lim.get("max_guidance") or 7))
             g = max(g, float(lim.get("min_guidance") or 0))
             pick = (m["slug"], steps, g)
-        print("deAPI music models:", [m.get("slug") for m in ace])
+            DEAPI_PICK["lyrics_max"] = int(float(lim.get("max_lyrics_length") or lim.get("max_lyrics") or 0)) or None
+            print(f"deAPI {m['slug']} limits: {json.dumps(lim)}")
+        for m in ace:
+            print(f"deAPI model {m.get('slug')}: limits {json.dumps((m.get('info') or {}).get('limits'))}, "
+                  f"defaults {json.dumps((m.get('info') or {}).get('defaults'))}")
     except Exception as e:  # noqa: BLE001
         print(f"deAPI models list unavailable ({e}), using {DEAPI_MODEL}")
     print(f"deAPI: {pick[0]}, {pick[1]} steps, guidance {pick[2]}")
@@ -285,13 +289,22 @@ def sing_deapi(lyrics, dur, seed, key):
     A 429 (1 a minute, 15 a day) waits for the minute window and tries again, three times at most."""
     slug, steps, g = deapi_model(key)
     lyrics = sung_lyrics(lyrics)
+    cap = DEAPI_CAPTION.get(BPM, CAPTION)[:DEAPI_CAPTION_MAX].strip()
+    lmax = DEAPI_PICK.get("lyrics_max")
+    if lmax and len(lyrics) > lmax:
+        print(f"::warning::deAPI lyrics are {len(lyrics)} chars, over the model's {lmax}; plain lyrics instead of hyphens")
+        lyrics = lyrics.replace("-", " ") if len(lyrics.replace("-", " ")) <= lmax else lyrics[:lmax]
+    print(f"deAPI request: {slug}, {steps} steps, guidance {g}, caption {len(cap)} chars, lyrics {len(lyrics)} chars")
     for n in range(4):
         try:
             job = deapi_call("/audio/music", key, dict(
-                model=slug, caption=DEAPI_CAPTION.get(BPM, CAPTION), lyrics=lyrics, duration=dur, bpm=BPM, keyscale=KEY,
+                model=slug, caption=cap, lyrics=lyrics, duration=dur, bpm=BPM, keyscale=KEY,
                 timesignature=4, vocal_language="en", inference_steps=steps, guidance_scale=g, seed=seed, format="mp3"))
             break
         except Failed as e:
+            if "HTTP 422" in str(e):  # a validation error won't pass on a retry: stop here, Piper keeps singing
+                print(f"::warning::deAPI refused the request (validation): {e}")
+                raise
             if "HTTP 429" not in str(e) or n == 3:
                 raise
             print("deAPI rate limit, waiting 61 s")
