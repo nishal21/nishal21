@@ -490,6 +490,16 @@ def stretch(x, factor):
         return y.T.astype(np.float64)
 
 
+def trim_quiet(x, keep=0.06):
+    """Cut the silence before and after the singing. A take line runs up to where the next one starts, so without
+    this the gap counted as singing and the line was sped up (up to 2x) to fit its bars, which made it unintelligible."""
+    env = np.convolve(np.abs(x).mean(0), np.ones(int(0.02 * SR)) / int(0.02 * SR), mode="same")
+    on = np.flatnonzero(env > 0.08 * (env.max() + 1e-9))
+    if not len(on):
+        return x
+    return x[:, max(0, on[0] - int(keep * SR)):min(x.shape[1], on[-1] + int(2 * keep * SR))]
+
+
 def sing_take(tk, timeline, n):
     """Each take line, cut from the separated voice by its word times, on the bars the arrangement gives it."""
     meta, voice = tk
@@ -499,7 +509,7 @@ def sing_take(tk, timeline, n):
     levels = []
     for i, (slot, ln) in enumerate(zip(timeline, meta["lines"])):
         a, b = max(0, int((ln["t"] - 0.08) * SR)), int((ln["end"] + 0.22) * SR)
-        x = voice[:, a:b]
+        x = trim_quiet(voice[:, a:b])
         room = max(0.5, starts[i + 1] - slot["start"] - 0.06)
         x = stretch(x, (x.shape[1] / SR) / room)[:, :int(room * SR)]
         x = np.stack([edge_fade(c, 25) for c in x])
