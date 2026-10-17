@@ -23,7 +23,7 @@ on:
       - ".github/workflows/profile-cards.yml"
 
 concurrency:
-  group: profile-cards
+  group: profile-cards-piper
   cancel-in-progress: false
 
 jobs:
@@ -32,6 +32,8 @@ jobs:
     timeout-minutes: 120  # ACE-Step can take an hour on the CPU when the lyrics change and the cloud is busy
     permissions:
       contents: write
+    env:
+      CONTRIB_NO_TAKE: "1"  # ACE-Step off for the contribution song: Piper sings, nothing is sung on the runner
     outputs:
       song: ${{ steps.song.outcome }}
     steps:
@@ -106,7 +108,7 @@ jobs:
       # Without a take that passes, the Piper vocals rendered above stay.
       - name: Does the song need a new take?
         id: take
-        if: steps.song.outcome == 'success'
+        if: steps.song.outcome == 'success' && env.CONTRIB_NO_TAKE != '1'
         continue-on-error: true
         env:
           TAKE_LINES: /tmp/contribution-lines.json
@@ -244,6 +246,7 @@ jobs:
         run: python scripts/year_trailer.py poster
 
       - name: Commit changes
+        continue-on-error: true  # a lost race to push must not stop the site from deploying
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -255,7 +258,8 @@ jobs:
           git commit -m "Update profile cards"
           # other workflows (blog posts, activity) also commit to this branch, so retry on a race
           for i in 1 2 3; do
-            git pull --rebase --quiet && git push && exit 0
+            # the files here are generated, so on a conflict this run's copy wins
+            git pull --rebase --quiet -X theirs || { git rebase --abort; false; } && git push && exit 0
             sleep 10
           done
           exit 1
@@ -285,7 +289,7 @@ jobs:
 
   pages:
     needs: cards
-    if: needs.cards.outputs.song == 'success'
+    if: always() && needs.cards.outputs.song == 'success'
     runs-on: ubuntu-latest
     permissions:
       pages: write
