@@ -511,7 +511,7 @@ def acoustic_version(s):
         length = T.decode(mp, SR).shape[1] / SR
         lines = [dict(t=round(float(k["t"]), 3), end=round(float(k["end"]), 3), section=l["section"], text=l["text"])
                  for l, k in zip(tl, tk["lines"])]
-        data = dict(style="acoustic", title="Contribution song (acoustic)", length=round(length, 3), bpm=88, key="G major",
+        data = dict(style="acoustic", title="Contribution song (acoustic)", length=round(length, 3), bpm=T.BPM, key=T.KEY,
                     engine="deAPI", src="contribution-song-acoustic.mp3", generated=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     lines=lines, peaks=[round(float(p), 3) for p in peaks(T.decode(mp, SR), 400)])
         write_atomic(out_json, json.dumps(data, separators=(",", ":")))

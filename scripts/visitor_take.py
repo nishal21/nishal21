@@ -85,7 +85,7 @@ def duration(lines):
     if os.environ.get("TAKE_LINES"):
         with open(os.environ["TAKE_LINES"]) as f:
             n = json.load(f)["length"]
-        return int(round(min(240, n * 1.25) if STYLE["name"] == "acoustic" else n))  # acoustic is sung slower
+        return int(round(min(240, n * 1.4) if STYLE["name"] == "acoustic" else n))  # acoustic is sung slower
     return int(round(10 + 5 * len(lines) + 10))  # an intro, two bars a line at 96 BPM, a short outro
 
 
@@ -164,9 +164,7 @@ DEAPI = "https://api.deapi.ai/api/v2"
 DEAPI_CAPTION = {140: ("hip hop, 140 BPM half-time, A minor. One loud dry lead vocal: male rapper verses, warm female "
                        "chorus. Crisp slow diction, every word clear, on the beat. Very sparse quiet 808 and hats. "
                        "No ad-libs, harmonies or backing vocals.")}
-DEAPI_CAPTION[88] = ("soft acoustic indie ballad, 88 BPM, G major. Fingerpicked acoustic guitar, warm intimate close-mic male "
-                     "vocal, gentle and clear, every word sung slowly and plainly. Light and airy, no drums, faint "
-                     "shaker at most. No ad-libs, harmonies or backing vocals.")
+DEAPI_CAPTION[76] = ("lo-fi bedroom acoustic ballad, 76 BPM, C major. Solo fingerpicked acoustic guitar with capo, soft breathy close-mic male vocal, clear diction, every word plain, gentle falsetto. Faint soft piano, no drums. Lots of space, warm, melancholic and romantic.")
 DEAPI_CAPTION_MAX = 300  # deAPI rejects longer captions with a 422
 DEAPI_MODEL = os.environ.get("DEAPI_MODEL", "AceStep_1_5_Turbo")
 SPENT = []  # credits deAPI reported for each take
@@ -461,6 +459,16 @@ def polish(v, m):
     before = balance(v, m)
     v2 = signal.sosfilt(signal.butter(2, 90, "highpass", fs=SR, output="sos"), v, axis=-1)
     v2 = peaking(v2, 3500, 2.0, 0.8) * 10 ** (4 / 20)
+    if STYLE["name"] == "acoustic":  # clearer words: more presence, gentle 2:1 compression, +2.5 dB more voice
+        v2 = peaking(v2, 4200, 2.0, 1.0)
+        ev0 = envelope(v2, 30)
+        thr = np.percentile(ev0[ev0 > ev0.max() * 0.05], 60) if (ev0 > ev0.max() * 0.05).any() else ev0.max()
+        gain = np.where(ev0 > thr, (thr / np.maximum(ev0, 1e-9)) ** 0.5, 1.0)
+        on = ev0 > ev0.max() * 0.1
+        r0 = np.sqrt(np.mean(np.mean(v2, 0)[on] ** 2)) if on.any() else 1.0
+        v2 = v2 * gain
+        r1 = np.sqrt(np.mean(np.mean(v2, 0)[on] ** 2)) if on.any() else 1.0
+        v2 = v2 * (r0 / max(r1, 1e-9)) * 10 ** (2.5 / 20)  # back to its level, then 2.5 dB further forward
     m2 = peaking(peaking(m, 2500, -4.0, 0.7), 1000, -2.0, 0.9)
     ev = envelope(v2, 80)
     duck = 10 ** (-4 * np.clip(ev / (np.percentile(ev, 90) + 1e-9), 0, 1) / 20)
@@ -661,7 +669,10 @@ def attempts(lines, lyrics, dur, seed0, sing, label, tries, cloud, start):
             print(f"  heard: {rep['heard'][:300]}")
             if best is None or rep["score"] > best[0]["score"]:
                 best = (rep, seed, v, m, took)
-        if (best and best[0]["good"]) or sung >= tries:
+        aim = (label == "deAPI" and STYLE["name"] == "acoustic")  # aim higher: 90% and every line 60%, else the best that passes
+        hit = best and (best[0]["accuracy"] >= 0.90 and min(best[0]["line_acc"] or [0]) >= 0.60 and not best[0]["repeated"]
+                        if aim else best[0]["good"])
+        if hit or sung >= tries:
             break
     return best
 
@@ -956,7 +967,7 @@ def use_contribution(style=None):
     STYLE["name"] = style
     RELEASE, NAME, BPM, CAPTION, KEY = "contribution-song-take", "contribution-take", 140, CONTRIB_CAPTION, "A minor"
     if style == "acoustic":
-        NAME, BPM, CAPTION, KEY = "contribution-take-acoustic", 88, DEAPI_CAPTION[88], "G major"
+        NAME, BPM, CAPTION, KEY = "contribution-take-acoustic", 76, DEAPI_CAPTION[76], "C major"
     TAKE_URL = f"https://github.com/{USER}/{USER}/releases/download/{RELEASE}/"
     os.environ.setdefault("TAKE_LINES", "/tmp/contribution-lines.json")
     global HOTWORDS
