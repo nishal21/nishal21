@@ -1496,6 +1496,7 @@ function styleApply(data, st) {
   // the acoustic take is its own recording: its own lines, length and audio; the grid and stats stay
   const a = st === "acoustic" ? styleData.acoustic : styleData.original;
   data.lines = a.lines; data.length = a.length; data.bpm = a.bpm; data.key = a.key; data.engine = a.engine;
+  if (a.peaks?.length) data.peaks = a.peaks;
   if (st === "acoustic") delete data.stems; else if (styleData.original.stems) data.stems = styleData.original.stems;
   audio.src = st === "acoustic" ? "contribution-song-acoustic.mp3" : "contribution-song.mp3";
   $$('a.dl[href^="contribution-song"]').forEach((el) => {
@@ -1521,6 +1522,7 @@ function styleSwitch(st) {
   $("#left").textContent = `-${fmt(song.length)}`;
   $("#where").textContent = `${fmt(song.length)} · ${song.bpm} BPM · ${song.key}`;
   $("#remix-toggle").hidden = st === "acoustic" || !song.stems;
+  waveColors.clear(); drawWave();
   audio.addEventListener("loadedmetadata", () => {
     audio.currentTime = clamp(frac * song.length, 0, Math.max(0, song.length - 1));
     if (playing) audio.play().catch(() => {});
@@ -1536,7 +1538,7 @@ function styleSetup(data) {
   return fetch("contribution-song-acoustic.json", { credentials: "same-origin" })
     .then((r) => (r.ok ? r.json() : Promise.reject()))
     .then((ac) => {
-      styleData = { original: { lines: data.lines, length: data.length, bpm: data.bpm, key: data.key, engine: data.engine, stems: data.stems }, acoustic: ac };
+      styleData = { original: { lines: data.lines, length: data.length, bpm: data.bpm, key: data.key, engine: data.engine, stems: data.stems, peaks: data.peaks }, acoustic: ac };
       $("#styles").hidden = false;
       if (styleWanted() === "acoustic") styleApply(data, "acoustic");
       return data;

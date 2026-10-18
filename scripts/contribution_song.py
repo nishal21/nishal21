@@ -513,7 +513,7 @@ def acoustic_version(s):
                  for l, k in zip(tl, tk["lines"])]
         data = dict(style="acoustic", title="Contribution song (acoustic)", length=round(length, 3), bpm=88, key="G major",
                     engine="deAPI", src="contribution-song-acoustic.mp3", generated=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    lines=lines)
+                    lines=lines, peaks=[round(float(p), 3) for p in peaks(T.decode(mp, SR), 400)])
         write_atomic(out_json, json.dumps(data, separators=(",", ":")))
         write_atomic(os.path.join(ASSETS, "contribution-song-acoustic.lrc"), lrc([dict(start=l["t"], text=l["text"]) for l in lines], s))
         print(f"song: acoustic version from the deAPI take ({tk['accuracy_voice']:.0%} of words heard)")

@@ -185,7 +185,8 @@ def deapi_call(path, key, fields=None):
         with urllib.request.urlopen(urllib.request.Request(DEAPI + path, body, hdr), timeout=60) as r:
             return json.load(r)
     except urllib.error.HTTPError as e:
-        raise Failed(f"deAPI HTTP {e.code}: {e.read()[:300]!r}") from None
+        kind = e.headers.get("X-RateLimit-Type", "") if e.headers else ""
+        raise Failed(f"deAPI HTTP {e.code}{' ' + kind if kind else ''}: {e.read()[:300]!r}") from None
     except (urllib.error.URLError, TimeoutError, OSError) as e:
         raise Failed(f"deAPI: {e}") from None
 
@@ -309,7 +310,7 @@ def sing_deapi(lyrics, dur, seed, key):
             if "HTTP 422" in str(e):  # a validation error won't pass on a retry: stop here, Piper keeps singing
                 print(f"::warning::deAPI refused the request (validation): {e}")
                 raise
-            if "HTTP 429" not in str(e) or n == 3:
+            if "HTTP 429" not in str(e) or "daily" in str(e) or n == 3:  # the daily cap won't clear in a minute
                 raise
             print("deAPI rate limit, waiting 61 s")
             time.sleep(61)

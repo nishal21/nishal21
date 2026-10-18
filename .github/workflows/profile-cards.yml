@@ -185,6 +185,33 @@ jobs:
           CONTRIB_STYLE: acoustic
         run: python scripts/visitor_take.py --contribution --check >> "$GITHUB_OUTPUT"
 
+      # a passing take made for exactly tonight's lyrics may already exist (a test run or an earlier night): use it, no credit spent
+      - name: Reuse saved takes
+        id: reuse
+        if: steps.take.outputs.needed == 'true' || steps.take_ac.outputs.needed == 'true'
+        continue-on-error: true
+        env:
+          TAKE_LINES: /tmp/contribution-lines.json
+        run: |
+          mkdir -p /tmp/ctake
+          for st in original acoustic; do
+            n=contribution-take; o=reuse; [ $st = acoustic ] && n=contribution-take-acoustic && o=reuse_ac
+            found=false
+            for rel in contribution-song-take deapi-test; do
+              R=https://github.com/${{ github.repository }}/releases/download/$rel
+              curl -sfL -o /tmp/$n.json $R/$n.json || continue
+              if CONTRIB_STYLE=$st python -c "
+          import json,sys; sys.path.insert(0,'scripts'); import visitor_take as T; T.use_contribution()
+          t = json.load(open('/tmp/$n.json'))
+          sys.exit(not (t.get('engine') == 'deAPI' and t.get('hash') == T.lyrics_hash(T.sheet())))" \
+                 && curl -sfL -o /tmp/ctake/$n.mp3 $R/$n.mp3; then
+                cp /tmp/$n.json /tmp/ctake/$n.json; found=true; echo "$st: reusing the passing take from $rel"; break
+              fi
+            done
+            echo "$o=$found" >> "$GITHUB_OUTPUT"
+          done
+          ls -la /tmp/ctake
+
       - name: Install the singing tools
         if: steps.take.outputs.needed == 'true' || steps.take_ac.outputs.needed == 'true'
         run: |
@@ -202,14 +229,14 @@ jobs:
           key: visitor-take-tools-v1
 
       - name: Get ACE-Step for the CPU
-        if: steps.take.outputs.needed == 'true'
+        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Piper or the last good take
         run: |
           git clone --quiet https://github.com/ace-step/ACE-Step-1.5 ~/ace-step
           git -C ~/ace-step checkout --quiet ca1e85fe9430179831e6bc6be790c332190a3866
 
       - name: Restore the ACE-Step models
         id: acemodels
-        if: steps.take.outputs.needed == 'true'
+        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Piper or the last good take
         uses: actions/cache/restore@v4
         with:
           path: ~/ace-step/checkpoints
@@ -217,7 +244,7 @@ jobs:
 
       # sections that passed are kept, so a rerun only sings the ones that didn't (and lines whose numbers changed)
       - name: Restore the sung sections
-        if: steps.take.outputs.needed == 'true'
+        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Piper or the last good take
         uses: actions/cache/restore@v4
         with:
           path: /tmp/ctake/sections
@@ -227,7 +254,7 @@ jobs:
       # deAPI (hosted ACE-Step, paid from credit) sings the whole song in one job, only when the lyrics changed.
       - name: Sing the contribution song on deAPI
         id: deapi
-        if: steps.take.outputs.needed == 'true'
+        if: steps.take.outputs.needed == 'true' && steps.reuse.outputs.reuse != 'true'
         continue-on-error: true
         env:
           DEAPI_API_KEY: ${{ secrets.DEAPI_API_KEY }}
@@ -237,7 +264,7 @@ jobs:
 
       - name: Sing the acoustic version on deAPI
         id: deapi_ac
-        if: steps.take_ac.outputs.needed == 'true'
+        if: steps.take_ac.outputs.needed == 'true' && steps.reuse.outputs.reuse_ac != 'true'
         continue-on-error: true
         env:
           DEAPI_API_KEY: ${{ secrets.DEAPI_API_KEY }}
@@ -253,7 +280,7 @@ jobs:
 
       - name: Sing the contribution song
         id: sing
-        if: steps.take.outputs.needed == 'true' && steps.deapi.outcome != 'success'
+        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Piper or the last good take
         continue-on-error: true
         env:
           ACESTEP_API_KEY: ${{ secrets.ACESTEP_API_KEY }}
@@ -268,7 +295,7 @@ jobs:
           python scripts/visitor_take.py --contribution --sections /tmp/ctake
 
       - name: Save the sung sections
-        if: always() && steps.take.outputs.needed == 'true'
+        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Piper or the last good take
         continue-on-error: true
         uses: actions/cache/save@v4
         with:
@@ -286,7 +313,7 @@ jobs:
           key: visitor-take-tools-v1
 
       - name: Save the ACE-Step models
-        if: always() && steps.sing.outputs.prepared == 'true' && steps.acemodels.outputs.cache-hit != 'true'
+        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Piper or the last good take
         continue-on-error: true
         uses: actions/cache/save@v4
         with:
@@ -294,20 +321,19 @@ jobs:
           key: ace-step-v15-turbo-bf16-lm06-ca1e85f
 
       - name: Publish the take
-        if: steps.sing.outcome == 'success' || steps.deapi.outcome == 'success'
+        if: steps.deapi.outcome == 'success' || steps.reuse.outputs.reuse == 'true' || steps.reuse.outputs.reuse_ac == 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          test -s /tmp/ctake/contribution-take-vocals.wav && test -s /tmp/ctake/contribution-take.json
           gh release view contribution-song-take >/dev/null 2>&1 || gh release create contribution-song-take \
             --title "Contribution song take" --notes "The ACE-Step vocal take for the contribution song." --latest=false
-          gh release upload contribution-song-take /tmp/ctake/contribution-take.mp3 /tmp/ctake/contribution-take.json \
-            /tmp/ctake/contribution-take-vocals.wav --clobber
-          python -c "import json; t = json.load(open('/tmp/ctake/contribution-take.json')); print(f\"::notice::Contribution song sung by {t['engine']}: {t['accuracy_voice']:.0%} of words heard\")"
+          files=$(ls /tmp/ctake/contribution-take*.json /tmp/ctake/contribution-take*.mp3 /tmp/ctake/contribution-take-vocals.wav 2>/dev/null || true)
+          [ -n "$files" ] && gh release upload contribution-song-take $files --clobber
+          for f in /tmp/ctake/contribution-take*.json; do python -c "import json; t = json.load(open('$f')); print(f\"::notice::$(basename $f): sung by {t['engine']}, {t['accuracy_voice']:.0%} of words heard\")"; done
 
       - name: Contribution song with the take
-        if: steps.sing.outcome == 'success' || steps.deapi.outcome == 'success' || steps.deapi_ac.outcome == 'success'
+        if: steps.sing.outcome == 'success' || steps.deapi.outcome == 'success' || steps.deapi_ac.outcome == 'success' || steps.reuse.outputs.reuse == 'true' || steps.reuse.outputs.reuse_ac == 'true'
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
