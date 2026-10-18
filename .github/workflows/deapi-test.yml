@@ -54,17 +54,33 @@ jobs:
           CONTRIB_LINES_OUT: /tmp/contribution-lines.json
           TAKE_LINES: /tmp/contribution-lines.json
         run: |
-          mkdir -p /tmp/out
+          mkdir -p /tmp/out /tmp/ctake
           CONTRIB_NO_TAKE=1 python scripts/contribution_song.py
-          DEAPI_TRIES=6 DEAPI_SAVE_BEST=/tmp/cbest python scripts/visitor_take.py --contribution --deapi /tmp/ctake | tee /tmp/out/deapi-log.txt || true
-          [ -s /tmp/ctake/contribution-take.json ] || { mkdir -p /tmp/ctake; cp /tmp/cbest/* /tmp/ctake/ 2>/dev/null || true; }
-          cp /tmp/ctake/contribution-take.mp3 /tmp/out/deapi-best-take.mp3 2>/dev/null || true
-          if [ -s /tmp/ctake/contribution-take.json ]; then
-            CONTRIB_TAKE_DIR=/tmp/ctake python scripts/contribution_song.py || true
-            cp assets/contribution-song.mp3 /tmp/out/deapi-song.mp3
-            python scripts/visitor_take.py --contribution --check-song /tmp/out/deapi-song.mp3 | tee -a /tmp/out/deapi-log.txt || true
+          R=https://github.com/${{ github.repository }}/releases/download/deapi-test
+          # each style: reuse the take on the deapi-test prerelease when it was made for tonight's lyrics (no credit spent)
+          for st in original acoustic; do
+            n=contribution-take; [ $st = acoustic ] && n=contribution-take-acoustic
+            curl -sfL -o /tmp/ctake/$n.json $R/$n.json && curl -sfL -o /tmp/ctake/$n.mp3 $R/$n.mp3 || rm -f /tmp/ctake/$n.*
+            if [ -s /tmp/ctake/$n.json ] && CONTRIB_STYLE=$st python -c "
+          import json,sys; sys.path.insert(0,'scripts'); import visitor_take as T; T.use_contribution()
+          sys.exit(json.load(open('/tmp/ctake/$n.json'))['hash'] != T.lyrics_hash(T.sheet()))"; then
+              echo "$st: reusing the saved deAPI take" | tee -a /tmp/out/deapi-log.txt
+            else
+              rm -f /tmp/ctake/$n.*
+              CONTRIB_STYLE=$st DEAPI_TRIES=6 DEAPI_SAVE_BEST=/tmp/cbest-$st python scripts/visitor_take.py --contribution --deapi /tmp/ctake 2>&1 | tee -a /tmp/out/deapi-log.txt || true
+              [ -s /tmp/ctake/$n.json ] || cp /tmp/cbest-$st/$n.mp3 /tmp/out/$n-best-failed.mp3 2>/dev/null || true
+            fi
+          done
+          CONTRIB_TAKE_DIR=/tmp/ctake python scripts/contribution_song.py 2>&1 | tee -a /tmp/out/deapi-log.txt || true
+          cp assets/contribution-song.mp3 /tmp/out/deapi-final.mp3; cp assets/contribution-song.json /tmp/out/deapi-final.json
+          echo "== check original" | tee -a /tmp/out/deapi-log.txt
+          python scripts/visitor_take.py --contribution --check-song /tmp/out/deapi-final.mp3 2>&1 | tee -a /tmp/out/deapi-log.txt || true
+          if [ -f assets/contribution-song-acoustic.mp3 ]; then
+            cp assets/contribution-song-acoustic.mp3 /tmp/out/deapi-acoustic.mp3; cp assets/contribution-song-acoustic.json /tmp/out/deapi-acoustic.json
+            echo "== check acoustic" | tee -a /tmp/out/deapi-log.txt
+            CONTRIB_STYLE=acoustic python scripts/visitor_take.py --contribution --check-song /tmp/out/deapi-acoustic.mp3 2>&1 | tee -a /tmp/out/deapi-log.txt || true
           fi
-          cp /tmp/ctake/contribution-take.* /tmp/out/ 2>/dev/null || true
+          cp /tmp/ctake/contribution-take*.json /tmp/ctake/contribution-take*.mp3 /tmp/out/ 2>/dev/null || true
       - name: Put the test mp3s on the deapi-test prerelease
         if: always()
         env:

@@ -84,7 +84,8 @@ def ace_lyrics(lines):
 def duration(lines):
     if os.environ.get("TAKE_LINES"):
         with open(os.environ["TAKE_LINES"]) as f:
-            return int(round(json.load(f)["length"]))
+            n = json.load(f)["length"]
+        return int(round(min(240, n * 1.25) if STYLE["name"] == "acoustic" else n))  # acoustic is sung slower
     return int(round(10 + 5 * len(lines) + 10))  # an intro, two bars a line at 96 BPM, a short outro
 
 
@@ -163,6 +164,9 @@ DEAPI = "https://api.deapi.ai/api/v2"
 DEAPI_CAPTION = {140: ("hip hop, 140 BPM half-time, A minor. One loud dry lead vocal: male rapper verses, warm female "
                        "chorus. Crisp slow diction, every word clear, on the beat. Very sparse quiet 808 and hats. "
                        "No ad-libs, harmonies or backing vocals.")}
+DEAPI_CAPTION[88] = ("soft acoustic indie ballad, 88 BPM, G major. Fingerpicked acoustic guitar, warm intimate close-mic male "
+                     "vocal, gentle and clear, every word sung slowly and plainly. Light and airy, no drums, faint "
+                     "shaker at most. No ad-libs, harmonies or backing vocals.")
 DEAPI_CAPTION_MAX = 300  # deAPI rejects longer captions with a 422
 DEAPI_MODEL = os.environ.get("DEAPI_MODEL", "AceStep_1_5_Turbo")
 SPENT = []  # credits deAPI reported for each take
@@ -940,10 +944,18 @@ def check_song(mp3):
     return 0 if ok else 1
 
 
-def use_contribution():
-    """Switch to the contribution song: its own release, brief, tempo and the lines file from contribution_song.py."""
-    global RELEASE, NAME, TAKE_URL, BPM, CAPTION
-    RELEASE, NAME, BPM, CAPTION = "contribution-song-take", "contribution-take", 140, CONTRIB_CAPTION
+STYLE = {"name": "original"}
+
+
+def use_contribution(style=None):
+    """Switch to the contribution song: its own release, brief, tempo and the lines file from contribution_song.py.
+    style "acoustic" (or CONTRIB_STYLE=acoustic) is the second version: soft fingerpicked acoustic, its own take files."""
+    global RELEASE, NAME, TAKE_URL, BPM, CAPTION, KEY
+    style = style or os.environ.get("CONTRIB_STYLE") or "original"
+    STYLE["name"] = style
+    RELEASE, NAME, BPM, CAPTION, KEY = "contribution-song-take", "contribution-take", 140, CONTRIB_CAPTION, "A minor"
+    if style == "acoustic":
+        NAME, BPM, CAPTION, KEY = "contribution-take-acoustic", 88, DEAPI_CAPTION[88], "G major"
     TAKE_URL = f"https://github.com/{USER}/{USER}/releases/download/{RELEASE}/"
     os.environ.setdefault("TAKE_LINES", "/tmp/contribution-lines.json")
     global HOTWORDS

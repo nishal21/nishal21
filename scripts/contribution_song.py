@@ -42,7 +42,7 @@ EVENT_ACCENTS = True  # releases, big PRs, new repos and the peak day as one-sho
 
 SR = S.SR
 TAKE_RELEASE = f"https://github.com/{USER}/{USER}/releases/download/contribution-song-take/"
-TAKE = {"used": None}  # the take's json when ACE-Step sings tonight
+TAKE = {"used": None, "whole": None}  # the take's json when ACE-Step sings tonight
 BPM = 140
 BEAT = 60 / BPM
 BAR = 4 * BEAT
@@ -404,12 +404,20 @@ def vocals(lyrics, n):
     timeline.sort(key=lambda l: l["start"])
     st["lead_only"] = lead_only
     sung = take_lines(lyrics, timeline)
+    TAKE["sung"], TAKE["timeline"] = sung, [dict(l) for l in timeline]
     out = os.environ.get("CONTRIB_LINES_OUT")
     if out:
         with open(out, "w") as f:
             json.dump(dict(lines=sung, length=len(bar_sections()) * BAR + 2.0), f)
     tk = None if os.environ.get("CONTRIB_NO_TAKE") else load_take(sung)
-    if tk:
+    if tk and tk[0].get("engine") == "deAPI" and os.path.exists(os.path.join(tk[0]["_dir"], "contribution-take.mp3")) \
+            and len(tk[0].get("lines", [])) == len(timeline):
+        # deAPI sang the whole song: its own mix is the song, and the lyrics follow the take's Whisper line times
+        for slot, ln in zip(timeline, tk[0]["lines"]):
+            slot["start"], slot["end"] = float(ln["t"]), float(ln["end"])
+        TAKE["used"], TAKE["whole"] = tk[0], os.path.join(tk[0]["_dir"], "contribution-take.mp3")
+        print("song: the deAPI take's own mix is the song")
+    elif tk:
         try:
             st = sing_take(tk, timeline, n)
             TAKE["used"] = tk[0]
@@ -445,23 +453,77 @@ def load_take(sung):
     want = T.lyrics_hash(sung)
     d = os.environ.get("CONTRIB_TAKE_DIR") or tempfile.mkdtemp()
     try:
-        for f in ("contribution-take.json", "contribution-take-vocals.wav"):
+        for f in ("contribution-take.json", "contribution-take-vocals.wav", "contribution-take.mp3"):
             p = os.path.join(d, f)
             if os.path.exists(p):
                 continue
+            if f.endswith(".wav") and os.path.exists(os.path.join(d, "contribution-take.mp3")) and \
+                    json.load(open(os.path.join(d, "contribution-take.json"))).get("engine") == "deAPI":
+                continue  # a deAPI take is used whole, its separate voice isn't needed
             if f.endswith(".json") or json.load(open(os.path.join(d, "contribution-take.json"))).get("hash") == want:
+                if f.endswith(".mp3") and json.load(open(os.path.join(d, "contribution-take.json"))).get("engine") != "deAPI":
+                    continue  # only a deAPI take is used whole
                 with urllib.request.urlopen(urllib.request.Request(TAKE_RELEASE + f, headers={"User-Agent": USER}), timeout=60) as r:
                     write_atomic(p, r.read())
         tk = json.load(open(os.path.join(d, "contribution-take.json")))
         if tk.get("hash") != want:
             print("song: the last ACE-Step take was for other lyrics, so Piper sings tonight")
             return None
-        voice = T.decode(os.path.join(d, "contribution-take-vocals.wav"))
+        wav = os.path.join(d, "contribution-take-vocals.wav")
+        voice = T.decode(wav) if os.path.exists(wav) else None
         print(f"song: sung by ACE-Step ({tk['engine']}, {tk['accuracy_voice']:.0%} of words heard)")
+        tk["_dir"] = d
         return tk, voice
     except Exception as e:  # noqa: BLE001
         print(f"song: no ACE-Step take ({e}), so Piper sings")
         return None
+
+
+def acoustic_version(s):
+    """The second style: a deAPI take in a soft acoustic sound, used whole, lyrics timed by its Whisper words.
+    Returns the entry for the song json, or None (then the page hides the style switch). Without a take for tonight's
+    lyrics, the last good acoustic version stays (its own file and timing)."""
+    import shutil as _sh
+    import urllib.request
+    import visitor_take as T
+    out_mp3 = os.path.join(ASSETS, "contribution-song-acoustic.mp3")
+    out_json = os.path.join(ASSETS, "contribution-song-acoustic.json")
+    try:
+        if os.environ.get("CONTRIB_ACOUSTIC_KEEP"):
+            raise RuntimeError("tonight's acoustic take failed its check")
+        T.use_contribution("acoustic")
+        want = T.lyrics_hash(TAKE["sung"])
+        d = os.environ.get("CONTRIB_TAKE_DIR") or tempfile.mkdtemp()
+        jp, mp = os.path.join(d, "contribution-take-acoustic.json"), os.path.join(d, "contribution-take-acoustic.mp3")
+        if not os.path.exists(jp):
+            with urllib.request.urlopen(urllib.request.Request(TAKE_RELEASE + "contribution-take-acoustic.json",
+                                                               headers={"User-Agent": USER}), timeout=60) as r:
+                write_atomic(jp, r.read())
+        tk = json.load(open(jp))
+        tl = TAKE["timeline"]
+        if tk.get("hash") != want or tk.get("engine") != "deAPI" or len(tk.get("lines", [])) != len(tl):
+            raise RuntimeError("the acoustic take is for other lyrics")
+        if not os.path.exists(mp):
+            with urllib.request.urlopen(urllib.request.Request(TAKE_RELEASE + "contribution-take-acoustic.mp3",
+                                                               headers={"User-Agent": USER}), timeout=120) as r:
+                write_atomic(mp, r.read())
+        _sh.copyfile(mp, out_mp3)
+        length = T.decode(mp, SR).shape[1] / SR
+        lines = [dict(t=round(float(k["t"]), 3), end=round(float(k["end"]), 3), section=l["section"], text=l["text"])
+                 for l, k in zip(tl, tk["lines"])]
+        data = dict(style="acoustic", title="Contribution song (acoustic)", length=round(length, 3), bpm=88, key="G major",
+                    engine="deAPI", src="contribution-song-acoustic.mp3", generated=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    lines=lines)
+        write_atomic(out_json, json.dumps(data, separators=(",", ":")))
+        write_atomic(os.path.join(ASSETS, "contribution-song-acoustic.lrc"), lrc([dict(start=l["t"], text=l["text"]) for l in lines], s))
+        print(f"song: acoustic version from the deAPI take ({tk['accuracy_voice']:.0%} of words heard)")
+    except Exception as e:  # noqa: BLE001
+        print(f"song: no new acoustic take ({e})" + ("; the last good one stays" if os.path.exists(out_json) else ""))
+    finally:
+        T.use_contribution("original")
+    if os.path.exists(out_json) and os.path.exists(out_mp3):
+        return ["original", "acoustic"]
+    return None
 
 
 def engine_where(engine):
@@ -884,6 +946,10 @@ def main():
         length = len(weeks) * BAR + 2.0
         song, vox_solo, stems = mixdown(inst, kicks, vox, hook_lead, n, length, stems=REMIX_STEMS)
         song, lufs, gain = master(song)
+        if TAKE.get("whole"):
+            import visitor_take as T
+            song = T.decode(TAKE["whole"], SR)
+            length, lufs = song.shape[1] / SR, TAKE["used"].get("lufs", -13.7)
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -899,7 +965,7 @@ def main():
             json.dump(dict(timeline=timeline), f)
     encode_mp3(song, os.path.join(ASSETS, "contribution-song.mp3"))
     stem_info = None
-    if REMIX_STEMS:
+    if REMIX_STEMS and not TAKE.get("whole"):  # the remix stems are the Piper arrangement, not the take
         try:  # the song still ships if the stems fail; the player then just hides the remix
             stem_info = STEMS.export(stems, gain, hits, length, os.path.join(ASSETS, "stems"))
         except Exception as e:
@@ -911,8 +977,11 @@ def main():
     for name, t in THEMES.items():
         write_atomic(os.path.join(ASSETS, f"song-{name}.svg"), render_card(s, length, wp, t))
     write_atomic(os.path.join(ASSETS, "contribution-song.lrc"), lrc(timeline, s))
-    write_atomic(os.path.join(ASSETS, "contribution-song.json"),
-                 song_json(s, facts, weeks, timeline, length, song, langs, events, year, stem_info))
+    styles = None if os.environ.get("CONTRIB_NO_ACOUSTIC") else acoustic_version(s)
+    js = json.loads(song_json(s, facts, weeks, timeline, length, song, langs, events, year, stem_info))
+    if styles:
+        js["styles"] = styles
+    write_atomic(os.path.join(ASSETS, "contribution-song.json"), json.dumps(js, separators=(",", ":")))
     print(f"song: {mmss(length)} ({length:.1f}s), {len(weeks)} bars, {len(timeline)} vocal lines, {lufs:.1f} LUFS")
 
 

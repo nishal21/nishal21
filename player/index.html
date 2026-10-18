@@ -74,6 +74,10 @@ try{var l=new URLSearchParams(location.hash.slice(1)).get("persona")||localStora
         <p class="artist"><a href="https://github.com/nishal21">Nishal K</a></p>
       </div>
       <div class="meta-actions">
+        <div class="styles" id="styles" role="group" aria-label="Style" hidden>
+          <button type="button" data-style="original" aria-pressed="true">Original</button>
+          <button type="button" data-style="acoustic" aria-pressed="false">Acoustic</button>
+        </div>
         <button type="button" class="pill lyrics-toggle" id="lyrics-toggle" aria-pressed="false" aria-controls="lyrics-pane">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h11M4 11h16M4 16h9"/><circle cx="18.5" cy="17" r="2.5"/><path d="M21 17V9"/></svg>
           <span class="pill-text">Lyrics</span>

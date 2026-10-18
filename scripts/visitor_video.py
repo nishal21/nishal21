@@ -250,6 +250,13 @@ class Video:
         self._raster = {}
 
     def build_credits(self):
+        if NAME[0].startswith("contribution"):
+            voice = ("person:ACE-Step 1.5|sung through deAPI" if self.engine == "deAPI" else
+                     "person:Piper TTS|two voices" if self.engine == "Piper" else f"person:ACE-Step 1.5|{self.engine}")
+            return [("label:contribution song", 90), ("big:A year of commits, sung", 150),
+                    ("label:words and music", 80), ("person:Nishal K|github.com/nishal21", 118), ("gap:", 40),
+                    ("label:voice", 80), (voice, 118), ("gap:", 40),
+                    ("label:drawings", 80), ("person:Open Doodles|by Pablo Stanley, CC0", 118)]
         out = [("label:visitor song", 90), ("big:A song by everyone who stopped by", 150)]
         if self.people:
             out.append(("label:lyrics by visitors", 80))
@@ -496,6 +503,9 @@ def plan(v, art_url):
     )
 
 
+NAME = ["visitor"]
+
+
 def main():
     """OUT [--web] [--lrc F --json F --mp3 F] [--frames t1,t2]
     --web writes what the Videos page plays live: visitor-video.json (the plan), visitor-video.mp3 (the song with a
@@ -509,6 +519,7 @@ def main():
     if not os.path.exists(mp3):
         sys.exit("visitor-song.mp3 not found")
     os.makedirs(out, exist_ok=True)
+    NAME[0] = opt.get("name", "visitor")
     data, rows, length = load(lrc, js, mp3)
     v = Video(data, rows, length)
     if "frames" in opt:  # stills for checking
@@ -516,16 +527,16 @@ def main():
             v.frame(float(s)).save(os.path.join(out, f"frame-{float(s):06.2f}.png"))
         return
     t0 = time.time()
-    v.frame(max(0.5, v.first - 1.2)).resize((1280, 720), Image.LANCZOS).save(os.path.join(out, "visitor-poster.jpg"), quality=86)
+    v.frame(max(0.5, v.first - 1.2)).resize((1280, 720), Image.LANCZOS).save(os.path.join(out, f"{NAME[0]}-poster.jpg"), quality=86)
     if "--web" in args:
         # link preview card (1200x630): the title frame, with the current line and visitor counts
         big = v.frame(max(0.5, v.first - 1.2))
-        big.crop((0, 36, 1920, 1044)).resize((1200, 630), Image.LANCZOS).save(os.path.join(out, "visitor-og.jpg"), quality=88)
-        with open(os.path.join(out, "visitor-video.json"), "w") as f:
+        big.crop((0, 36, 1920, 1044)).resize((1200, 630), Image.LANCZOS).save(os.path.join(out, f"{NAME[0]}-og.jpg"), quality=88)
+        with open(os.path.join(out, f"{NAME[0]}-video.json"), "w") as f:
             json.dump(plan(v, "../player/art/"), f, separators=(",", ":"))
         subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", mp3, "-af", f"apad,atrim=0:{v.total:.3f}",
-                        "-c:a", "libmp3lame", "-b:a", "160k", os.path.join(out, "visitor-video.mp3")], check=True)
-        print(f"{out}/visitor-video.json and .mp3 written ({v.total:.1f} s, {len(rows)} lines)")
+                        "-c:a", "libmp3lame", "-b:a", "160k", os.path.join(out, f"{NAME[0]}-video.mp3")], check=True)
+        print(f"{out}/{NAME[0]}-video.json and .mp3 written ({v.total:.1f} s, {len(rows)} lines)")
         return
     n = int(math.ceil(v.total * FPS))
     target = os.path.join(out, "visitor-song.mp4")

@@ -316,7 +316,20 @@ const VISITOR = {
   download: { href: VISITOR_MP4, name: "nishal-visitor-song.mp4", label: "Download video" },
   share: "visitor", artist: "Nishal K and visitors",
 };
-const OWN = (it) => it === CLIP || it === TRAILER || it === VISITOR;
+// the contribution song as a lyric video in two styles; the Original / Acoustic pills swap them and the choice is kept
+const songItem = (ac) => ({
+  key: ac ? "song-acoustic" : "song", kind: "file", shape: "wide", artist: "Nishal K",
+  src: new URL(ac ? "contribution-acoustic-video.mp3" : "contribution-video.mp3", SITE).href,
+  lyric: new URL(ac ? "contribution-acoustic-video.json" : "contribution-video.json", SITE).href,
+  thumb: ac ? "contribution-acoustic-poster.jpg" : "contribution-poster.jpg",
+  eyebrow: ac ? "Contribution song · acoustic" : "Contribution song · rebuilt every night",
+  title: ac ? "My year on GitHub, sung soft and acoustic" : "My year on GitHub, as a song",
+  download: { href: ac ? "../player/contribution-song-acoustic.mp3" : "../player/contribution-song.mp3",
+    name: ac ? "nishal-contribution-song-acoustic.mp3" : "nishal-contribution-song.mp3", label: "Download song" },
+  share: ac ? "song-acoustic" : "song",
+});
+const SONG_O = songItem(false), SONG_A = songItem(true);
+const OWN = (it) => it === CLIP || it === TRAILER || it === VISITOR || it === SONG_O || it === SONG_A;
 const TRAILER_WIDE = TRAILER.src, TRAILER_TALL = new URL("trailer-vertical.mp4", SITE).href;
 let trailerMeta = null;   // trailer.json: fps, bar, cuts, kicks, hits and (newer builds) sections
 let trailerTall = false, hasTall = false;
@@ -393,6 +406,7 @@ function ytItem(v) {
 function metaLine(it) {
   if (it === CLIP) return CLIP.metaText || "15 seconds from the contribution song";
   if (it === TRAILER) return TRAILER.metaText || "45 seconds, cut to the contribution song";
+  if (it === SONG_O || it === SONG_A) return it.metaText || "The contribution song with its lyrics";
   if (it === VISITOR) return VISITOR.metaText || "Notes and lyric lines added by people who visit my profile";
   const bits = [];
   if (it.views != null) bits.push(`${nf.format(it.views)} views`);
@@ -462,6 +476,7 @@ function versionSwitcher(it) {
 let pendingFrac = null;
 function switchVersion(to) {
   if (!cur || to.key === cur.key) return;
+  if (to === SONG_O || to === SONG_A) store.set("style", to === SONG_A ? "acoustic" : "original");
   const frac = P?.d ? clamp(P.t / P.d, 0, 0.98) : 0;
   const playing = P && !P.paused;
   const keep = !to.short && !cur.short && frac > 0.01;
@@ -2735,8 +2750,16 @@ async function boot() {
     // phones get the vertical cut
     if (matchMedia("(max-aspect-ratio: 3/4)").matches) TRAILER.download = { href: "trailer-vertical.mp4", name: "nishal-year-trailer-vertical.mp4", label: "Download vertical" };
   }
-  library = [...(trailer?.length ? [TRAILER] : []), ...(hasClip ? [CLIP] : []), ...(visitor ? [VISITOR] : []), ...yts];
+  const hasSong = await fetch(SONG_O.lyric, { method: "HEAD" }).then((r) => r.ok).catch(() => false);
+  const hasAc = hasSong && song?.styles?.includes("acoustic") && await fetch(SONG_A.lyric, { method: "HEAD" }).then((r) => r.ok).catch(() => false);
+  if (hasSong) {
+    const v = encodeURIComponent(song?.generated || "");
+    for (const x of [SONG_O, SONG_A]) { x.src += `?v=${v}`; x.lyric += `?v=${v}`; x.thumb += `?v=${v}`; if (song?.length) x.metaText = `${song.stats?.total ?? ""} contributions, sung`; }
+  }
+  const songPick = hasAc && store.get("style", "original") === "acoustic" ? SONG_A : SONG_O;
+  library = [...(trailer?.length ? [TRAILER] : []), ...(hasSong ? [songPick] : []), ...(hasClip ? [CLIP] : []), ...(visitor ? [VISITOR] : []), ...yts];
   buildGroups(yts);
+  if (hasAc) { const g = [{ v: "Original", it: SONG_O }, { v: "Acoustic", it: SONG_A }]; groups.set(SONG_O.key, g); groups.set(SONG_A.key, g); }
   renderLibrary();
   route();
 }
@@ -2744,13 +2767,13 @@ function route() {
   const q = new URLSearchParams(location.search);
   const v = q.get("v") || (EMBED ? q.get("src") : null), t = parseTime(q.get("t") || q.get("start") || "") || 0;
   let it = null;
-  if (v && v !== "clip" && v !== "trailer" && v !== "visitor") {
+  if (v && v !== "clip" && v !== "trailer" && v !== "visitor" && v !== "song" && v !== "song-acoustic") {
     const x = parseLink(v);
     if (x.error) say(`The shared link couldn't be played. ${x.error}`, true);
     else it = itemFromParsed(x);
     if (it && x.guessed && !x.via) probeLink(x).then((y) => { if (y.error) onError(y.error, x.src); else if (y.kind !== x.kind && cur?.src === x.src) load(itemFromParsed({ ...y, start: t || y.start }), { push: false }); });
   }
-  it ||= library.find((x) => OWN(x) && x.share === v) || library[0];
+  it ||= library.find((x) => OWN(x) && x.share === v) || (v === "song-acoustic" && groups.has("song-acoustic") ? SONG_A : v === "song" && groups.has("song") ? SONG_O : null) || library[0];
   if (!it) { $("#title").textContent = "Paste a video link below"; $("#eyebrow").textContent = ""; return; }
   if (t) it = { ...it, start: t };
   if (EMBED) return embedStart(it, q);

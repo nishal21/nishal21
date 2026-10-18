@@ -1052,3 +1052,16 @@ kbd {
   :root[data-persona] .remix-open .rx-knob { --size: 34px; width: 34px; height: 34px; }
   :root[data-persona] .remix-open .rx-tempo { gap: var(--s2); }
 }
+
+/* style switch: Original / Acoustic (same look as the page tabs) */
+.styles { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--wash); border: 1px solid var(--line); flex: none; }
+.styles[hidden] { display: none; }
+.styles button {
+  height: 32px; padding: 0 var(--s3); border: 0; border-radius: 999px; background: transparent; cursor: pointer;
+  font: inherit; font-size: 0.875rem; font-weight: 600; color: var(--fg-2); white-space: nowrap;
+  transition: background-color 0.25s, color 0.25s;
+}
+.styles button:hover { color: var(--fg); }
+.styles button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.styles button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+@media (max-width: 479px) { .styles button { padding: 0 var(--s2); font-size: 0.8125rem; } }

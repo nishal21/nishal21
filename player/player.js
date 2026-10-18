@@ -1484,8 +1484,69 @@ window.songPlayer = {
   onPanel: (fn) => panelWatchers.push(fn),
 };
 
+/* ---------- style switch: the Original song or the Acoustic version (contribution song only) ---------- */
+const STYLE_KEY = "song-style";
+let styleData = null, styleNow = "original";
+function styleWanted() {
+  const q = new URLSearchParams(location.search).get("style");
+  if (q === "acoustic" || q === "original") return q;
+  try { return localStorage.getItem(STYLE_KEY) === "acoustic" ? "acoustic" : "original"; } catch { return "original"; }
+}
+function styleApply(data, st) {
+  // the acoustic take is its own recording: its own lines, length and audio; the grid and stats stay
+  const a = st === "acoustic" ? styleData.acoustic : styleData.original;
+  data.lines = a.lines; data.length = a.length; data.bpm = a.bpm; data.key = a.key; data.engine = a.engine;
+  if (st === "acoustic") delete data.stems; else if (styleData.original.stems) data.stems = styleData.original.stems;
+  audio.src = st === "acoustic" ? "contribution-song-acoustic.mp3" : "contribution-song.mp3";
+  $$('a.dl[href^="contribution-song"]').forEach((el) => {
+    const mp3 = el.getAttribute("href").endsWith(".mp3"), lrc = el.getAttribute("href").endsWith(".lrc");
+    if (!mp3 && !lrc) return;
+    const ext = mp3 ? "mp3" : "lrc";
+    el.href = st === "acoustic" ? `contribution-song-acoustic.${ext}` : `contribution-song.${ext}`;
+    el.download = st === "acoustic" ? `nishal-contribution-song-acoustic.${ext}` : `nishal-contribution-song.${ext}`;
+  });
+  $$("#styles button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.style === st)));
+  styleNow = st;
+}
+function styleSwitch(st) {
+  if (st === styleNow || !song) return;
+  try { if (st === "acoustic") localStorage.setItem(STYLE_KEY, st); else localStorage.removeItem(STYLE_KEY); } catch {}
+  const playing = !media.paused, frac = song.length ? media.currentTime / song.length : 0;
+  if (media !== audio) { // the remix engine plays the original's stems: start fresh on the other style
+    const u = new URL(location.href); u.searchParams.set("style", st); u.searchParams.delete("t"); location.href = u.href; return;
+  }
+  styleApply(song, st);
+  $("#lyrics").replaceChildren(); lineEls = []; lyEls = []; lineLabel = []; curLine = -2; curSec = -1;
+  buildLyrics(song);
+  $("#left").textContent = `-${fmt(song.length)}`;
+  $("#where").textContent = `${fmt(song.length)} · ${song.bpm} BPM · ${song.key}`;
+  $("#remix-toggle").hidden = st === "acoustic" || !song.stems;
+  audio.addEventListener("loadedmetadata", () => {
+    audio.currentTime = clamp(frac * song.length, 0, Math.max(0, song.length - 1));
+    if (playing) audio.play().catch(() => {});
+    layoutLyrics(true); update(true);
+  }, { once: true });
+  audio.load();
+  requestAnimationFrame(() => { layoutLyrics(true); update(true); });
+}
+$$("#styles button").forEach((b) => b.addEventListener("click", () => styleSwitch(b.dataset.style)));
+
+function styleSetup(data) {
+  if (SONG !== "contribution-song" || !data.styles?.includes("acoustic")) return Promise.resolve(data);
+  return fetch("contribution-song-acoustic.json", { credentials: "same-origin" })
+    .then((r) => (r.ok ? r.json() : Promise.reject()))
+    .then((ac) => {
+      styleData = { original: { lines: data.lines, length: data.length, bpm: data.bpm, key: data.key, engine: data.engine, stems: data.stems }, acoustic: ac };
+      $("#styles").hidden = false;
+      if (styleWanted() === "acoustic") styleApply(data, "acoustic");
+      return data;
+    })
+    .catch(() => data); // no acoustic file: the switch stays hidden and the original plays
+}
+
 fetch(`${SONG}.json`, { credentials: "same-origin" })
   .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+  .then(styleSetup)
   .then((data) => {
     build(data);
     // ?t=42 starts the song there (the cover's "Copy link at" uses it)

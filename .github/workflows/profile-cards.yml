@@ -177,15 +177,25 @@ jobs:
           TAKE_LINES: /tmp/contribution-lines.json
         run: python scripts/visitor_take.py --contribution --check >> "$GITHUB_OUTPUT"
 
+      # the acoustic version: its own deAPI take, re-sung only when the lyrics change
+      - name: Does the acoustic version need a new take?
+        id: take_ac
+        if: steps.song.outcome == 'success' && env.CONTRIB_NO_TAKE != '1'
+        continue-on-error: true
+        env:
+          TAKE_LINES: /tmp/contribution-lines.json
+          CONTRIB_STYLE: acoustic
+        run: python scripts/visitor_take.py --contribution --check >> "$GITHUB_OUTPUT"
+
       - name: Install the singing tools
-        if: steps.take.outputs.needed == 'true'
+        if: steps.take.outputs.needed == 'true' || steps.take_ac.outputs.needed == 'true'
         run: |
           pip install --quiet torch==2.10.0 torchaudio==2.10.0 torchvision==0.25.0 --index-url https://download.pytorch.org/whl/cpu
           pip install --quiet demucs==4.1.0 faster-whisper==1.2.1 soundfile torchcodec
 
       - name: Restore Whisper and Demucs
         id: tools
-        if: steps.take.outputs.needed == 'true'
+        if: steps.take.outputs.needed == 'true' || steps.take_ac.outputs.needed == 'true'
         uses: actions/cache/restore@v4
         with:
           path: |
@@ -226,6 +236,22 @@ jobs:
           DEAPI_TRIES: "4"
           TAKE_LINES: /tmp/contribution-lines.json
         run: python scripts/visitor_take.py --contribution --deapi /tmp/ctake
+
+      - name: Sing the acoustic version on deAPI
+        id: deapi_ac
+        if: steps.take_ac.outputs.needed == 'true'
+        continue-on-error: true
+        env:
+          DEAPI_API_KEY: ${{ secrets.DEAPI_API_KEY }}
+          DEAPI_TRIES: "4"
+          TAKE_LINES: /tmp/contribution-lines.json
+          CONTRIB_STYLE: acoustic
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/visitor_take.py --contribution --deapi /tmp/ctake
+          gh release view contribution-song-take >/dev/null 2>&1 || gh release create contribution-song-take \
+            --title "Contribution song take" --notes "The ACE-Step vocal take for the contribution song." --latest=false
+          gh release upload contribution-song-take /tmp/ctake/contribution-take-acoustic.mp3 /tmp/ctake/contribution-take-acoustic.json --clobber
 
       - name: Sing the contribution song
         id: sing
@@ -283,7 +309,7 @@ jobs:
           python -c "import json; t = json.load(open('/tmp/ctake/contribution-take.json')); print(f\"::notice::Contribution song sung by {t['engine']}: {t['accuracy_voice']:.0%} of words heard\")"
 
       - name: Contribution song with the take
-        if: steps.sing.outcome == 'success' || steps.deapi.outcome == 'success'
+        if: steps.sing.outcome == 'success' || steps.deapi.outcome == 'success' || steps.deapi_ac.outcome == 'success'
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -299,6 +325,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAKE_LINES: /tmp/contribution-lines.json
         run: |
+          python -c "import demucs, faster_whisper" 2>/dev/null || {
+            pip install --quiet torch==2.10.0 torchaudio==2.10.0 --index-url https://download.pytorch.org/whl/cpu
+            pip install --quiet demucs==4.1.0 faster-whisper==1.2.1 soundfile torchcodec; }
+          # a new acoustic version must pass the same listening check, or the last good one stays
+          if [ -n "$(git status --porcelain -- assets/contribution-song-acoustic.mp3)" ] && [ -f assets/contribution-song-acoustic.mp3 ]; then
+            if ! CONTRIB_STYLE=acoustic python scripts/visitor_take.py --contribution --check-song assets/contribution-song-acoustic.mp3; then
+              echo "::warning::The acoustic version didn't pass the listening check, so the last good one stays"
+              export CONTRIB_ACOUSTIC_KEEP=1
+              for f in mp3 json lrc; do git checkout HEAD -- assets/contribution-song-acoustic.$f 2>/dev/null || rm -f assets/contribution-song-acoustic.$f; done
+              [ -f assets/contribution-song-acoustic.mp3 ] || python -c "import json; p='assets/contribution-song.json'; d=json.load(open(p)); d.pop('styles', None); json.dump(d, open(p, 'w'), separators=(',', ':'))"
+            fi
+          fi
           if python -c "import json,sys; sys.exit(json.load(open('assets/contribution-song.json')).get('engine', 'Piper') != 'Piper')"; then
             echo "Piper sings tonight, nothing to check"; exit 0
           fi
