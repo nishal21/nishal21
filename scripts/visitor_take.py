@@ -560,27 +560,40 @@ def check(lines, heard):
     missing = [ln["text"] for i, ln in enumerate(lines)
                if sum(1 for k, r in enumerate(ref) if r[0] == i and k in exact) < 0.6 * sum(1 for r in ref if r[0] == i)]
     # a lyric line sung again where the lyrics don't have it: a run of unmatched heard words that reads like a line
-    runs, cur = [], []
+    runs, cur, start = [], [], 0
     for j, h in enumerate(hyp):
         if j in used:
             if cur:
-                runs.append(cur)
+                runs.append((start, cur))
             cur = []
         else:
+            if not cur:
+                start = j
             cur.append(h[0])
     if cur:
-        runs.append(cur)
-    repeated = []
-    for run in runs:
-        for ln in lines:
+        runs.append((start, cur))
+    line_of = {j: ref[k][0] for k, j in list(near.items()) + list(exact.items())}  # heard word -> lyric line
+    repeated, echoes, echo_words = [], [], 0
+    for start, run in runs:
+        for i, ln in enumerate(lines):
             lw = [norm(w) for w in ln["text"].split() if norm(w)]
             if len(lw) < 3 or len(run) < len(lw) - 1:
                 continue
             for s in range(0, max(1, len(run) - len(lw) + 2)):
                 if difflib.SequenceMatcher(None, lw, run[s:s + len(lw)]).ratio() >= 0.75:
-                    repeated.append(ln["text"])
+                    # sung twice in a row right where it belongs (a doubled bar), not a loop somewhere else
+                    echo = len(run) <= len(lw) + 2 and i in (line_of.get(start - 1), line_of.get(start + len(run)))
+                    (echoes if echo else repeated).append(ln["text"])
+                    if echo:
+                        echo_words = len(run)
                     break
     extra = (len(hyp) - len(used)) / max(1, len(ref))
+    # one doubled bar is a performance choice; more than one, any repeat elsewhere, a long bar, or other
+    # extra singing still fails the take
+    if echoes and (len(echoes) > 1 or repeated or echo_words > 0.1 * len(ref)
+                   or extra - echo_words / max(1, len(ref)) > 0.1):
+        repeated += echoes
+        echoes = []
     # word times: from the heard word where there is one, otherwise spread between neighbours
     t = [None] * len(ref)
     for k in range(len(ref)):
@@ -603,7 +616,7 @@ def check(lines, heard):
     line_acc = [sum(1 for k, r in enumerate(ref) if r[0] == i and k in exact) / max(1, sum(1 for r in ref if r[0] == i))
                 for i in range(len(lines))]
     score = acc - 0.5 * extra - 0.2 * len(missing) - 0.2 * len(repeated)
-    return dict(accuracy=round(acc, 4), extra=round(extra, 4), line_acc=line_acc, missing=missing, repeated=sorted(set(repeated)),
+    return dict(accuracy=round(acc, 4), extra=round(extra, 4), line_acc=line_acc, missing=missing, repeated=sorted(set(repeated)), echoes=echoes,
                 score=score, ok=bool(known) and not missing and not repeated,
                 good=bool(known) and not missing and not repeated and acc >= GOOD,
                 words=[(ref[k][0], ref[k][2], t[k]) for k in range(len(ref))] if known else [],
