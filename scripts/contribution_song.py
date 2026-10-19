@@ -9,10 +9,10 @@ pad brightness, key and pluck note counts. Every day also triggers the commit-be
 Vocals: ACE-Step 1.5 sings the lyrics when a take for tonight's lyrics passed its checks (scripts/visitor_take.py
 --contribution: acemusic.ai first, then the runner's CPU). Each line of the take is cut from its separated voice by
 Whisper's word times and set on the same bars the arrangement gives it, so tempo, key and structure don't change.
-Without a take, the original Piper vocals sing (below).
-Piper vocals (song_vocals.py): two Piper voices at their natural pitch. A male voice raps the verses; a female voice takes the
+Without a take, the original Kokoro vocals sing (below).
+Kokoro vocals (song_vocals.py): two Kokoro voices at their natural pitch. A male voice raps the verses; a female voice takes the
 chorus and breakdown on the beat while the synth lead carries the hook melody and answers the rap lines.
-Timing comes only from Piper's own speed setting; vocal processing is EQ, compression, de-essing, a short
+Timing comes only from Kokoro's own speed setting; vocal processing is EQ, compression, de-essing, a short
 room and delay throws. Instruments and mixing live in song_synth.py.
 Outputs: MP3, lyrics (markdown + LRC), JSON for the player page, and a dark/light card.
 """
@@ -280,7 +280,7 @@ def place(buf, x, t):
 
 
 def halves(line):
-    """Split a sung line at its comma; the first half keeps the comma so Piper phrases it as unfinished."""
+    """Split a sung line at its comma; the first half keeps the comma so Kokoro phrases it as unfinished."""
     if "," not in line:
         return [line]
     a, b = line.split(",", 1)
@@ -336,7 +336,7 @@ def vocals(lyrics, n):
         place(st["rap"], S.pan(edge_fade(x), 0) * 0.9, t)
         tl(t, t + len(x) / SR, "Outro", d)
 
-    # verses: one line per 2 bars, Piper's own speed control (length_scale) fits it to the bars
+    # verses: one line per 2 bars, Kokoro's own speed control (length_scale) fits it to the bars
     for sec in ("Verse 1", "Verse 2"):
         for i, (d, sp, _) in enumerate(lyrics[sec]):
             t = starts[sec][0] + 2 * i * BAR
@@ -423,7 +423,7 @@ def vocals(lyrics, n):
             st = sing_take(tk, timeline, n)
             TAKE["used"] = tk[0]
         except Exception as e:  # noqa: BLE001
-            print(f"song: the take didn't fit ({e}), so Piper sings")
+            print(f"song: the take didn't fit ({e}), so Kokoro sings")
     return st, hook_lead, timeline
 
 
@@ -433,12 +433,12 @@ def take_lines(lyrics, timeline):
     """The lines in singing order with the words actually sung (numbers spelled out), for visitor_take.py."""
     spoken = {d: sp for sec in lyrics.values() for d, sp, _ in sec}
     import re
-    say = lambda t: re.sub(r"\[\[[^\]]*\]\]", "Nishal", t)  # Piper phoneme spellings mean nothing to ACE-Step
+    say = lambda t: re.sub(r"\[\[[^\]]*\]\]", "Nishal", t)  # Kokoro phoneme spellings mean nothing to ACE-Step
     sing_as = {"Neck-oh droid": "Neko"}  # respelled for singing only; the lyrics on screen keep the real names
-    piper = say
+    kokoro = say
 
     def say(t):
-        t = piper(t)
+        t = kokoro(t)
         for x, y in sing_as.items():
             t = t.replace(x, y)
         return t
@@ -449,7 +449,7 @@ def take_lines(lyrics, timeline):
 def load_take(sung):
     """(json, voice) of the original's take: one made from exactly these lines (CONTRIB_TAKE_DIR, then the
     contribution-song-take and deapi-test releases), else the newest passing deAPI take for older lyrics (kept so the
-    song never drops to Piper just because deAPI was out of takes; its own words and timing are used). Else None."""
+    song never drops to Kokoro just because deAPI was out of takes; its own words and timing are used). Else None."""
     import urllib.request
     import visitor_take as T
     T.use_contribution()
@@ -483,7 +483,7 @@ def load_take(sung):
             return tk, None
         except Exception as e:  # noqa: BLE001
             print(f"song: couldn't fetch a deAPI take ({e})")
-    print("song: no deAPI take, so Piper sings")
+    print("song: no deAPI take, so Kokoro sings")
     return None
 
 
@@ -811,7 +811,7 @@ def lyrics_md(timeline, s, length):
         out.append(f"`{mmss(line['start'])}` {line['text']}  ")
     out += ["", "**Vocals:** " + (f"[ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5) by ACE Studio × StepFun (Apache-2.0), "
                                   "sung tonight a section at a time " + engine_where(TAKE["used"]["engine"])
-                                  if TAKE["used"] else "Piper TTS, two voices"),
+                                  if TAKE["used"] else "Kokoro TTS, two voices"),
             "", "[Play it in the browser](https://nishal21.github.io/nishal21/player/) or "
             "[download the MP3](https://nishal21.github.io/nishal21/player/contribution-song.mp3).", ""]
     return "\n".join(out).replace("\n\n\n", "\n\n")
@@ -835,7 +835,7 @@ def song_json(s, facts, weeks, timeline, length, song, langs=None, events=None, 
         acc += nb
     data = dict(
         title="Contribution song", artist="Nishal K", length=round(length, 3), bpm=BPM, key="A minor",
-        engine=TAKE["used"]["engine"] if TAKE["used"] else "Piper",
+        engine=TAKE["used"]["engine"] if TAKE["used"] else "Kokoro",
         stale=bool(TAKE["used"] and TAKE["used"].get("stale")),
         bar=round(BAR, 6), generated=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         rules=[dict(name=n, min=m) for n, m in RULES], sections=sections,
@@ -898,7 +898,7 @@ def render_card(s, length, wave_peaks, t):
             continue
         out.append(f'<text x="{(xa + xb) / 2:.1f}" y="152" text-anchor="middle" font-family="{FONT}" font-size="10" fill="{t["muted"]}">{esc(short)}</text>')
     out.append(f'<text x="25" y="{h-18}" font-family="{FONT}" font-size="11.5" fill="{t["text"]}"><tspan font-weight="700">{mmss(length)}</tspan> · {s["total"]} contributions · {len(SECTIONS)} sections</text>')
-    out.append(f'<text x="{w-25}" y="{h-18}" text-anchor="end" font-family="{FONT}" font-size="10" fill="{t["muted"]}">{"vocals: ACE-Step 1.5 (" + TAKE["used"]["engine"] + ")" if TAKE["used"] else "vocals: Piper TTS, two voices"}</text>')
+    out.append(f'<text x="{w-25}" y="{h-18}" text-anchor="end" font-family="{FONT}" font-size="10" fill="{t["muted"]}">{"vocals: ACE-Step 1.5 (" + TAKE["used"]["engine"] + ")" if TAKE["used"] else "vocals: Kokoro TTS, two voices"}</text>')
     out.append("</svg>\n")
     return "\n".join(out)
 
@@ -974,7 +974,7 @@ def main():
             json.dump(dict(timeline=timeline), f)
     encode_mp3(song, os.path.join(ASSETS, "contribution-song.mp3"))
     stem_info = None
-    if REMIX_STEMS and not TAKE.get("whole"):  # the remix stems are the Piper arrangement, not the take
+    if REMIX_STEMS and not TAKE.get("whole"):  # the remix stems are the Kokoro arrangement, not the take
         try:  # the song still ships if the stems fail; the player then just hides the remix
             stem_info = STEMS.export(stems, gain, hits, length, os.path.join(ASSETS, "stems"))
         except Exception as e:

@@ -34,8 +34,8 @@ jobs:
           pip install --quiet demucs==4.1.0 faster-whisper==1.2.1 soundfile torchcodec
       - uses: actions/cache/restore@v4
         with:
-          path: ~/.cache/piper-voices
-          key: piper-voices-ryan-high-libritts_r-medium-v5
+          path: ~/.cache/kokoro
+          key: kokoro-v1.0-int8-am_michael-af_heart
       - uses: actions/cache/restore@v4
         with:
           path: ~/.cache/song-data

@@ -1,10 +1,13 @@
-"""Vocals for the contribution song: two Piper TTS voices (male verses, female chorus) at their natural pitch.
+"""Vocals for the contribution song (and the visitor song's backup): two Kokoro-82M TTS voices (Apache-2.0, runs on
+the CPU through kokoro-onnx): a male voice raps the verses, a female voice takes the chorus, at their natural pitch.
 
-Every line is one Piper utterance. Timing comes only from Piper's own speed setting (length_scale), so
-there is no pitch shifting, vocoding or time-stretching anywhere. The only processing is resampling to the
-song rate, a low-pass that removes resampling images, and a de-esser.
+Every line is one Kokoro utterance. Timing comes only from Kokoro's own speed setting, so there is no pitch shifting,
+vocoding or time-stretching anywhere. The only processing is resampling to the song rate, a low-pass that removes
+resampling images, and a de-esser. `speed` below keeps Piper's meaning (a length scale: 1.6 is slower), so the
+arrangement code didn't change.
 """
 import os
+import re
 import urllib.request
 
 import numpy as np
@@ -13,40 +16,36 @@ from scipy import signal
 from song_lyrics import say_name as _say_name
 from song_synth import SR, sos
 
-VOICE_DIR = os.environ.get("PIPER_VOICE_DIR", os.path.expanduser("~/.cache/piper-voices"))
-HF = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/"
-RAP_VOICE = ("en_US-ryan-high", "en_US/ryan/high/")
-# chorus and breakdown: one female speaker of the LibriTTS-R model. Swap voices by changing this id
-# (auditioned favourites: "7318" most natural, "534" close second).
-SING_SPEAKER = "7318"
-SING_SPEED = 1.6  # Piper length_scale for the chorus: slow and relaxed
-SING_VOICE = ("en_US-libritts_r-medium", "en_US/libritts_r/medium/", SING_SPEAKER)
+VOICE_DIR = os.environ.get("KOKORO_DIR", os.path.expanduser("~/.cache/kokoro"))
+REL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/"
+MODEL, VOICES = "kokoro-v1.0.int8.onnx", "voices-v1.0.bin"
+RAP_VOICE = ("am_michael",)   # clear, steady male voice for the verses
+SING_VOICE = ("af_heart",)    # the clearest Kokoro voice, for the chorus and the visitor song
+SING_SPEED = 1.6  # length scale for the chorus: slow and relaxed
+_K = {}
 
 
-class _Speaker:
-    """One speaker of a multi-speaker Piper model, usable wherever a PiperVoice is."""
+class _Voice:
+    def __init__(self, name):
+        self.name = name
+        self.config = type("C", (), {"sample_rate": 24000})()
 
-    def __init__(self, voice, speaker_id):
-        self.voice, self.speaker_id, self.config = voice, speaker_id, voice.config
 
-    def synthesize(self, text, syn_config):
-        syn_config.speaker_id = self.speaker_id
-        return self.voice.synthesize(text, syn_config=syn_config)
+def _kokoro():
+    if "k" not in _K:
+        from kokoro_onnx import Kokoro
+        os.makedirs(VOICE_DIR, exist_ok=True)
+        for f in (MODEL, VOICES):
+            if not os.path.exists(os.path.join(VOICE_DIR, f)):
+                urllib.request.urlretrieve(REL + f, os.path.join(VOICE_DIR, f))
+        _K["k"] = Kokoro(os.path.join(VOICE_DIR, MODEL), os.path.join(VOICE_DIR, VOICES))
+    return _K["k"]
 
 
 def load(spec):
-    """spec = (model name, path under the voices repo[, speaker name for multi-speaker models])."""
-    from piper import PiperVoice
-    name, sub = spec[0], spec[1]
-    path = os.path.join(VOICE_DIR, name + ".onnx")
-    if not os.path.exists(path):
-        os.makedirs(VOICE_DIR, exist_ok=True)
-        for ext in (".onnx", ".onnx.json"):
-            urllib.request.urlretrieve(HF + sub + name + ext, os.path.join(VOICE_DIR, name + ext))
-    voice = PiperVoice.load(path)
-    if len(spec) > 2:
-        return _Speaker(voice, voice.config.speaker_id_map[spec[2]])
-    return voice
+    """spec = (Kokoro voice name,)."""
+    _kokoro()
+    return _Voice(spec[0])
 
 
 def say_name(name):
@@ -66,11 +65,11 @@ def up(y, fs, fs_out=SR):
     return signal.sosfiltfilt(_LP[key], y)
 
 
-def tts(voice, text, speed=1.0, native=False, noise=0.6, noise_w=0.7):
-    """noise sets how much the voice colour varies, noise_w how much syllable lengths vary."""
-    from piper import SynthesisConfig
-    cfg = SynthesisConfig(length_scale=speed, noise_scale=noise, noise_w_scale=noise_w)
-    a = np.concatenate([c.audio_float_array for c in voice.synthesize(text, syn_config=cfg)]).astype(np.float64)
+def tts(voice, text, speed=1.0, native=False, noise=None, noise_w=None):
+    """speed is a length scale (Piper's convention): Kokoro is asked for 1/speed. noise args are unused (Kokoro has none)."""
+    text = re.sub(r"\[\[[^\]]*\]\]", "Nishal", text)  # Piper phoneme spellings: Kokoro reads the plain name
+    a, fs = _kokoro().create(text, voice=voice.name, speed=float(np.clip(1.0 / speed, 0.5, 2.0)), lang="en-us")
+    a = np.asarray(a, dtype=np.float64)
     idx = np.where(np.abs(a) > 0.015)[0]
     if len(idx):
         a = a[max(0, idx[0] - 80):idx[-1] + 200]
@@ -92,7 +91,7 @@ def rap_line(voice, text, window):
 
 
 def phrase(voice, text, speed, max_len):
-    """Speak a short phrase at a set length_scale. If it runs past max_len seconds, ask Piper for a
+    """Speak a short phrase at a set length scale. If it runs past max_len seconds, ask Kokoro for a
     slightly faster take (never below 1.0); trim with a fade only as a last resort."""
     while True:
         x = tts(voice, text, speed)

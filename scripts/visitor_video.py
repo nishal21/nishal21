@@ -8,7 +8,7 @@ A title card opens it and a credits roll lists everyone at the end.
 
 Timing comes from assets/visitor-song.lrc (line starts and credits) and assets/visitor-song.json (sections, length);
 inside a line each word lights up at the time Whisper heard it in the sung take (visitor_take.py), or, for the
-Piper fallback, the words are spread by syllables over the time the voice takes to sing it.
+Kokoro fallback, the words are spread by syllables over the time the voice takes to sing it.
 
 Writes visitor-song.mp4 and visitor-poster.jpg into the given folder. Needs ffmpeg, Pillow and CairoSVG.
 Usage: visitor_video.py OUT_DIR [--lrc FILE --json FILE --mp3 FILE] [--frames t1,t2,...]
@@ -227,7 +227,7 @@ class Video:
                 seen.add(r["who"].lower())
                 self.people.append((r["who"], r["text"]))
         self.notes = len(data.get("notes", []))
-        self.engine = data.get("engine", "Piper")
+        self.engine = data.get("engine", "Kokoro")
         # credits roll: starts as the last line clears, scrolls at a calm, readable speed
         self.roll_start = max(self.last_end - 0.6, 1.0)
         self.credit_rows = self.build_credits()
@@ -252,7 +252,7 @@ class Video:
     def build_credits(self):
         if NAME[0].startswith("contribution"):
             voice = ("person:ACE-Step 1.5|sung through deAPI" if self.engine == "deAPI" else
-                     "person:Piper TTS|two voices" if self.engine == "Piper" else f"person:ACE-Step 1.5|{self.engine}")
+                     "person:Kokoro TTS|two voices" if self.engine == "Kokoro" else f"person:ACE-Step 1.5|{self.engine}")
             return [("label:contribution song", 90), ("big:A year of commits, sung", 150),
                     ("label:words and music", 80), ("person:Nishal K|github.com/nishal21", 118), ("gap:", 40),
                     ("label:voice", 80), (voice, 118), ("gap:", 40),
@@ -263,7 +263,7 @@ class Video:
             for who, line in self.people:
                 out.append((f"person:{who}|{line}", 118))
             out.append(("gap:", 50))
-        if self.engine == "Piper":
+        if self.engine == "Kokoro":
             out += [("label:words, music and the rest of the lyrics", 80), ("person:Nishal K|github.com/nishal21", 118)]
         else:
             where = "free ACE-Step cloud, sang this take" if self.engine == "acemusic.ai" else "ACE-Step on CPU, sang this take"

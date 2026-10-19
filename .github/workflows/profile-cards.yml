@@ -52,8 +52,8 @@ jobs:
           pip install --quiet demucs==4.1.0 faster-whisper==1.2.1 soundfile torchcodec
       - uses: actions/cache/restore@v4
         with:
-          path: ~/.cache/piper-voices
-          key: piper-voices-ryan-high-libritts_r-medium-v5
+          path: ~/.cache/kokoro
+          key: kokoro-v1.0-int8-am_michael-af_heart
       - uses: actions/cache/restore@v4
         with:
           path: ~/.cache/song-data
@@ -111,11 +111,11 @@ jobs:
           pip install --quiet -r scripts/requirements.txt
           command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg)
 
-      - name: Cache the Piper voice models
+      - name: Cache the Kokoro voice models
         uses: actions/cache@v4
         with:
-          path: ~/.cache/piper-voices
-          key: piper-voices-ryan-high-libritts_r-medium-v5
+          path: ~/.cache/kokoro
+          key: kokoro-v1.0-int8-am_michael-af_heart
 
       - name: Restore the song data cache
         uses: actions/cache@v4
@@ -166,7 +166,7 @@ jobs:
 
       # ACE-Step sings the lyrics a section at a time (acemusic.ai first, the CPU for any section it can't sing well),
       # every section Whisper-checked; the song is rendered again on its own beat grid with the stitched voice.
-      # Without a take that passes, the Piper vocals rendered above stay.
+      # Without a take that passes, the Kokoro vocals rendered above stay.
       - name: Does the song need a new take?
         id: take
         if: steps.song.outcome == 'success' && env.CONTRIB_NO_TAKE != '1'
@@ -229,14 +229,14 @@ jobs:
           key: visitor-take-tools-v1
 
       - name: Get ACE-Step for the CPU
-        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Piper or the last good take
+        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Kokoro or the last good take
         run: |
           git clone --quiet https://github.com/ace-step/ACE-Step-1.5 ~/ace-step
           git -C ~/ace-step checkout --quiet ca1e85fe9430179831e6bc6be790c332190a3866
 
       - name: Restore the ACE-Step models
         id: acemodels
-        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Piper or the last good take
+        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Kokoro or the last good take
         uses: actions/cache/restore@v4
         with:
           path: ~/ace-step/checkpoints
@@ -244,7 +244,7 @@ jobs:
 
       # sections that passed are kept, so a rerun only sings the ones that didn't (and lines whose numbers changed)
       - name: Restore the sung sections
-        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Piper or the last good take
+        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Kokoro or the last good take
         uses: actions/cache/restore@v4
         with:
           path: /tmp/ctake/sections
@@ -280,7 +280,7 @@ jobs:
 
       - name: Sing the contribution song
         id: sing
-        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Piper or the last good take
+        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Kokoro or the last good take
         continue-on-error: true
         env:
           ACESTEP_API_KEY: ${{ secrets.ACESTEP_API_KEY }}
@@ -295,7 +295,7 @@ jobs:
           python scripts/visitor_take.py --contribution --sections /tmp/ctake
 
       - name: Save the sung sections
-        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Piper or the last good take
+        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Kokoro or the last good take
         continue-on-error: true
         uses: actions/cache/save@v4
         with:
@@ -313,7 +313,7 @@ jobs:
           key: visitor-take-tools-v1
 
       - name: Save the ACE-Step models
-        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Piper or the last good take
+        if: false  # CPU ACE-Step is off for the contribution song: it took up to 2 h; deAPI, Kokoro or the last good take
         continue-on-error: true
         uses: actions/cache/save@v4
         with:
@@ -341,7 +341,7 @@ jobs:
         run: python scripts/contribution_song.py
 
       # The final song is checked the way a listener hears it: Demucs pulls the voice out of the mixed MP3 and Whisper
-      # must hear the lyrics. If it doesn't, the song is rendered again with the Piper vocals.
+      # must hear the lyrics. If it doesn't, the song is rendered again with the Kokoro vocals.
       - name: Check the song's vocals
         if: steps.song.outcome == 'success'
         continue-on-error: true
@@ -364,14 +364,14 @@ jobs:
           if python -c "import json,sys; sys.exit(not json.load(open('assets/contribution-song.json')).get('stale'))"; then
             echo "The last good deAPI take sings (it passed its check when it was made); a new one comes when deAPI has takes"; exit 0
           fi
-          if python -c "import json,sys; sys.exit(json.load(open('assets/contribution-song.json')).get('engine', 'Piper') != 'Piper')"; then
-            echo "Piper sings tonight, nothing to check"; exit 0
+          if python -c "import json,sys; sys.exit(json.load(open('assets/contribution-song.json')).get('engine', 'Kokoro') != 'Kokoro')"; then
+            echo "Kokoro sings tonight, nothing to check"; exit 0
           fi
           python -c "import demucs, faster_whisper" 2>/dev/null || {
             pip install --quiet torch==2.10.0 torchaudio==2.10.0 --index-url https://download.pytorch.org/whl/cpu
             pip install --quiet demucs==4.1.0 faster-whisper==1.2.1 soundfile torchcodec; }
           if ! python scripts/visitor_take.py --contribution --check-song assets/contribution-song.mp3; then
-            echo "::warning::The ACE-Step song didn't pass the listening check, so Piper sings tonight"
+            echo "::warning::The ACE-Step song didn't pass the listening check, so Kokoro sings tonight"
             CONTRIB_NO_TAKE=1 python scripts/contribution_song.py
           fi
 

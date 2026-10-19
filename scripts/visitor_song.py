@@ -13,7 +13,7 @@ their part plays, and closes it. Declined issues get a short, kind reason and ar
 Voice and music: ACE-Step 1.5 sings the lyrics (scripts/visitor_take.py makes a "take" whenever the lyrics change and
 keeps it on the "visitor-song" release, with line and word timings from Whisper), and each visitor's note plays over it
 at its beat. Until the first take exists, it falls back to the original arrangement: 96 BPM, A minor, one visitor note
-per beat over a soft pad and a quiet kick on 1 and 3, every lyric line sung over two bars by the Piper voice of the
+per beat over a soft pad and a quiet kick on 1 and 3, every lyric line sung over two bars by the Kokoro voice of the
 contribution song's chorus (song_vocals.py).
 State lives in data/visitor-song.json so a rerun never adds the same issue twice.
 """
@@ -64,7 +64,7 @@ _take = False
 
 def take():
     """The last good ACE-Step take from the release (or VISITOR_TAKE_DIR when it already holds one), or None, and
-    then Piper sings. A take for older lyrics is still used: the song stays the last good one until a new take passes."""
+    then Kokoro sings. A take for older lyrics is still used: the song stays the last good one until a new take passes."""
     global _take
     if _take is not False:
         return _take
@@ -85,14 +85,14 @@ def take():
         if t.get("lines") and os.path.getsize(os.path.join(TAKE_DIR, "visitor-take.mp3")) > 10000:
             _take = t
     except Exception as e:  # noqa: BLE001
-        print(f"visitor song: no ACE-Step take yet ({e}), so Piper sings")
+        print(f"visitor song: no ACE-Step take yet ({e}), so Kokoro sings")
     return _take
 
 
 def engine_credit():
     t = take()
     if not t:
-        return "Voice: Piper (the contribution song's chorus voice)"
+        return "Voice: Kokoro (the contribution song's chorus voice)"
     where = "on acemusic.ai" if t.get("engine") == "acemusic.ai" else "on a GitHub Actions CPU"
     return f"Voice and music: ACE-Step 1.5 by ACE Studio × StepFun (Apache-2.0), sung {where}"
 
@@ -265,7 +265,7 @@ def voice(inst, note, n):
 
 def vocals(entries, n):
     """Every lyric line sung slowly by the contribution song's chorus voice. Returns mono, or None when
-    Piper is not available (the song then plays as an instrumental)."""
+    Kokoro is not available (the song then plays as an instrumental)."""
     try:
         import song_vocals as V
         from scipy import signal
@@ -465,7 +465,7 @@ def player_json(entries, audio_buf=None):
                ["Length", mmss(total), f"{BPM} BPM, A minor"]],
         about=("This song is made by people who visit my GitHub profile. Each visitor adds one note, and can add up to two lines "
                "to the lyrics with their name next to them. A GitHub Action adds new notes every night. " + engine_credit() + "."),
-        engine=(take() or {}).get("engine", "Piper"),
+        engine=(take() or {}).get("engine", "Kokoro"),
         add=f"https://github.com/{USER}/{USER}/issues/new?template=visitor-note.yml",
         notes=[dict(t=round(note_time(i), 3), user=x["user"], note=x["note"], instrument=x["instrument"], line=x["line"])
                for i, x in enumerate(entries)])

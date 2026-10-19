@@ -44,6 +44,12 @@ jobs:
       - name: Install dependencies
         run: pip install --quiet -r scripts/requirements.txt
 
+      - name: Cache the Kokoro voice models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/kokoro
+          key: kokoro-v1.0-int8-am_michael-af_heart
+
       - name: Read new notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

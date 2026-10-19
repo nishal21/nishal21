@@ -268,7 +268,7 @@ def num_words(n):
 
 def sung_lyrics(lyrics):
     """Only what deAPI sings: numbers as words, number words and long words in short lines split by syllable, so the
-    model sings every syllable. Displayed lyrics, Piper and the Whisper reference keep the plain text."""
+    model sings every syllable. Displayed lyrics, Kokoro and the Whisper reference keep the plain text."""
     out = []
     for line in lyrics.split("\n"):
         if line.startswith("["):
@@ -305,7 +305,7 @@ def sing_deapi(lyrics, dur, seed, key):
                 timesignature=4, vocal_language="en", inference_steps=steps, guidance_scale=g, seed=seed, format="mp3"))
             break
         except Failed as e:
-            if "HTTP 422" in str(e):  # a validation error won't pass on a retry: stop here, Piper keeps singing
+            if "HTTP 422" in str(e):  # a validation error won't pass on a retry: stop here, Kokoro keeps singing
                 print(f"::warning::deAPI refused the request (validation): {e}")
                 raise
             if "HTTP 429" not in str(e) or "daily" in str(e) or n == 3:  # the daily cap won't clear in a minute
