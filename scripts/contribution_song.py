@@ -410,11 +410,12 @@ def vocals(lyrics, n):
         with open(out, "w") as f:
             json.dump(dict(lines=sung, length=len(bar_sections()) * BAR + 2.0), f)
     tk = None if os.environ.get("CONTRIB_NO_TAKE") else load_take(sung)
-    if tk and tk[0].get("engine") == "deAPI" and os.path.exists(os.path.join(tk[0]["_dir"], "contribution-take.mp3")) \
-            and len(tk[0].get("lines", [])) == len(timeline):
+    if tk and tk[0].get("engine") == "deAPI" and len(tk[0].get("lines", [])) == len(timeline):
         # deAPI sang the whole song: its own mix is the song, and the lyrics follow the take's Whisper line times
         for slot, ln in zip(timeline, tk[0]["lines"]):
             slot["start"], slot["end"] = float(ln["t"]), float(ln["end"])
+            if tk[0].get("stale"):
+                slot["text"] = ln.get("display") or ln["text"]  # an older take sings its own words
         TAKE["used"], TAKE["whole"] = tk[0], os.path.join(tk[0]["_dir"], "contribution-take.mp3")
         print("song: the deAPI take's own mix is the song")
     elif tk:
@@ -446,37 +447,44 @@ def take_lines(lyrics, timeline):
 
 
 def load_take(sung):
-    """(json, voice) of a take made from exactly these lines, from CONTRIB_TAKE_DIR or the release; else None."""
+    """(json, voice) of the original's take: one made from exactly these lines (CONTRIB_TAKE_DIR, then the
+    contribution-song-take and deapi-test releases), else the newest passing deAPI take for older lyrics (kept so the
+    song never drops to Piper just because deAPI was out of takes; its own words and timing are used). Else None."""
     import urllib.request
     import visitor_take as T
     T.use_contribution()
     want = T.lyrics_hash(sung)
-    d = os.environ.get("CONTRIB_TAKE_DIR") or tempfile.mkdtemp()
-    try:
-        for f in ("contribution-take.json", "contribution-take-vocals.wav", "contribution-take.mp3"):
-            p = os.path.join(d, f)
-            if os.path.exists(p):
+    get = lambda url: urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": USER}), timeout=120).read()
+    cands = []  # (dir, json)
+    d0 = os.environ.get("CONTRIB_TAKE_DIR")
+    if d0 and os.path.exists(os.path.join(d0, "contribution-take.json")):
+        cands.append((d0, json.load(open(os.path.join(d0, "contribution-take.json")))))
+    for rel in ("contribution-song-take", "deapi-test"):
+        try:
+            d = tempfile.mkdtemp()
+            write_atomic(os.path.join(d, "contribution-take.json"), get(f"https://github.com/{USER}/{USER}/releases/download/{rel}/contribution-take.json"))
+            cands.append((d, json.load(open(os.path.join(d, "contribution-take.json"))), rel))
+        except Exception:  # noqa: BLE001
+            pass
+    cands = [(c[0], c[1], c[2] if len(c) > 2 else None) for c in cands]
+    exact = [c for c in cands if c[1].get("hash") == want and c[1].get("engine") == "deAPI"]
+    stale = sorted([c for c in cands if c[1].get("engine") == "deAPI" and c[1].get("hash") != want],
+                   key=lambda c: c[1].get("made", ""), reverse=True)
+    for d, tk, rel in exact + stale:
+        try:
+            mp = os.path.join(d, "contribution-take.mp3")
+            if not os.path.exists(mp) and rel:
+                write_atomic(mp, get(f"https://github.com/{USER}/{USER}/releases/download/{rel}/contribution-take.mp3"))
+            if not os.path.exists(mp):
                 continue
-            if f.endswith(".wav") and os.path.exists(os.path.join(d, "contribution-take.mp3")) and \
-                    json.load(open(os.path.join(d, "contribution-take.json"))).get("engine") == "deAPI":
-                continue  # a deAPI take is used whole, its separate voice isn't needed
-            if f.endswith(".json") or json.load(open(os.path.join(d, "contribution-take.json"))).get("hash") == want:
-                if f.endswith(".mp3") and json.load(open(os.path.join(d, "contribution-take.json"))).get("engine") != "deAPI":
-                    continue  # only a deAPI take is used whole
-                with urllib.request.urlopen(urllib.request.Request(TAKE_RELEASE + f, headers={"User-Agent": USER}), timeout=60) as r:
-                    write_atomic(p, r.read())
-        tk = json.load(open(os.path.join(d, "contribution-take.json")))
-        if tk.get("hash") != want:
-            print("song: the last ACE-Step take was for other lyrics, so Piper sings tonight")
-            return None
-        wav = os.path.join(d, "contribution-take-vocals.wav")
-        voice = T.decode(wav) if os.path.exists(wav) else None
-        print(f"song: sung by ACE-Step ({tk['engine']}, {tk['accuracy_voice']:.0%} of words heard)")
-        tk["_dir"] = d
-        return tk, voice
-    except Exception as e:  # noqa: BLE001
-        print(f"song: no ACE-Step take ({e}), so Piper sings")
-        return None
+            tk["_dir"], tk["stale"] = d, tk.get("hash") != want
+            print(f"song: sung by deAPI ({tk['accuracy_voice']:.0%} of words heard)" +
+                  (", a take for earlier lyrics kept until a new one is sung" if tk["stale"] else ""))
+            return tk, None
+        except Exception as e:  # noqa: BLE001
+            print(f"song: couldn't fetch a deAPI take ({e})")
+    print("song: no deAPI take, so Piper sings")
+    return None
 
 
 def acoustic_version(s):
@@ -828,6 +836,7 @@ def song_json(s, facts, weeks, timeline, length, song, langs=None, events=None, 
     data = dict(
         title="Contribution song", artist="Nishal K", length=round(length, 3), bpm=BPM, key="A minor",
         engine=TAKE["used"]["engine"] if TAKE["used"] else "Piper",
+        stale=bool(TAKE["used"] and TAKE["used"].get("stale")),
         bar=round(BAR, 6), generated=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         rules=[dict(name=n, min=m) for n, m in RULES], sections=sections,
         stats=dict(total=s["total"], active=s["active"], days=s["n"], first=str(s["first"]), last=str(s["last"]),

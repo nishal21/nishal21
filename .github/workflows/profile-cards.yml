@@ -361,6 +361,9 @@ jobs:
               [ -f assets/contribution-song-acoustic.mp3 ] || python -c "import json; p='assets/contribution-song.json'; d=json.load(open(p)); d.pop('styles', None); json.dump(d, open(p, 'w'), separators=(',', ':'))"
             fi
           fi
+          if python -c "import json,sys; sys.exit(not json.load(open('assets/contribution-song.json')).get('stale'))"; then
+            echo "The last good deAPI take sings (it passed its check when it was made); a new one comes when deAPI has takes"; exit 0
+          fi
           if python -c "import json,sys; sys.exit(json.load(open('assets/contribution-song.json')).get('engine', 'Piper') != 'Piper')"; then
             echo "Piper sings tonight, nothing to check"; exit 0
           fi

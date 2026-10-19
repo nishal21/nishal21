@@ -992,7 +992,7 @@ def main():
     if a.check:
         lines = sheet()
         last = last_take()
-        need = bool(lines) and (not last or last.get("hash") != lyrics_hash(lines))
+        need = bool(lines) and (not last or last.get("hash") != lyrics_hash(lines) or last.get("engine") != "deAPI")
         print(f"needed={'true' if need else 'false'}")
         return 0
     if a.prepare_cpu:
