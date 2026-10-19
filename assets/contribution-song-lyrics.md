@@ -10,40 +10,40 @@ Every bar is one week of my GitHub contribution calendar, in order. Busier weeks
 
 ## Verse 1
 
-`0:06` 888 contributions in twelve months  
-`0:10` 141 days on the board, best day 39  
-`0:13` October ran hot with 147 on the sheet  
-`0:17` 10 days straight, no breaks along the way  
+`0:14` 888 contributions in twelve months  
+`0:17` 141 days on the board, best day 39  
+`0:20` October ran hot with 147 on the sheet  
+`0:24` 10 days straight, no breaks along the way  
 
 ## Chorus
 
-`0:24` Light up the grid, let the green glow  
-`0:27` Every week is a bar, every day is a note  
-`0:30` Turn it up loud, let the bass line roll  
-`0:34` Run it back tomorrow, here we go  
+`0:26` Light up the grid, let the green glow  
+`0:30` Every week is a bar, every day is a note  
+`0:33` Turn it up loud, let the bass line roll  
+`0:37` Run it back tomorrow, here we go  
 
 ## Verse 2
 
-`0:44` Right now I'm deep in motion-skill and nekodroid-docs  
-`0:48` 64 repos, JavaScript most of all  
-`0:51` Cut it like an AMV, every frame in place  
-`0:54` Mix it like a mashup, every verse in rhyme  
+`0:41` Right now I'm deep in motion-skill and nekodroid-docs  
+`0:44` 64 repos, JavaScript most of all  
+`0:47` Cut it like an AMV, every frame in place  
+`0:51` Mix it like a mashup, every verse in rhyme  
 
 ## Breakdown
 
-`0:59` Light weeks play low, heavy weeks play loud  
+`0:57` Light weeks play low, heavy weeks play loud  
 
 ## Chorus
 
-`1:08` Light up the grid, let the green glow  
-`1:12` Every week is a bar, every day is a note  
-`1:15` Turn it up loud, let the bass line roll  
-`1:18` Run it back tomorrow, here we go  
+`1:01` Light up the grid, let the green glow  
+`1:04` Every week is a bar, every day is a note  
+`1:07` Turn it up loud, let the bass line roll  
+`1:10` Run it back tomorrow, here we go  
 
 ## Outro
 
 `1:22` That was 888 contributions from nishal21  
-`1:26` Tomorrow the numbers change, and the song does too  
+`1:27` Tomorrow the numbers change, and the song does too  
 
 **Vocals:** Kokoro TTS, two voices
 
