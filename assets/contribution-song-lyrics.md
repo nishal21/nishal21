@@ -1,6 +1,6 @@
 # Contribution song
 
-1:32 · 140 BPM · A minor · 888 contributions from Oct 19, 2025 to Oct 19, 2026
+1:33 · 140 BPM · A minor · 888 contributions from Oct 19, 2025 to Oct 20, 2026
 
 Every bar is one week of my GitHub contribution calendar, in order. Busier weeks get more hats, kicks, 808 notes and keys, and every day still triggers its own drum hit. The verses are rapped, the chorus is sung on the hook melody, and the lyrics are filled in from the same numbers. A GitHub Action rebuilds it every night.
 
@@ -45,6 +45,6 @@ Every bar is one week of my GitHub contribution calendar, in order. Busier weeks
 `1:22` That was 888 contributions from nishal21  
 `1:27` Tomorrow the numbers change, and the song does too  
 
-**Vocals:** Kokoro TTS, two voices
+**Vocals:** [ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5) by ACE Studio × StepFun (Apache-2.0), sung tonight a section at a time on a GitHub Actions CPU
 
 [Play it in the browser](https://nishal21.github.io/nishal21/player/) or [download the MP3](https://nishal21.github.io/nishal21/player/contribution-song.mp3).
