@@ -4,27 +4,27 @@
 
 <style>@keyframes b{50%{opacity:0}}.cur{animation:b 1.1s steps(1) infinite}</style>
 <text x="25" y="35" font-family="'Segoe UI', Ubuntu, 'Helvetica Neue', Sans-Serif" font-size="18" font-weight="600" fill="#2f80ed">Recent commits</text>
-<text x="470" y="34" text-anchor="end" font-family="'Segoe UI', Ubuntu, 'Helvetica Neue', Sans-Serif" font-size="11" fill="#57606a">updated Oct 22, 03:24 IST</text>
-<text x="25" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#57606a">10-14 23:13</text>
-<text x="104.2" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#4c71f2">motion-skill</text>
-<text x="209.8" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#434d58">Replace the craft skill with Motion St…</text>
-<text x="25" y="74.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#57606a">10-14 21:39</text>
+<text x="470" y="34" text-anchor="end" font-family="'Segoe UI', Ubuntu, 'Helvetica Neue', Sans-Serif" font-size="11" fill="#57606a">updated Oct 23, 03:21 IST</text>
+<text x="25" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#57606a">10-22 20:43</text>
+<text x="104.2" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#4c71f2">NekoDroid</text>
+<text x="209.8" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#434d58">docs: add branch and PR guidelines to…</text>
+<text x="25" y="74.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#57606a">10-14 23:13</text>
 <text x="104.2" y="74.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#4c71f2">motion-skill</text>
-<text x="209.8" y="74.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#434d58">Make the skill installable from the op…</text>
-<text x="25" y="91.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#57606a">10-13 20:44</text>
-<text x="104.2" y="91.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#4c71f2">nekodroid-docs</text>
-<text x="209.8" y="91.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#434d58">Fix invisible Guides menu and sidebar…</text>
-<text x="25" y="107.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#57606a">10-13 20:43</text>
+<text x="209.8" y="74.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#434d58">Replace the craft skill with Motion St…</text>
+<text x="25" y="91.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#57606a">10-14 21:39</text>
+<text x="104.2" y="91.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#4c71f2">motion-skill</text>
+<text x="209.8" y="91.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#434d58">Make the skill installable from the op…</text>
+<text x="25" y="107.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#57606a">10-13 20:44</text>
 <text x="104.2" y="107.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#4c71f2">nekodroid-docs</text>
-<text x="209.8" y="107.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#434d58">Fix invisible Guides dropdown and side…</text>
-<text x="25" y="124.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#57606a">10-08 20:11</text>
-<text x="104.2" y="124.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#4c71f2">upi-Down</text>
-<text x="209.8" y="124.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#434d58">some newww fixeyy11</text>
-<text x="25" y="140.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#57606a">10-06 14:03</text>
+<text x="209.8" y="107.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#434d58">Fix invisible Guides menu and sidebar…</text>
+<text x="25" y="124.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#57606a">10-13 20:43</text>
+<text x="104.2" y="124.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#4c71f2">nekodroid-docs</text>
+<text x="209.8" y="124.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#434d58">Fix invisible Guides dropdown and side…</text>
+<text x="25" y="140.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#57606a">10-08 20:11</text>
 <text x="104.2" y="140.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#4c71f2">upi-Down</text>
-<text x="209.8" y="140.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#434d58">some newww fixeyy10</text>
-<text x="25" y="157.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#57606a">10-01 20:48</text>
-<text x="104.2" y="157.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#4c71f2">musabaka-result</text>
-<text x="209.8" y="157.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#434d58">4</text>
+<text x="209.8" y="140.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#434d58">some newww fixeyy11</text>
+<text x="25" y="157.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#57606a">10-06 14:03</text>
+<text x="104.2" y="157.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#4c71f2">upi-Down</text>
+<text x="209.8" y="157.0" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#434d58">some newww fixeyy10</text>
 <text x="25" y="173.5" font-family="ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="11" fill="#2f80ed">$ <tspan class="cur">▋</tspan></text>
 </svg>
