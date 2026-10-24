@@ -10,24 +10,24 @@ Every bar is one week of my GitHub contribution calendar, in order. Busier weeks
 
 ## Verse 1
 
-`0:13` nine hundred sixteen contributions in twelve months  
-`0:16` one hundred forty-three days on the board, best day thirty-nine  
-`0:20` October ran hot with one hundred seventy-five on the sheet  
-`0:24` ten days straight, no breaks along the way  
+`0:14` 944 contributions in twelve months  
+`0:17` 144 days on the board, best day 39  
+`0:20` October ran hot with 203 on the sheet  
+`0:24` 10 days straight, no breaks along the way  
 
 ## Chorus
 
-`0:26` Light up the grid, let the green glow  
+`0:27` Light up the grid, let the green glow  
 `0:30` Every week is a bar, every day is a note  
-`0:33` Turn it up loud, let the bass line roll  
+`0:34` Turn it up loud, let the bass line roll  
 `0:37` Run it back tomorrow, here we go  
 
 ## Verse 2
 
-`0:41` Right now I'm deep in firstpr and Neko  
-`0:46` sixty-five repos, JavaScript most of all  
-`0:49` Cut it like an A M V, every frame in place  
-`0:53` Mix it like a mashup, every verse in rhyme  
+`0:41` Right now I'm deep in firstpr and NekoDroid  
+`0:45` 65 repos, JavaScript most of all  
+`0:48` Cut it like an AMV, every frame in place  
+`0:51` Mix it like a mashup, every verse in rhyme  
 
 ## Breakdown
 
@@ -35,15 +35,15 @@ Every bar is one week of my GitHub contribution calendar, in order. Busier weeks
 
 ## Chorus
 
-`1:00` Light up the grid, let the green glow  
-`1:04` Every week is a bar, every day is a note  
-`1:08` Turn it up loud, let the bass line roll  
-`1:12` Run it back tomorrow, here we go  
+`1:02` Light up the grid, let the green glow  
+`1:06` Every week is a bar, every day is a note  
+`1:10` Turn it up loud, let the bass line roll  
+`1:14` Run it back tomorrow, here we go  
 
 ## Outro
 
-`1:21` That was nine hundred sixteen contributions from Nishal.  
-`1:26` Tomorrow the numbers change, and the song does too  
+`1:17` That was 944 contributions from nishal21  
+`1:25` Tomorrow the numbers change, and the song does too  
 
 **Vocals:** [ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5) by ACE Studio × StepFun (Apache-2.0), sung tonight a section at a time on a GitHub Actions CPU
 
