@@ -15,29 +15,29 @@ I never got their name until the credits
 <sub>[0:09](https://nishal21.github.io/nishal21/player/?song=visitor&t=9)</sub>  
 
 now it plays here every single day  
-<sub>[0:15](https://nishal21.github.io/nishal21/player/?song=visitor&t=15)</sub>  
+<sub>[0:14](https://nishal21.github.io/nishal21/player/?song=visitor&t=14)</sub>  
 
 I was painting a picture  
-<sub>lyric: @nishal21 · [0:19](https://nishal21.github.io/nishal21/player/?song=visitor&t=19)</sub>  
+<sub>lyric: @nishal21 · [0:18](https://nishal21.github.io/nishal21/player/?song=visitor&t=18)</sub>  
 
 ## Chorus
 
 One note at a time  
-<sub>[0:24](https://nishal21.github.io/nishal21/player/?song=visitor&t=24)</sub>  
+<sub>[0:23](https://nishal21.github.io/nishal21/player/?song=visitor&t=23)</sub>  
 
 from people passing through  
-<sub>[0:28](https://nishal21.github.io/nishal21/player/?song=visitor&t=28)</sub>  
+<sub>[0:26](https://nishal21.github.io/nishal21/player/?song=visitor&t=26)</sub>  
 
 a name beside a line  
-<sub>[0:32](https://nishal21.github.io/nishal21/player/?song=visitor&t=32)</sub>  
+<sub>[0:31](https://nishal21.github.io/nishal21/player/?song=visitor&t=31)</sub>  
 
 and part of it is you  
-<sub>[0:37](https://nishal21.github.io/nishal21/player/?song=visitor&t=37)</sub>  
+<sub>[0:35](https://nishal21.github.io/nishal21/player/?song=visitor&t=35)</sub>  
 
 ## Outro
 
 Leave yours and the song gets one beat longer  
-<sub>[0:44](https://nishal21.github.io/nishal21/player/?song=visitor&t=44)</sub>  
+<sub>[0:41](https://nishal21.github.io/nishal21/player/?song=visitor&t=41)</sub>  
 
 ## Credits
 
