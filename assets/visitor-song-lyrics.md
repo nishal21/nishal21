@@ -9,7 +9,7 @@ Someone stopped by late on a quiet night
 <sub>[0:00](https://nishal21.github.io/nishal21/player/?song=visitor&t=0)</sub>  
 
 left a single note and went on their way  
-<sub>[0:05](https://nishal21.github.io/nishal21/player/?song=visitor&t=5)</sub>  
+<sub>[0:04](https://nishal21.github.io/nishal21/player/?song=visitor&t=4)</sub>  
 
 I never got their name until the credits  
 <sub>[0:10](https://nishal21.github.io/nishal21/player/?song=visitor&t=10)</sub>  
@@ -18,18 +18,18 @@ now it plays here every single day
 <sub>[0:14](https://nishal21.github.io/nishal21/player/?song=visitor&t=14)</sub>  
 
 I was painting a picture  
-<sub>lyric: @nishal21 · [0:21](https://nishal21.github.io/nishal21/player/?song=visitor&t=21)</sub>  
+<sub>lyric: @nishal21 · [0:19](https://nishal21.github.io/nishal21/player/?song=visitor&t=19)</sub>  
 
 ## Chorus
 
 One note at a time  
-<sub>[0:25](https://nishal21.github.io/nishal21/player/?song=visitor&t=25)</sub>  
+<sub>[0:24](https://nishal21.github.io/nishal21/player/?song=visitor&t=24)</sub>  
 
 from people passing through  
 <sub>[0:29](https://nishal21.github.io/nishal21/player/?song=visitor&t=29)</sub>  
 
 a name beside a line  
-<sub>[0:36](https://nishal21.github.io/nishal21/player/?song=visitor&t=36)</sub>  
+<sub>[0:34](https://nishal21.github.io/nishal21/player/?song=visitor&t=34)</sub>  
 
 and part of it is you  
 <sub>[0:39](https://nishal21.github.io/nishal21/player/?song=visitor&t=39)</sub>  
@@ -37,7 +37,7 @@ and part of it is you
 ## Outro
 
 Leave yours and the song gets one beat longer  
-<sub>[0:45](https://nishal21.github.io/nishal21/player/?song=visitor&t=45)</sub>  
+<sub>[0:46](https://nishal21.github.io/nishal21/player/?song=visitor&t=46)</sub>  
 
 ## Credits
 
