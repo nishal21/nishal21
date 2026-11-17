@@ -885,7 +885,7 @@ function ytAdapter(it) {
         onAutoplayBlocked() { onPause(); },
       },
     });
-  }).catch(() => onError(navigator.onLine === false ? "You're offline. YouTube videos need a connection; this one will load when you're back online." : "YouTube's player couldn't be loaded. A content blocker or the network may be stopping it.", it.href || it.src));
+  }).catch(() => (embedBox.replaceChildren(), onError(navigator.onLine === false ? "You're offline. YouTube videos need a connection; this one will load when you're back online." : "YouTube's player couldn't be loaded. A content blocker or the network may be stopping it.", it.href || it.src)));
   return a;
 }
 
