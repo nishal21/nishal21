@@ -156,9 +156,11 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
    the extension's content.scss; its container is page-sized, ours spills well past the stage instead.
    The live copy of YouTube and Vimeo goes through the same steps in CSS: scaled out (.amb-mirror-in),
    faded with the same mask, then blurred and coloured (.amb-mirror). It stays behind the page content (z-index -1). */
+/* phones: the player spans the screen and its glow sits right behind the tabs and the title, so it is softer still on the light page */
+@media (max-width: 699px) { .glow { --amb-light: 0.28; } }
 .glow {
   position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  opacity: calc(var(--amb-opacity) * (0.8 + var(--dark) * 0.2)); /* a little gentler on the light page */
+  opacity: calc(var(--amb-opacity) * (var(--amb-light, 0.45) + var(--dark) * (1 - var(--amb-light, 0.45)))); /* gentler on the light page, so the text around the player stays readable */
   transition: opacity 0.8s;
   --amb-filter: brightness(var(--amb-bright)) saturate(var(--amb-sat));
 }
@@ -205,6 +207,9 @@ body:not(.no-ambient) .info, body:not(.no-ambient) .top, body:not(.no-ambient) .
   --ytal-shadow-c: rgb(calc(255 - var(--dark) * 255) calc(255 - var(--dark) * 255) calc(255 - var(--dark) * 255) / 0.3);
   text-shadow: var(--ytal-shadow-c) 0 0 6px, var(--ytal-shadow-c) 0 0 6px;
 }
+/* on the light page the white halo made small text look smudged; plain text reads better there */
+:root:not(:has(> head > meta[name="color-scheme"][content="dark"])) body:not(.no-ambient) :is(.info, .top, .queue-head) { text-shadow: none; }
+@media (prefers-color-scheme: dark) { :root:not(:has(> head > meta[name="color-scheme"][content="light"])) body:not(.no-ambient) :is(.info, .top, .queue-head) { text-shadow: var(--ytal-shadow-c) 0 0 6px, var(--ytal-shadow-c) 0 0 6px; } }
 
 .stage {
   position: relative; z-index: 1; isolation: isolate;
@@ -463,6 +468,8 @@ body:not(.no-ambient) .info, body:not(.no-ambient) .top, body:not(.no-ambient) .
 /* ---------- info ---------- */
 .info { position: relative; display: grid; gap: var(--s2); }
 .eyebrow { margin: 0; font: 500 0.75rem/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--mark); }
+/* light page: the glow under the player darkens the page a little, so the label takes a deeper shade */
+:root:not(:has(> head > meta[name="color-scheme"][content="dark"])) .eyebrow { color: light-dark(color-mix(in oklab, var(--mark) 55%, var(--fg)), var(--mark)); }
 .info h1 { margin: 0; font-size: clamp(1.3rem, 1.05rem + 1vw, 1.875rem); font-weight: 760; letter-spacing: -0.022em; line-height: 1.15; text-wrap: balance; overflow-wrap: anywhere; }
 .meta { margin: 0; color: var(--fg-2); font-size: 0.9375rem; }
 .meta a { color: var(--fg); font-weight: 600; text-decoration: none; }
@@ -755,7 +762,7 @@ kbd { display: inline-block; min-width: 1.7em; padding: 1px 6px; border-radius: 
 .beat-marks i { position: absolute; bottom: 0; height: 50%; width: 1px; translate: -0.5px 0; background: rgb(255 255 255 / 0.38); }
 .beat-marks i.hit { height: 100%; width: 2px; translate: -1px 0; background: rgb(255 255 255 / 0.7); }
 @property --pulse { syntax: "<number>"; inherits: false; initial-value: 1; }
-.glow { opacity: calc(var(--amb-opacity) * (0.8 + var(--dark) * 0.2) * var(--pulse)); }
+.glow { opacity: calc(var(--amb-opacity) * (var(--amb-light, 0.45) + var(--dark) * (1 - var(--amb-light, 0.45))) * var(--pulse)); }
 .glow.kick { animation: amb-kick 0.32s ease-out; transition: none; }
 @keyframes amb-kick { 0% { --pulse: 1.22; } 100% { --pulse: 1; } }
 @media (prefers-reduced-motion: reduce) { .glow.kick { animation: none; } }
