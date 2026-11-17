@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem("color-scheme")??"light dark"}catch(e){}
-try{var l=new URLSearchParams(location.hash.slice(1)).get("persona")||localStorage.getItem("player-look");if(/^(vinyl|poster|editorial|sketch)$/.test(l))document.documentElement.dataset.persona=l}catch(e){}</script>
+try{var l=new URLSearchParams(location.hash.slice(1)).get("persona")||localStorage.getItem("player-look");if(/^(vinyl|poster|editorial|sketch)$/.test(l))document.documentElement.dataset.persona=l}catch(e){}
+// fetch the song data this page needs straight away (the visitor song page used to preload the other one)
+try{var p=document.createElement("link");p.rel="preload";p.as="fetch";p.crossOrigin="anonymous";p.href=(/[?&]song=visitor(&|$)/.test(location.search)?"visitor-song":"contribution-song")+".json";document.head.appendChild(p)}catch(e){}</script>
 <title>Contribution song · Nishal K</title>
 <meta name="description" content="A song made from Nishal K's GitHub contributions over the last 12 months. One bar per week, lyrics from the real numbers, rebuilt every night.">
 <meta name="theme-color" content="#11140b">
@@ -19,7 +21,6 @@ try{var l=new URLSearchParams(location.hash.slice(1)).get("persona")||localStora
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="cover.png">
 <link rel="apple-touch-icon" href="cover.png">
-<link rel="preload" href="contribution-song.json" as="fetch" crossorigin="anonymous">
 <link rel="preload" href="fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="player.css?v=dev">
 <link rel="stylesheet" href="../video/menu.css?v=dev">
@@ -139,7 +140,9 @@ try{var l=new URLSearchParams(location.hash.slice(1)).get("persona")||localStora
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14m0 0-5-5m5 5 5-5"/></svg>
       </a>
     </div>
-    <audio id="audio" src="contribution-song.mp3" preload="metadata"></audio>
+    <audio id="audio" preload="metadata"></audio>
+    <script>(function(){var q=new URLSearchParams(location.search),s=q.get("style");try{s=s||localStorage.getItem("song-style")}catch(e){}
+    document.getElementById("audio").src=q.get("song")==="visitor"?"visitor-song.mp3":s==="acoustic"?"contribution-song-acoustic.mp3":"contribution-song.mp3"})()</script>
   </section>
 
   <section class="lyrics-pane" id="lyrics-pane" aria-labelledby="lyrics-h">

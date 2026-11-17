@@ -23,10 +23,12 @@ const SLEEVES = ["#a9d6f5", "#cbef4a", "#ff8a65", "#f6a6c6", "#7fe3b4", "#ffc53d
   "#5cd6cf", "#ff9f43", "#c3b1ff", "#ff7a3d", "#e6d3a3", "#ff6b6b"];
 const DAY_STEP = 1 / 8; // the generator plays day d at d/8 of the bar
 // ?song=visitor plays the visitor song (scripts/visitor_song.py writes the same JSON shape); anything else is the contribution song
+// point the audio at a file only when it changes (setting the same src again restarts the download)
+function setSrc(name) { if (audio.getAttribute("src") !== name) audio.src = name; }
 const SONG = new URLSearchParams(location.search).get("song") === "visitor" ? "visitor-song" : "contribution-song";
 if (SONG !== "contribution-song") {
   document.body.classList.add("is-visitor");
-  audio.src = `${SONG}.mp3`;
+  setSrc(`${SONG}.mp3`);
   $$('a.dl[href^="contribution-song."]').forEach((a) => {
     a.href = a.getAttribute("href").replace("contribution-song", SONG);
     a.download = a.download.replace("contribution-song", SONG);
@@ -1461,9 +1463,13 @@ function setupMediaSession(data) {
 }
 
 /* ---------- misc ---------- */
-fetch(`${SONG}.mp3`, { method: "HEAD" })
-  .then((r) => { const n = +r.headers.get("content-length"); if (r.ok && n) $("#mp3-size").textContent = `${(n / 1048576).toFixed(1)} MB`; })
-  .catch(() => {});
+// the MP3 button shows the size of the file it downloads (the acoustic take is a different file)
+function mp3Size(name) {
+  fetch(name, { method: "HEAD" })
+    .then((r) => { const n = +r.headers.get("content-length"); if (r.ok && n && audio.getAttribute("src") === name) $("#mp3-size").textContent = `${(n / 1048576).toFixed(1)} MB`; })
+    .catch(() => {});
+}
+mp3Size(audio.getAttribute("src") || `${SONG}.mp3`);
 
 let resizeRaf = 0;
 new ResizeObserver(() => {
@@ -1498,7 +1504,8 @@ function styleApply(data, st) {
   data.lines = a.lines; data.length = a.length; data.bpm = a.bpm; data.key = a.key; data.engine = a.engine;
   if (a.peaks?.length) data.peaks = a.peaks;
   if (st === "acoustic") delete data.stems; else if (styleData.original.stems) data.stems = styleData.original.stems;
-  audio.src = st === "acoustic" ? "contribution-song-acoustic.mp3" : "contribution-song.mp3";
+  setSrc(st === "acoustic" ? "contribution-song-acoustic.mp3" : "contribution-song.mp3");
+  mp3Size(st === "acoustic" ? "contribution-song-acoustic.mp3" : "contribution-song.mp3");
   $$('a.dl[href^="contribution-song"]').forEach((el) => {
     const mp3 = el.getAttribute("href").endsWith(".mp3"), lrc = el.getAttribute("href").endsWith(".lrc");
     if (!mp3 && !lrc) return;
@@ -1534,7 +1541,8 @@ function styleSwitch(st) {
 $$("#styles button").forEach((b) => b.addEventListener("click", () => styleSwitch(b.dataset.style)));
 
 function styleSetup(data) {
-  if (SONG !== "contribution-song" || !data.styles?.includes("acoustic")) return Promise.resolve(data);
+  if (SONG !== "contribution-song") return Promise.resolve(data);
+  if (!data.styles?.includes("acoustic")) { setSrc("contribution-song.mp3"); mp3Size("contribution-song.mp3"); return Promise.resolve(data); }
   return fetch("contribution-song-acoustic.json", { credentials: "same-origin" })
     .then((r) => (r.ok ? r.json() : Promise.reject()))
     .then((ac) => {
@@ -1543,7 +1551,7 @@ function styleSetup(data) {
       if (styleWanted() === "acoustic") styleApply(data, "acoustic");
       return data;
     })
-    .catch(() => data); // no acoustic file: the switch stays hidden and the original plays
+    .catch(() => { setSrc("contribution-song.mp3"); mp3Size("contribution-song.mp3"); return data; }); // no acoustic file: the switch stays hidden and the original plays
 }
 
 fetch(`${SONG}.json`, { credentials: "same-origin" })
