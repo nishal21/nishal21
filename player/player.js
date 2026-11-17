@@ -1528,7 +1528,7 @@ function styleSwitch(st) {
   buildLyrics(song);
   $("#left").textContent = `-${fmt(song.length)}`;
   $("#where").textContent = `${fmt(song.length)} · ${song.bpm} BPM · ${song.key}`;
-  $("#remix-toggle").hidden = st === "acoustic" || !song.stems;
+  const rt = $("#remix-toggle"); if (rt) rt.hidden = st === "acoustic" || !song.stems;
   waveColors.clear(); drawWave();
   audio.addEventListener("loadedmetadata", () => {
     audio.currentTime = clamp(frac * song.length, 0, Math.max(0, song.length - 1));
