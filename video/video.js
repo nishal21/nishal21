@@ -866,6 +866,9 @@ function ytAdapter(it) {
             setState("started", true);
             setState("waiting", false);
             clearError();
+            // it plays here after all (YouTube's 150 can be a one-off), so stop labelling and skipping it
+            const only = store.get("ytonly", []);
+            if (it.id && only.includes(it.id)) { store.set("ytonly", only.filter((x) => x !== it.id)); markYtOnly(); }
             const data = yt.getVideoData?.();
             if (data?.title && (it.list || !it.title)) setTitle(data.title, data.author);
             if (prefs.rate !== 1) yt.setPlaybackRate(prefs.rate);
