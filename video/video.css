@@ -93,7 +93,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--s3);
   padding: max(var(--s3), env(safe-area-inset-top)) var(--pad) 0; height: 64px; position: relative; z-index: 5;
 }
-.handle { font: 500 0.8125rem/1 var(--mono); letter-spacing: 0.02em; text-decoration: none; color: var(--fg-2); padding: var(--s2) 0; justify-self: start; }
+.handle { font: 500 0.8125rem/1 var(--mono); letter-spacing: 0.02em; text-decoration: none; color: var(--fg-2); padding: 14px 2px; justify-self: start; }
 .handle:hover { color: var(--fg); }
 .tabs { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--wash); border: 1px solid var(--line); }
 .tabs a {
@@ -103,6 +103,14 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 }
 .tabs a:hover { color: var(--fg); }
 .tabs a[aria-current="page"] { background: var(--fg); color: var(--bg); }
+.tabs a { white-space: nowrap; }
+/* phones: same header as the song page, so "Visitor song" never breaks onto two lines */
+@media (max-width: 479px) {
+  .handle { display: none; }
+  .top { grid-template-columns: 1fr auto; }
+  .tabs { justify-self: start; }
+  .top .tabs a { padding: 0 var(--s2); font-size: 0.8125rem; }
+}
 .icon-btn {
   display: grid; place-items: center; width: 40px; height: 40px; padding: 0; justify-self: end;
   border: 0; border-radius: 50%; background: transparent; cursor: pointer; color: var(--fg-2);
@@ -438,6 +446,7 @@ body:not(.no-ambient) .info, body:not(.no-ambient) .top, body:not(.no-ambient) .
 .amb-sliders output { font: 500 0.75rem var(--mono); opacity: 0.7; font-variant-numeric: tabular-nums; }
 .amb-sliders input { grid-column: 1 / -1; width: 100%; margin: 2px 0 6px; accent-color: var(--g); height: 18px; }
 .amb-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 0 4px 6px; }
+#cue-size { grid-template-columns: repeat(3, 1fr); }
 .amb-modes button { height: 34px; border: 0; border-radius: 9px; background: rgb(255 255 255 / 0.08); color: #fff; cursor: pointer; font-size: 0.8125rem; font-weight: 600; }
 .amb-modes button[aria-checked="true"] { background: var(--g); color: var(--ink); }
 .amb-note { margin: 0; padding: 0 10px 8px; font-size: 0.75rem; opacity: 0.6; line-height: 1.4; }
@@ -765,6 +774,8 @@ kbd { display: inline-block; min-width: 1.7em; padding: 1px 6px; border-radius: 
 .ver:active { scale: 0.95; }
 .ver[aria-pressed="true"], .ver[aria-current="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
 .ver:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+/* the version switch under the title matches the Original / Acoustic switch on the song page */
+.info .versions .ver { height: 34px; padding: 0 var(--s3); font-family: inherit; font-size: 0.8125rem; font-weight: 600; }
 .i-orient { fill: none; stroke: currentColor; stroke-width: 1.8; }
 #orient[aria-pressed="true"] .i-orient rect:first-child { opacity: 0.4; }
 #orient:not([aria-pressed="true"]) .i-orient rect:last-child { opacity: 0.4; }
@@ -775,3 +786,18 @@ kbd { display: inline-block; min-width: 1.7em; padding: 1px 6px; border-radius: 
 /* the visitor song's live lyric video (lyric-video.js) sits over the audio-only <video> */
 .lyric-canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; background: #000; }
 .stage:not([data-kind="file"]) .lyric-canvas { display: none; }
+
+/* phones: the settings menus open as a sheet from the bottom of the screen (video.js moves them out of the player) */
+.sheet-host { display: contents; }
+.sheet-host.on .menu {
+  position: fixed; z-index: 80; left: 8px; right: 8px; bottom: max(8px, env(safe-area-inset-bottom)); top: auto;
+  width: auto; max-width: 520px; margin-inline: auto; max-height: min(72svh, 600px);
+  padding: 10px 10px 12px; border-radius: 22px; font-size: 0.9375rem;
+  background: rgb(20 20 20 / 0.94); transform-origin: bottom center; animation: sheet-up 0.26s cubic-bezier(.2, .8, .2, 1);
+}
+.sheet-host.on .menu::before { content: ""; display: block; width: 36px; height: 4px; margin: 0 auto 6px; border-radius: 2px; background: rgb(255 255 255 / 0.25); }
+.sheet-host.on .menu-row { min-height: 48px; }
+.sheet-host.on .speeds button { height: 40px; }
+.sheet-host.on:has(.menu:not([hidden]))::before { content: ""; position: fixed; inset: 0; z-index: 79; background: rgb(0 0 0 / 0.4); animation: fade 0.2s ease-out; }
+@keyframes sheet-up { from { translate: 0 24px; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .sheet-host.on .menu, .sheet-host.on::before { animation: none; } }

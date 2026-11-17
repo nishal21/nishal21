@@ -1641,8 +1641,25 @@ scrub.addEventListener("pointerleave", () => scrub.classList.remove("hovering"))
 addEventListener("pointerup", () => scrub.classList.remove("hovering"));
 
 // menus
+// phones: the player is too short for the settings menus (only the speeds and Loop fitted), so they open as a
+// sheet from the bottom of the screen instead; in full screen they stay inside the player
+const sheetMq = matchMedia("(max-width: 699px)");
+const sheetHost = el("div", { className: "sheet-host" });
+document.body.append(sheetHost);
+sheetMq.addEventListener("change", closeMenus);
+for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) document.addEventListener(ev, () => { if (menusOpen()) closeMenus(); else placeMenus(); });
+function placeMenus() {
+  const sheet = sheetMq.matches && !fsEl() && !stage.classList.contains("pseudo-fs") && !EMBED;
+  sheetHost.classList.toggle("on", sheet);
+  for (const id of ["settings", "ambient", "chapters", "subs"]) {
+    const m = $("#" + id);
+    if (sheet && m.parentElement !== sheetHost) sheetHost.append(m);
+    else if (!sheet && m.parentElement !== stage) stage.insertBefore(m, $("#mini-close"));
+  }
+}
 function closeMenus() {
   for (const id of ["settings", "ambient", "chapters", "subs", "share-menu"]) $("#" + id).hidden = true;
+  placeMenus();
   $("#settings-btn").setAttribute("aria-expanded", "false");
   $("#share").setAttribute("aria-expanded", "false");
 }
