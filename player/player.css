@@ -113,7 +113,7 @@ button, a, summary { -webkit-tap-highlight-color: transparent; }
   padding: max(var(--s4), env(safe-area-inset-top)) var(--pad) 0;
   height: 64px;
 }
-.handle { font: 500 0.8125rem/1 var(--mono); letter-spacing: 0.02em; text-decoration: none; color: var(--fg-2); padding: var(--s2) 0; justify-self: start; }
+.handle { font: 500 0.8125rem/1 var(--mono); letter-spacing: 0.02em; text-decoration: none; color: var(--fg-2); padding: 14px 2px; justify-self: start; }
 .handle:hover { color: var(--fg); }
 .top .icon-btn { justify-self: end; }
 .top-end { justify-self: end; display: flex; align-items: center; gap: var(--s1); }
@@ -267,7 +267,7 @@ h1 {
   margin-top: var(--s6);
 }
 .to-notes {
-  flex-basis: 100%; display: flex; justify-content: center; align-items: center; gap: var(--s2); margin-top: var(--s4);
+  flex-basis: 100%; display: flex; justify-content: center; align-items: center; gap: var(--s2); margin-top: var(--s1); padding-block: 12px;
   font: 500 0.75rem/1 var(--mono); color: var(--fg-3); text-decoration: none; letter-spacing: 0.04em;
 }
 .to-notes:hover { color: var(--fg); }
@@ -910,7 +910,7 @@ kbd {
 }
 
 /* ---------- Sketchbook ----------
-   Warm flat cards (orange or green, lilac), heavy capitals, ink outlines with flat offset blocks.
+   Warm flat cards (orange or green, lilac), heavy capitals, soft ink outlines.
    Deck: sleeve, title, then the controls as ink stickers, then chunky bars in a lilac card. */
 :root[data-persona="sketch"] {
   --bg: light-dark(#f3ead9, #1f2a22);
@@ -925,12 +925,12 @@ kbd {
   #sleeve { border-radius: 24px; background: transparent; }
   h1 { font-weight: 800; letter-spacing: -0.02em; text-transform: uppercase; }
   .controls { margin: var(--s2) 0 var(--s5); gap: var(--s4); }
-  .skipbtn, .play, .pill, .dl { border: 2px solid var(--fg); box-shadow: 3px 3px 0 var(--fg); }
+  .skipbtn, .play, .pill, .dl { border: 1.5px solid color-mix(in oklab, var(--fg) 55%, transparent); box-shadow: 0 6px 16px -10px rgb(0 0 0 / 0.45); }
   .skipbtn { width: 52px; height: 52px; border-radius: 50%; background: var(--paper); }
   .play { width: 76px; height: 76px; border-radius: 50%; background: var(--accent); color: var(--on-accent); }
   .play::before { display: none; }
-  .skipbtn:active, .play:active, .pill:active, .dl:active { translate: 3px 3px; box-shadow: 0 0 0 var(--fg); scale: 1; }
-  .scrub { background: var(--card); border: 2px solid var(--fg); border-radius: 20px; padding: var(--s4) var(--s5) var(--s3); }
+  .skipbtn:active, .play:active, .pill:active, .dl:active { scale: 0.94; box-shadow: 0 2px 6px -4px rgb(0 0 0 / 0.4); }
+  .scrub { background: var(--card); border: 1px solid color-mix(in oklab, var(--fg) 22%, transparent); border-radius: 20px; padding: var(--s4) var(--s5) var(--s3); box-shadow: 0 14px 30px -22px rgb(0 0 0 / 0.5); }
   .thumb { width: 4px; box-shadow: none; }
   .pill, .dl { background: var(--card); border-radius: 999px; }
   .remix-toggle { background: var(--accent); color: var(--on-accent); }
@@ -1065,3 +1065,23 @@ kbd {
 .styles button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
 .styles button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 @media (max-width: 479px) { .styles button { padding: 0 var(--s2); font-size: 0.8125rem; } }
+
+/* phones: the Original / Acoustic switch, Lyrics and Remix used to run off the right edge (28 px at 360,
+   more in the poster look). The actions get their own row under the title and the pills turn into icons. */
+@media (max-width: 479px) {
+  :root[data-persona] .meta { flex-wrap: wrap; }
+  :root[data-persona] .meta-actions { flex: 1 1 100%; min-width: 0; align-items: center; justify-content: flex-end; }
+  :root[data-persona] .meta-actions .styles { margin-inline-end: auto; }
+  :root[data-persona] .meta-actions .remix-toggle { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 50%; }
+  :root[data-persona] .meta-actions .remix-toggle .pill-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* lyrics or remix open: title and icons share the row beside the small cover, the style switch waits */
+  :root[data-persona] body:is(.lyrics-mode, .remix-open) .meta { flex-wrap: nowrap; }
+  :root[data-persona] body:is(.lyrics-mode, .remix-open) .meta-actions { flex: none; }
+  :root[data-persona] body:is(.lyrics-mode, .remix-open) .meta-actions .styles { display: none; }
+}
+@media (max-width: 389px) {
+  :root[data-persona] .meta-actions .pill { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 50%; }
+  :root[data-persona] .meta-actions .pill-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+/* the presets row scrolls sideways: fade its edge so it's clear there's more */
+.rx-presets { mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
