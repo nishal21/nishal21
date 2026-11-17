@@ -336,7 +336,7 @@ def encode_mp3(stereo, path):
     with tempfile.TemporaryDirectory() as d:
         wav, mp3 = os.path.join(d, "s.wav"), os.path.join(d, "s.mp3")
         wavfile.write(wav, SR, (np.clip(stereo.T, -1, 1) * 32767).astype(np.int16))
-        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", wav, "-codec:a", "libmp3lame", "-b:a", "128k",
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", wav, "-codec:a", "libmp3lame", "-b:a", "192k",
                         "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:a", "+bitexact", mp3], check=True)
         with open(mp3, "rb") as f:
             write_atomic(path, f.read())
