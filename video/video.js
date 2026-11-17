@@ -419,7 +419,10 @@ function thumbEl(it) {
   if (it.thumb) {
     const tall = it.shape === "tall";
     // no loading="lazy": lazy thumbnails in the queue never started loading in Chrome
-    box.append(el("img", { src: it.thumb, alt: "", decoding: "async", width: tall ? 360 : 640, height: tall ? 640 : 360 }));
+    const img = el("img", { src: it.thumb, alt: "", decoding: "async", width: tall ? 360 : 640, height: tall ? 640 : 360 });
+    // a thumbnail that can't load (offline, or gone) leaves the plain tile instead of a broken-image icon
+    img.addEventListener("error", () => img.remove(), { once: true });
+    box.append(img);
   }
   const len = it === CLIP ? "0:15" : it === TRAILER ? fmt(TRAILER.length || 45) : it === VISITOR ? (VISITOR.length ? fmt(VISITOR.length) : "") : it.duration ? fmt(it.duration) : it.short ? "Short" : "";
   if (len) box.append(el("span", { className: "badge", textContent: len }));
@@ -716,8 +719,9 @@ video.addEventListener("error", () => {
   else if (code === 4) msg = it?.via ? `${it.via} didn't hand over the video file. Make sure the link is shared with anyone who has it, or download the file and play it from your device.` : it?.guessed ? "This link didn't load as a video. It's probably a web page rather than a video file. Open the page, right-click the video and copy its address, or paste a link from a supported site." : "The video couldn't be loaded. The link may be broken or expired, the server may block other sites, or the format isn't one this browser plays (MP4 and WebM are the safest).";
   else if (code === 2 && it?.via) msg = `${it.via} didn't hand over the video file. Make sure the link is shared with anyone who has it.`;
   else if (code === 2) msg = "The video couldn't be downloaded. Check the link; the server may also be blocking other sites.";
+  if (navigator.onLine === false && !it?.local) msg = "You're offline. This video needs a connection; it will load again when you're back online.";
   onError(msg, it?.local ? null : it?.src);
-  if (!it?.local && code === 4 && !it?.guessed && !it?.via) {
+  if (navigator.onLine !== false && !it?.local && code === 4 && !it?.guessed && !it?.via) {
     fetch(it.src, { method: "HEAD", mode: "cors", credentials: "omit" }).then((r) => {
       if (cur !== it) return;
       if (r.status >= 400) onError(r.status === 404 || r.status === 410 ? "That file isn't there any more (the server says it's missing). The link may be old." : r.status === 401 || r.status === 403 ? "The server won't hand over this file. It may need a login, or the link has expired." : `The server answered with an error (${r.status}).`, it.src);
@@ -881,7 +885,7 @@ function ytAdapter(it) {
         onAutoplayBlocked() { onPause(); },
       },
     });
-  }).catch(() => onError("YouTube's player couldn't be loaded. A content blocker or the network may be stopping it.", it.href || it.src));
+  }).catch(() => onError(navigator.onLine === false ? "You're offline. YouTube videos need a connection; this one will load when you're back online." : "YouTube's player couldn't be loaded. A content blocker or the network may be stopping it.", it.href || it.src));
   return a;
 }
 
@@ -2825,6 +2829,9 @@ if (EMBED) {
   sync();
 }
 addEventListener("popstate", route);
+// back online after an offline load: our own videos need the network to be listed, so reload once; a video that
+// failed only because the connection was gone gets another try
+addEventListener("online", () => { if (EMBED) return; if (!library.some(OWN)) location.reload(); else if (stage.classList.contains("error") && cur && !cur.local) load(cur, { push: false }); });
 boot();
 
 // read-only state for automated tests
