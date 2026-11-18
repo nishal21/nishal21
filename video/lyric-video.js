@@ -1,4 +1,4 @@
-/* The visitor song's lyric video, drawn live over the song (the same look as scripts/visitor_video.py renders to MP4):
+/* The songs' lyric videos (visitor song and contribution song), drawn live over the song (the same look as scripts/visitor_video.py renders to MP4):
    letterbox, flat colour, light grain, a slow drift, each word rising in as it is sung, a card naming who wrote the
    line, Open Doodles (each used once) and a credits roll. It follows the page's <video> element, which plays the audio,
    so play, pause, seek, speed, fullscreen and the embed all work as for any video. Timings come from visitor-video.json. */
@@ -19,7 +19,16 @@
   const F = (size, w = 800) => `${w} ${size}px LVDisplay, system-ui, sans-serif`;
   const M = (size, w = 500) => `${w} ${size}px LVMono, ui-monospace, monospace`;
 
-  function attach({ stage, video, planUrl, reduce }) {
+  // The plan's looks are paper ones (cream, lime chorus, dark outro), as in the MP4. On the dark page they're turned
+  // into night versions of the same colours: the light backgrounds go near black and lend their colour to the words.
+  const lum = (c) => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255;
+  function nightLook(L) {
+    if (lum(L.bg) < 0.5) return L;
+    const paper = Math.max(...L.bg) - Math.min(...L.bg) < 40;  // the cream page, not a coloured one
+    return { bg: paper ? [20, 20, 22] : L.bg.map((c) => Math.round(18 + c * 0.05)), ink: L.bg, acc: L.acc };
+  }
+
+  function attach({ stage, video, planUrl, reduce, night, onFrame }) {
     const canvas = document.createElement("canvas");
     canvas.className = "lyric-canvas";
     canvas.setAttribute("aria-hidden", "true");
@@ -221,8 +230,12 @@
       }
       if (t > plan.end_card - 0.5) {
         const p = ease((t - plan.end_card + 0.5) / 0.8);
-        ctx.font = F(150); ctx.fillStyle = rgb(L.ink, p); ctx.fillText("add your line", TEXT_X, 380 + (still() ? 0 : 30 * (1 - p)) + 12);
-        ctx.font = M(32); ctx.fillStyle = rgb(L.acc, p); ctx.fillText("github.com/nishal21 · leave a note on the profile", TEXT_X + 6, 590);
+        // same words as END_CARD in scripts/visitor_video.py
+        const [big, small] = /contribution/.test(plan.credits?.[0]?.[0] || "")
+          ? ["thanks for listening", "github.com/nishal21 · sung again every night"]
+          : ["add your line", "github.com/nishal21 · leave a note on the profile"];
+        ctx.font = F(150); ctx.fillStyle = rgb(L.ink, p); ctx.fillText(big, TEXT_X, 380 + (still() ? 0 : 30 * (1 - p)) + 12);
+        ctx.font = M(32); ctx.fillStyle = rgb(L.acc, p); ctx.fillText(small, TEXT_X + 6, 590);
       }
       putDrawing("credits", L, plan.roll_start + 0.6, plan.total, t, drift);
     }
@@ -249,7 +262,7 @@
       const t = video.currentTime || 0;
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
       const drift = still() ? [0, 0] : [6 * Math.sin(t * 0.21), 4 * Math.cos(t * 0.17)];
-      const L = lookAt(t);
+      const L0 = lookAt(t), L = night?.() ? nightLook(L0) : L0;
       ctx.fillStyle = rgb(L.bg); ctx.fillRect(0, 0, W, H);
       if (t < plan.first - 0.5) title(t, L, drift);
       else if (t >= plan.roll_start) credits(t, L, drift);
@@ -263,6 +276,7 @@
       ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, TOP); ctx.fillRect(0, BOTTOM, W, H - BOTTOM);
       const k = Math.min(1, t / 0.8, Math.max(0, (plan.total - t) / 1.2));
       if (k < 1) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.max(0, k)})`; ctx.fillRect(0, 0, W, H); }
+      onFrame?.(canvas);
     }
     function loop() { cancelAnimationFrame(raf); if (dead) return; draw(); if (!video.paused) raf = requestAnimationFrame(loop); }
     const kick = () => draw();
@@ -275,6 +289,8 @@
       plan = p; stage.classList.add("lyric-on"); wrapCache.clear(); draw(); loop();
     }).catch(() => canvas.remove());
     return {
+      canvas,
+      redraw() { if (plan) draw(); },
       destroy() {
         dead = true; cancelAnimationFrame(raf); ro?.disconnect(); canvas.remove(); stage.classList.remove("lyric-on");
         for (const e of ["seeked", "timeupdate", "loadedmetadata"]) video.removeEventListener(e, kick);

@@ -33,6 +33,7 @@ const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.crea
 const stage = $("#stage"), video = $("#video"), embedBox = $("#embed"), shield = $("#shield");
 const seek = $("#seek"), scrub = $("#scrub"), bigPlay = $("#big-play"), playBtn = $("#play");
 const glowBox = $(".glow");
+let lyricView = null;  // the song's lyric video while one plays (attachLyric)
 
 /* ---------- theme (same rules as the song player, shared localStorage key) ---------- */
 const schemeMeta = $('meta[name="color-scheme"]');
@@ -50,7 +51,7 @@ sysDark.addEventListener?.("change", setThemeColor);
 const probe = el("i", { hidden: true });
 document.body.append(probe);
 const cssColor = (v) => { probe.style.color = v; return getComputedStyle(probe).color; };
-function setThemeColor() { $('meta[name="theme-color"]').content = cssColor("var(--bg)"); }
+function setThemeColor() { $('meta[name="theme-color"]').content = cssColor("var(--bg)"); lyricView?.redraw(); }
 
 /* ---------- colour helpers ---------- */
 function rgbToHsl([r, g, b]) {
@@ -562,6 +563,7 @@ let P = null;          // adapter for the current item
 const prefs = {
   volume: store.get("volume", 1), muted: store.get("muted", false), rate: 1,
   autoplay: !EMBED && store.get("autoplay", true), theater: store.get("theater", false), remaining: store.get("remaining", false),
+  paper: store.get("paper", false),
 };
 let loop = false;
 const RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -622,13 +624,16 @@ function loadScript(src) {
   });
 }
 // a song drawn as a lyric video on a canvas over the <video> element, which plays the audio
+// On the dark page the song is drawn in night colours, unless "Paper look" (the MP4's cream look) is switched on.
+// Every frame it draws also goes to the ambient light, since the <video> itself only carries sound.
+const lyricNight = () => !prefs.paper && rendered() === "dark";
 function attachLyric(a, it, seq) {
   let lv = null, gone = false;
   const done = a.destroy;
-  a.destroy = () => { gone = true; lv?.destroy(); done.call(a); };
+  a.destroy = () => { gone = true; if (lyricView === lv) lyricView = null; lv?.destroy(); amb.lyric(null); done.call(a); };
   (window.LyricVideo ? Promise.resolve() : loadScript("lyric-video.js?v=dev")).then(() => {
     if (gone || seq !== loadSeq) return;
-    lv = window.LyricVideo.attach({ stage, video, planUrl: it.lyric, reduce: reduceMotion });
+    lv = lyricView = window.LyricVideo.attach({ stage, video, planUrl: it.lyric, reduce: reduceMotion, night: lyricNight, onFrame: (c) => amb.lyric(c) });
   }).catch(() => {});
 }
 
@@ -1332,6 +1337,8 @@ function syncToggles() {
   for (const b of [$("#m-autoplay"), $("#autoplay")]) b.setAttribute("aria-checked", String(prefs.autoplay));
   $("#theater").setAttribute("aria-pressed", String(prefs.theater));
   document.body.classList.toggle("theater", prefs.theater);
+  $("#m-paper").hidden = !cur?.lyric;
+  $("#m-paper").setAttribute("aria-checked", String(prefs.paper));
   const pipOk = !!P?.native && document.pictureInPictureEnabled !== false && ("requestPictureInPicture" in video || "webkitSetPresentationMode" in video);
   $("#pip").hidden = !pipOk;
 }
@@ -1576,6 +1583,7 @@ $("#pip").addEventListener("click", togglePiP);
 $("#theater").addEventListener("click", () => setTheater(!prefs.theater));
 $("#fs").addEventListener("click", toggleFS);
 for (const b of [$("#m-autoplay"), $("#autoplay")]) b.addEventListener("click", () => { prefs.autoplay = !prefs.autoplay; store.set("autoplay", prefs.autoplay); syncToggles(); });
+$("#m-paper").addEventListener("click", () => { prefs.paper = !prefs.paper; store.set("paper", prefs.paper); syncToggles(); lyricView?.redraw(); });
 $("#m-loop").addEventListener("click", () => setLoop(!loop));
 $("#speeds").append(...RATES.map((r) => {
   const b = el("button", { type: "button", textContent: r === 1 ? "1×" : String(r) });
@@ -2043,7 +2051,7 @@ const amb = (() => {
     if (note) return note;
     if (mirror) return mirror.visible ? "Now: a muted copy, in step with the picture." : "Now: lining up the copy; preview frames show until it's in step.";
     const t = source?.type;
-    if (t === "video") return "Now: the real picture, frame by frame.";
+    if (t === "video" || t === "canvas") return "Now: the real picture, frame by frame.";
     if (t === "sprite" || t === "frames") return source.n > 1 || source.frames?.length > 1 ? "Now: preview frames, picked by position." : "Now: the thumbnail, one colour for the whole video.";
     return "Now: a neutral glow, because this site shares no picture.";
   }
@@ -2090,6 +2098,22 @@ const amb = (() => {
   new ResizeObserver(() => { glowW = glowBox.offsetWidth; }).observe(glowBox);
   const shown = () => !!glowW && !fsEl() && !prefs.theater;
   const active = () => s.on && !document.hidden && !!cur;
+
+  /* ----- a song's lyric video: drawn on a canvas, so each frame it draws comes here ----- */
+  function lyric(c) {
+    if (source?.type !== "canvas") return;
+    if (source.el !== c) { source.el = c; hardNext = true; readable = true; applyVars(); }
+    if (!c || !active() || !g || !shown()) return;
+    const every = cost > 40 ? 4 : cost > 20 ? 3 : cost > 8 ? 2 : 1;
+    if (!hardNext && every > 1 && ++skip % every) return;
+    const t0 = performance.now();
+    if (!render(c)) return;
+    lastSrc = c;
+    lastVideoDraw = performance.now();
+    cost = cost * 0.9 + (lastVideoDraw - t0) * 0.1;
+    if (hardNext || lastVideoDraw - lastColors > 500) { lastColors = lastVideoDraw; readColors(); }
+    hardNext = false;
+  }
 
   /* ----- the real picture: one draw per presented frame ----- */
   function drawVideo(hard) {
@@ -2140,7 +2164,7 @@ const amb = (() => {
 
   /* ----- stills for YouTube, Vimeo and the rest: chosen by position, crossfaded over about a second ----- */
   function sampleStill(force) {
-    if (!active() || source?.type === "video" || mirror?.visible || !g || !shown()) return;
+    if (!active() || source?.type === "video" || source?.type === "canvas" || mirror?.visible || !g || !shown()) return;
     const t = P?.t || 0, d = P?.d || 0;
     let ok = false, key = "", draw = null;
     if (source?.type === "sprite") {
@@ -2184,6 +2208,7 @@ const amb = (() => {
   }
   function redraw() {
     if (source?.type === "video") drawVideo(true);
+    else if (source?.type === "canvas") { hardNext = true; if (source.el) lyric(source.el); }
     else sampleStill("hard");
   }
   function schedule() {
@@ -2192,6 +2217,7 @@ const amb = (() => {
     stopFollow();
     if (!active()) return;
     if (source?.type === "video") { follow(); return; }
+    if (source?.type === "canvas") { redraw(); return; }
     sampleStill(false);
     timer = setInterval(() => sampleStill(false), 500);
   }
@@ -2225,7 +2251,8 @@ const amb = (() => {
     stillKey = "";
     hardNext = true;
     setColors(colors || neutral);
-    source = it.kind === "file" || it.kind === "hls" || it.kind === "dash" ? { type: "video" } : stills(it);
+    source = it.lyric ? { type: "canvas", el: lyricView?.canvas || null }
+      : it.kind === "file" || it.kind === "hls" || it.kind === "dash" ? { type: "video" } : stills(it);
     layout();
     sctx.fillStyle = "#000"; sctx.fillRect(0, 0, 320, 180);
     ambi?.clear(); ambi?.resetBars?.();
@@ -2235,7 +2262,7 @@ const amb = (() => {
   }
   // a thumbnail that turns up later (Vimeo's oEmbed) only swaps the stills; the copy keeps running
   function updateStills(it) {
-    if (it !== cur || source?.type === "video") return;
+    if (it !== cur || source?.type === "video" || source?.type === "canvas") return;
     source = stills(it);
     stillKey = "";
     sampleStill(true);
@@ -2414,7 +2441,7 @@ const amb = (() => {
   layout();
   applyVars();
   return {
-    setSource, updateStills, kick, stopMirror, frameAt,
+    setSource, updateStills, kick, stopMirror, frameAt, lyric,
     sync() { mirrorTick(true); },
     // a seek on the main player hides the copy at once and lines it up again
     seeked(t) { if (mirror?.ready) { show(mirror, false); seekMirror(mirror, t); } stillKey = ""; hardNext = true; },
