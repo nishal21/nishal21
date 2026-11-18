@@ -251,7 +251,8 @@ class Video:
 
     def build_credits(self):
         if NAME[0].startswith("contribution"):
-            voice = ("person:ACE-Step 1.5|sung through deAPI" if self.engine == "deAPI" else
+            voice = (f"person:{self.engine.split('·')[-1].strip()}|made on Runware" if self.engine.startswith("Runware") else
+                     "person:ACE-Step 1.5|sung through deAPI" if self.engine == "deAPI" else
                      "person:Kokoro TTS|two voices" if self.engine == "Kokoro" else f"person:ACE-Step 1.5|{self.engine}")
             return [("label:contribution song", 90), ("big:A year of commits, sung", 150),
                     ("label:words and music", 80), ("person:Nishal K|github.com/nishal21", 118), ("gap:", 40),

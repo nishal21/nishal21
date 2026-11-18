@@ -38,7 +38,7 @@ from datetime import datetime, timezone
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import USER  # noqa: E402
+from common import ASSETS, USER  # noqa: E402
 
 RELEASE = "visitor-song"
 NAME = "visitor-take"
@@ -1003,6 +1003,11 @@ def main():
     g.add_argument("--sections", metavar="OUT_DIR", help="contribution song: a take per section, cloud then CPU")
     a = ap.parse_args()
     if a.check:
+        pins = os.path.join(ASSETS, "song-pins.json")
+        style = "acoustic" if STYLE.get("name") == "acoustic" else "original"
+        if NAME.startswith("contribution") and os.path.exists(pins) and style in json.load(open(pins)):
+            print("needed=false")  # this style plays a pinned take (scripts/pin_song.py): never re-sung at night
+            return 0
         lines = sheet()
         last = last_take()
         need = bool(lines) and (not last or last.get("hash") != lyrics_hash(lines) or last.get("engine") != "deAPI")

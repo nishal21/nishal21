@@ -1,0 +1,12 @@
+{
+ "acoustic": {
+  "file": "contribution-song-acoustic.mp3",
+  "engine": "Runware \u00b7 MiniMax Music 2.6",
+  "sheet": "assets/pinned/runware-lyrics.txt",
+  "bpm": 109.5,
+  "length": 102.342,
+  "lines": 20,
+  "unsung": 0,
+  "pinned": "2026-11-18T14:46:16Z"
+ }
+}

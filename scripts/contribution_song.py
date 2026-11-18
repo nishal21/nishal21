@@ -496,6 +496,11 @@ def acoustic_version(s):
     import visitor_take as T
     out_mp3 = os.path.join(ASSETS, "contribution-song-acoustic.mp3")
     out_json = os.path.join(ASSETS, "contribution-song-acoustic.json")
+    pins = os.path.join(ASSETS, "song-pins.json")
+    if os.path.exists(pins) and "acoustic" in json.load(open(pins)) and os.path.exists(out_json) and os.path.exists(out_mp3):
+        # a take pinned with scripts/pin_song.py: its audio and timing stay as they are, whatever tonight's lyrics
+        print("song: acoustic version is pinned (assets/song-pins.json), kept as is")
+        return ["original", "acoustic"]
     try:
         if os.environ.get("CONTRIB_ACOUSTIC_KEEP"):
             raise RuntimeError("tonight's acoustic take failed its check")
