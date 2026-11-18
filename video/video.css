@@ -79,7 +79,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .backdrop::before {
   content: ""; position: absolute; inset: 0;
   background:
-    linear-gradient(to bottom, color-mix(in oklab, var(--amb1) calc(10% + var(--dark) * 16%), transparent), color-mix(in oklab, var(--amb2) calc(7% + var(--dark) * 11%), transparent) 60vh, color-mix(in oklab, var(--amb2) calc(3% + var(--dark) * 5%), transparent) 120vh);
+    linear-gradient(to bottom, color-mix(in oklab, var(--amb1) calc(5% + var(--dark) * 7%), transparent), color-mix(in oklab, var(--amb2) calc(3% + var(--dark) * 4%), transparent) 60vh, transparent 110vh);
   opacity: var(--tint, 1); transition: opacity 0.8s;
 }
 .backdrop::after {

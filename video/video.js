@@ -1907,24 +1907,26 @@ $("#link").addEventListener("focus", () => {
    with the same scale, fade, blur and colour done in CSS. The copy only shows while it's provably on the same picture
    (within a quarter of a second, both playing or both paused); otherwise YouTube's preview frames or the thumbnail go
    through the extension's renderer until it's back in step. */
-const AMB_DEFAULTS = { v: 6, on: true, mode: "live", spread: 60, blur: 30, bright: 100, sat: 100, opacity: 100, tint: true };
+// size, blur, fade, edge, brightness and saturation are youtube-ambilight's own defaults, so out of the box the light
+// looks like the extension does on YouTube
+const AMB_DEFAULTS = { v: 7, on: true, mode: "live", spread: 17, blur: 30, bright: 100, sat: 100, opacity: 100, tint: true };
 // every slider's range; saved values are pulled back inside these so an old or edited setting can't blow the light up
 const AMB_RANGE = { spread: [0, 400], blur: [0, 100], bright: [20, 200], sat: [0, 200], opacity: [10, 100] };
-const AMB_EDGE = 12, AMB_INNER = 2, AMB_FADE_START = 0.25, AMB_FADE_CURVE = 35;
+const AMB_EDGE = 12, AMB_INNER = 2, AMB_FADE_START = 0.15, AMB_FADE_CURVE = 35;
 const LIVE_MAX = 0.25, LIVE_SHOW = 0.15;
 const amb = (() => {
   let s = tidy(store.get("ambient", null));
   if (EMBED) s.on = false; // no room around an embed for the light
   // version 5 changed what every slider means, so older saves keep only on/off, Tint and the source;
-  // version 6 raised the default size, so a version 5 save that still had the old default moves to the new one
+  // version 7 went back to the extension's default size, so a save still on an old default size moves to it
   function tidy(o) {
     if (!o || typeof o !== "object") return { ...AMB_DEFAULTS };
     const t = { ...AMB_DEFAULTS, on: o.on !== false, tint: o.tint !== false, mode: o.v >= 4 && o.mode === "light" ? "light" : "live" };
-    if (o.v === 5 || o.v === 6) for (const [k, [lo, hi]] of Object.entries(AMB_RANGE)) {
+    if (o.v >= 5 && o.v <= 7) for (const [k, [lo, hi]] of Object.entries(AMB_RANGE)) {
       const v = Number(o[k]);
       if (Number.isFinite(v)) t[k] = clamp(v, lo, hi);
     }
-    if (o.v === 5 && t.spread === 17) t.spread = AMB_DEFAULTS.spread;
+    if (o.v < 7 && (t.spread === 60 || t.spread === 17)) t.spread = AMB_DEFAULTS.spread;
     return t;
   }
 
