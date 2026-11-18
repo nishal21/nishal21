@@ -18,7 +18,7 @@ now it plays here every single day
 <sub>[0:14](https://nishal21.github.io/nishal21/player/?song=visitor&t=14)</sub>  
 
 I was painting a picture  
-<sub>lyric: @nishal21 · [0:17](https://nishal21.github.io/nishal21/player/?song=visitor&t=17)</sub>  
+<sub>lyric: @nishal21 · [0:19](https://nishal21.github.io/nishal21/player/?song=visitor&t=19)</sub>  
 
 ## Chorus
 
@@ -26,18 +26,18 @@ One note at a time
 <sub>[0:23](https://nishal21.github.io/nishal21/player/?song=visitor&t=23)</sub>  
 
 from people passing through  
-<sub>[0:27](https://nishal21.github.io/nishal21/player/?song=visitor&t=27)</sub>  
+<sub>[0:28](https://nishal21.github.io/nishal21/player/?song=visitor&t=28)</sub>  
 
 a name beside a line  
 <sub>[0:33](https://nishal21.github.io/nishal21/player/?song=visitor&t=33)</sub>  
 
 and part of it is you  
-<sub>[0:38](https://nishal21.github.io/nishal21/player/?song=visitor&t=38)</sub>  
+<sub>[0:39](https://nishal21.github.io/nishal21/player/?song=visitor&t=39)</sub>  
 
 ## Outro
 
 Leave yours and the song gets one beat longer  
-<sub>[0:43](https://nishal21.github.io/nishal21/player/?song=visitor&t=43)</sub>  
+<sub>[0:57](https://nishal21.github.io/nishal21/player/?song=visitor&t=57)</sub>  
 
 ## Credits
 
