@@ -472,9 +472,10 @@ class Video:
         # end card once the roll has passed
         if t > self.end_card - 0.5:
             p = ease((t - self.end_card + 0.5) / 0.8)
-            m, _ = word_img("add your line", font(150), ink)
+            big, small = END_CARD["contribution" if NAME[0].startswith("contribution") else "visitor"]
+            m, _ = word_img(big, font(150), ink)
             put(frame, m, (TEXT_X, 380 + 30 * (1 - p)), ink, p)
-            m, _ = word_img("github.com/nishal21 · leave a note on the profile", font(32, "Medium", True), acc)
+            m, _ = word_img(small, font(32, "Medium", True), acc)
             put(frame, m, (TEXT_X + 6, 590), acc, p)
             self.box_text.append((TEXT_X, 380, TEXT_X + 1000, 640))
         self.put_drawing(frame, "credits", look, self.roll_start + 0.6, self.total, t, drift)
@@ -504,6 +505,9 @@ def plan(v, art_url):
 
 
 NAME = ["visitor"]
+# the end card's two lines; the page's live lyric video (video/lyric-video.js) uses the same words
+END_CARD = {"visitor": ("add your line", "github.com/nishal21 · leave a note on the profile"),
+            "contribution": ("thanks for listening", "github.com/nishal21 · sung again every night")}
 
 
 def main():
@@ -527,10 +531,10 @@ def main():
             v.frame(float(s)).save(os.path.join(out, f"frame-{float(s):06.2f}.png"))
         return
     t0 = time.time()
-    v.frame(max(0.5, v.first - 1.2)).resize((1280, 720), Image.LANCZOS).save(os.path.join(out, f"{NAME[0]}-poster.jpg"), quality=86)
+    v.frame(max(0.5, v.first - 1.2) if v.first > 2 else 3.0).resize((1280, 720), Image.LANCZOS).save(os.path.join(out, f"{NAME[0]}-poster.jpg"), quality=86)
     if "--web" in args:
         # link preview card (1200x630): the title frame, with the current line and visitor counts
-        big = v.frame(max(0.5, v.first - 1.2))
+        big = v.frame(max(0.5, v.first - 1.2) if v.first > 2 else 3.0)
         big.crop((0, 36, 1920, 1044)).resize((1200, 630), Image.LANCZOS).save(os.path.join(out, f"{NAME[0]}-og.jpg"), quality=88)
         with open(os.path.join(out, f"{NAME[0]}-video.json"), "w") as f:
             json.dump(plan(v, "../player/art/"), f, separators=(",", ":"))
