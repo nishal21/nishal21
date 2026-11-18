@@ -1,6 +1,6 @@
 /*! youtube-ambilight (https://github.com/WesselKroos/youtube-ambilight) src/scripts/libs/generic.js
- * at commit 18d17188e5562e5ee913f005192d30c9a60be078. Copied unchanged.
- * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in ../LICENSE (vendor/ambilight/LICENSE). */
+ * at commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f (v2.38.17). Copied unchanged.
+ * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in vendor/ambilight/LICENSE. */
 export const uuidv4 = () => {
   return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
     (
@@ -62,38 +62,44 @@ const wrapErrorHandlerHandleError = (stack, ex, reportOnce, reported) => {
   if (displayErrorHandler) displayErrorHandler(ex);
 };
 
-const withErrorHandler = (callback, reportOnce, stack, reported) => {
+const withErrorHandler = (callback, reportOnce, stackHolder, reported) => {
   const callbackName = callback.name || 'anonymous';
   const container = {
     [callbackName]: (...args) => {
       try {
         return callback(...args);
       } catch (ex) {
-        wrapErrorHandlerHandleError(stack, ex, reportOnce, reported);
+        wrapErrorHandlerHandleError(stackHolder.stack, ex, reportOnce, reported);
       }
     },
   };
   return container[callbackName];
 };
 
-const withAsyncErrorHandler = (callback, reportOnce, stack, reported) => {
+const withAsyncErrorHandler = (callback, reportOnce, stackHolder, reported) => {
   const callbackName = callback.name || 'anonymous';
   const container = {
     [callbackName]: async (...args) => {
       try {
         return await callback(...args);
       } catch (ex) {
-        wrapErrorHandlerHandleError(stack, ex, reportOnce, reported);
+        wrapErrorHandlerHandleError(stackHolder.stack, ex, reportOnce, reported);
       }
     },
   };
   return container[callbackName];
 };
 
-export const wrapErrorHandler = (callback, reportOnce = false) =>
-  (callback.constructor.name === 'AsyncFunction'
-    ? withAsyncErrorHandler
-    : withErrorHandler)(callback, reportOnce, new Error().stack, []);
+export const wrapErrorHandler = (() => {
+  const AsyncFunction = (async () => {}).constructor;
+  const container = {
+    '_': (callback, reportOnce = false) =>
+    (callback instanceof AsyncFunction
+      ? withAsyncErrorHandler
+      : withErrorHandler)(callback, reportOnce, new Error(), reportOnce ? [] : undefined)
+    };
+    return container['_']
+})();
 
 export const setTimeout = (handler, timeout) => {
   return globalThis.setTimeout(wrapErrorHandler(handler), timeout);
@@ -102,9 +108,9 @@ export const setTimeout = (handler, timeout) => {
 const eventListenerCallbacks = [];
 export function on(elem, eventNames, callback, options, reportOnce = false) {
   try {
-    const stack = new Error().stack;
+    const stackHolder = new Error();
     const callbacksName = `on_${eventNames.split(' ').join('_')}`;
-    let reported = [];
+    let reported = reportOnce ? [] : undefined;
     const namedCallbacks = {
       [callbacksName]: async (...args) => {
         try {
@@ -117,7 +123,7 @@ export function on(elem, eventNames, callback, options, reportOnce = false) {
 
           const e = args.length ? args[0] : {};
           const type =
-            e.type === 'keydown' ? `${e.type} keyCode: ${e.keyCode}` : e.type;
+            e.type?.startsWith('key') ? `${e.type} key: ${e.key}` : e.type;
           ex.message = `${ex.message} \nOn event: ${type}`;
 
           try {
@@ -168,7 +174,7 @@ export function on(elem, eventNames, callback, options, reportOnce = false) {
             reportOnce,
           };
 
-          appendErrorStack(stack, ex);
+          appendErrorStack(stackHolder.stack, ex);
           if (errorHandler) errorHandler(ex);
         }
       },
@@ -394,11 +400,20 @@ export const supportsColorMix = () => {
   return _supportsColorMix;
 };
 
-export const isWatchPageUrl = () =>
-  ['/watch', '/live/'].some((path) => location.pathname.startsWith(path)) ||
-  isEmbedPageUrl();
+const getPathname = () => globalThis.location?.pathname ?? '';
 
-export const isEmbedPageUrl = () => location.pathname?.startsWith('/embed/');
+export const isEmbedPageUrl = (pathname = getPathname()) => pathname.startsWith('/embed/');
+
+export const isWatchPageUrl = (() => {
+  const watchUrls = ['/watch', '/live/'];
+  return () => {
+    const pathname = getPathname();
+    for (const watchUrl of watchUrls) {
+      if (pathname.startsWith(watchUrl)) return true;
+    }
+    return isEmbedPageUrl(pathname);
+  };
+})();
 
 export const getCookie = async (name) =>
   globalThis.cookieStore
@@ -539,6 +554,8 @@ export const isNetworkError = (ex) =>
   ex?.message === 'NetworkError when attempting to fetch resource.'; // Firefox
 
 export const setStyleProperty = (elem, name, value, priority = '') => {
+  if(!elem) return;
+
   const currentValue = elem.style.getPropertyValue(name) ?? '';
   const currentPriority = elem.style.getPropertyPriority(name) ?? '';
   if (currentValue === value && currentPriority === priority) return; // Prevent MutationObservers from firing

@@ -1,6 +1,6 @@
 /*! youtube-ambilight (https://github.com/WesselKroos/youtube-ambilight) src/scripts/libs/settings-config.js
- * at commit 18d17188e5562e5ee913f005192d30c9a60be078. Copied unchanged.
- * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in ../LICENSE (vendor/ambilight/LICENSE). */
+ * at commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f (v2.38.17). Copied unchanged.
+ * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in vendor/ambilight/LICENSE. */
 import { supportsColorMix, supportsWebGL } from './generic';
 import { getBrowser } from './utils';
 
@@ -436,7 +436,7 @@ Click on the questionmark for more and updated information about these artifacts
     description: 'Uses: CPU power',
     type: 'checkbox',
     default: false,
-    defaultKey: 'V',
+    defaultKey: 'N',
   },
   {
     name: 'detectColoredHorizontalBarSizeEnabled',
@@ -673,8 +673,8 @@ Click on the questionmark for more and updated information about these artifacts
     description: 'To better see what changes: Turn the blur to 0%',
     type: 'list',
     default: 12,
-    min: 2,
-    max: 50,
+    min: .3,
+    max: 60,
     step: 0.1,
     advanced: true,
   },
@@ -829,6 +829,14 @@ Click on the questionmark for more and updated information about these artifacts
     advanced: true,
   },
   {
+    name: 'enableWhileDischarging',
+    label: 'While on battery',
+    description: 'When your device\'s battery is discharging',
+    type: 'checkbox',
+    default: true,
+    advanced: true,
+  },
+  {
     type: 'section',
     label: 'General',
     name: 'sectionGeneralCollapsed',
@@ -901,6 +909,10 @@ export const prepareSettingsConfigOnce = () => {
 
   if (getBrowser() === 'Firefox') {
     settingsToRemove.push('enableInVRVideos');
+  }
+
+  if (typeof navigator.getBattery !== 'function') {
+    settingsToRemove.push('enableWhileDischarging');
   }
 
   if (!supportsColorMix()) {

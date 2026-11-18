@@ -34,8 +34,8 @@ var YTAmbilight = (() => {
 
   // src/errors/ambient-light-error.js
   /*! youtube-ambilight (https://github.com/WesselKroos/youtube-ambilight) src/scripts/libs/errors/ambient-light-error.js
-   * at commit 18d17188e5562e5ee913f005192d30c9a60be078. Copied unchanged.
-   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in ../LICENSE (vendor/ambilight/LICENSE). */
+   * at commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f (v2.38.17). Copied unchanged.
+   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in vendor/ambilight/LICENSE. */
   var AmbientlightError = class extends Error {
     constructor(message, details) {
       super(message);
@@ -45,8 +45,8 @@ var YTAmbilight = (() => {
 
   // src/generic.js
   /*! youtube-ambilight (https://github.com/WesselKroos/youtube-ambilight) src/scripts/libs/generic.js
-   * at commit 18d17188e5562e5ee913f005192d30c9a60be078. Copied unchanged.
-   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in ../LICENSE (vendor/ambilight/LICENSE). */
+   * at commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f (v2.38.17). Copied unchanged.
+   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in vendor/ambilight/LICENSE. */
   var errorHandler = (ex) => {
     console.error(ex);
   };
@@ -63,39 +63,46 @@ var YTAmbilight = (() => {
     if (errorHandler) errorHandler(ex);
     if (displayErrorHandler) displayErrorHandler(ex);
   };
-  var withErrorHandler = (callback, reportOnce, stack, reported) => {
+  var withErrorHandler = (callback, reportOnce, stackHolder, reported) => {
     const callbackName = callback.name || "anonymous";
     const container = {
       [callbackName]: (...args) => {
         try {
           return callback(...args);
         } catch (ex) {
-          wrapErrorHandlerHandleError(stack, ex, reportOnce, reported);
+          wrapErrorHandlerHandleError(stackHolder.stack, ex, reportOnce, reported);
         }
       }
     };
     return container[callbackName];
   };
-  var withAsyncErrorHandler = (callback, reportOnce, stack, reported) => {
+  var withAsyncErrorHandler = (callback, reportOnce, stackHolder, reported) => {
     const callbackName = callback.name || "anonymous";
     const container = {
       [callbackName]: async (...args) => {
         try {
           return await callback(...args);
         } catch (ex) {
-          wrapErrorHandlerHandleError(stack, ex, reportOnce, reported);
+          wrapErrorHandlerHandleError(stackHolder.stack, ex, reportOnce, reported);
         }
       }
     };
     return container[callbackName];
   };
-  var wrapErrorHandler = (callback, reportOnce = false) => (callback.constructor.name === "AsyncFunction" ? withAsyncErrorHandler : withErrorHandler)(callback, reportOnce, new Error().stack, []);
+  var wrapErrorHandler = (() => {
+    const AsyncFunction = (async () => {
+    }).constructor;
+    const container = {
+      "_": (callback, reportOnce = false) => (callback instanceof AsyncFunction ? withAsyncErrorHandler : withErrorHandler)(callback, reportOnce, new Error(), reportOnce ? [] : void 0)
+    };
+    return container["_"];
+  })();
   var eventListenerCallbacks = [];
   function on(elem, eventNames, callback, options, reportOnce = false) {
     try {
-      const stack = new Error().stack;
+      const stackHolder = new Error();
       const callbacksName = `on_${eventNames.split(" ").join("_")}`;
-      let reported = [];
+      let reported = reportOnce ? [] : void 0;
       const namedCallbacks = {
         [callbacksName]: async (...args) => {
           try {
@@ -106,7 +113,7 @@ var YTAmbilight = (() => {
               reported.push(ex.message);
             }
             const e = args.length ? args[0] : {};
-            const type = e.type === "keydown" ? `${e.type} keyCode: ${e.keyCode}` : e.type;
+            const type = e.type?.startsWith("key") ? `${e.type} key: ${e.key}` : e.type;
             ex.message = `${ex.message} 
 On event: ${type}`;
             try {
@@ -148,7 +155,7 @@ CurrentTarget: ${e.currentTarget.toString()} ${e.currentTarget.nodeName || ""}#$
               options,
               reportOnce
             };
-            appendErrorStack(stack, ex);
+            appendErrorStack(stackHolder.stack, ex);
             if (errorHandler) errorHandler(ex);
           }
         }
@@ -266,6 +273,19 @@ ${stackToAppend}`;
       console.warn(ex2);
     }
   };
+  var networkStateToString = (value) => ({
+    0: "NETWORK_EMPTY",
+    1: "NETWORK_IDLE",
+    2: "NETWORK_LOADING",
+    3: "NETWORK_NO_SOURCE"
+  }[value] || value) ?? "UNKNOWN";
+  var readyStateToString = (value) => ({
+    0: "HAVE_NOTHING",
+    1: "HAVE_METADATA",
+    2: "HAVE_CURRENT_DATA",
+    3: "HAVE_FUTURE_DATA",
+    4: "HAVE_ENOUGH_DATA"
+  }[value] || value) ?? "UNKNOWN";
   var webGLErrorToString = (value) => ({
     1280: "GL_INVALID_ENUM",
     1281: "GL_INVALID_VALUE",
@@ -275,6 +295,7 @@ ${stackToAppend}`;
     1287: "GL_CONTEXT_LOST_WEBGL"
   }[value] || value) ?? "UNKNOWN";
   var setStyleProperty = (elem, name, value, priority = "") => {
+    if (!elem) return;
     const currentValue = elem.style.getPropertyValue(name) ?? "";
     const currentPriority = elem.style.getPropertyPriority(name) ?? "";
     if (currentValue === value && currentPriority === priority) return;
@@ -294,8 +315,8 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
 
   // src/projector-shadow.js
   /*! youtube-ambilight (https://github.com/WesselKroos/youtube-ambilight) src/scripts/libs/projector-shadow.js
-   * at commit 18d17188e5562e5ee913f005192d30c9a60be078. Copied unchanged.
-   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in ../LICENSE (vendor/ambilight/LICENSE). */
+   * at commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f (v2.38.17). Copied unchanged.
+   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in vendor/ambilight/LICENSE. */
   var WIDTH = 512;
   var HEIGHT = 512;
   var ProjectorShadow = class {
@@ -552,8 +573,8 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
 
   // src/projector-webgl.js
   /*! youtube-ambilight (https://github.com/WesselKroos/youtube-ambilight) src/scripts/libs/projector-webgl.js
-   * at commit 18d17188e5562e5ee913f005192d30c9a60be078. Copied unchanged.
-   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in ../LICENSE (vendor/ambilight/LICENSE). */
+   * at commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f (v2.38.17). Copied unchanged.
+   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in vendor/ambilight/LICENSE. */
   var ProjectorWebGL = class _ProjectorWebGL {
     type = "ProjectorWebGL";
     lostCount = 0;
@@ -747,16 +768,11 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
       this.ctx.drawArrays(this.ctx.TRIANGLES, 0, this.vPosition.length / 2);
       const isNewTextureUpload = this.drawTextureSize.width === 0 && this.drawTextureSize.height === 0;
       if (isNewTextureUpload) {
-        this.checkForDrawErrors();
+        this.checkForDrawErrors(src);
       }
       if (this.settings.showResolutions)
         this.drawTime = performance.now() - start;
       if (this.settings.showResolutions) start = performance.now();
-      this.blurCtx.clearRect(0, 0, this.blurCanvas.width, this.blurCanvas.height);
-      if (this.settings.showResolutions) {
-        this.blurClearTime = performance.now() - start;
-        start = performance.now();
-      }
       this.blurCtx.drawImage(
         this.elem,
         blurCanvasBound,
@@ -772,7 +788,7 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
       this.drawIndex = (this.drawIndex + 1 + Math.round(Math.random() * 0.5)) % this.projectorsCount;
     };
     drawErrors = [];
-    checkForDrawErrors = () => {
+    checkForDrawErrors = (src) => {
       const webGLError = this.ctx.getError();
       if (webGLError === this.ctx.NO_ERROR) {
         this.drawErrors.length = 0;
@@ -786,7 +802,37 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
           program: this.program?.toString(),
           webGLVersion: this.webGLVersion,
           majorPerformanceCaveat: this.majorPerformanceCaveat,
-          ctxOptions: this.ctxOptions
+          ctxOptions: this.ctxOptions,
+          src: {
+            width: src?.width,
+            height: src?.height,
+            videoWidth: src?.videoWidth,
+            videoHeight: src?.videoHeight,
+            name: src?.constructor?.name,
+            ...src?.localName === "video" ? {
+              currentTime: src.currentTime,
+              duration: src.duration,
+              ended: src.ended,
+              videoWidth: src.videoWidth,
+              videoHeight: src.videoHeight,
+              readyState: readyStateToString(src.readyState),
+              networkState: networkStateToString(src.networkState)
+            } : {},
+            ...src?.localName === "img" ? {
+              currentSrc: !!src.currentSrc,
+              complete: src.complete,
+              "img.width": src.width,
+              "img.height": src.height
+            } : {}
+          },
+          canvas: {
+            width: this.elem?.width,
+            height: this.elem?.height,
+            drawingBufferWidth: this.ctx?.drawingBufferWidth,
+            drawingBufferHeight: this.ctx?.drawingBufferHeight,
+            viewport: this.viewport
+          },
+          "document.visibilityState": document.visibilityState
         }
       );
       error.name = "ProjectorWebGLDrawError";
@@ -1196,7 +1242,7 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
         vec2 direction = ceil(fUV * 2.) - 1.;
         vec2 iUV = ((direction - fUV) * fScale) / ((direction - .5) * fScaleStep);
         int impreciseI = int(min(iUV[0], iUV[1]));
-        for (int preciseI = 0; preciseI < 200; preciseI++) {
+        for (int preciseI = 0; preciseI < ${this.scalesLength > 150 ? Math.min(2e3, Math.ceil(this.scalesLength * 1.4)) : 200}; preciseI++) { ${""}
           if (preciseI < impreciseI) continue;
           int i = ${this.webGLVersion === 1 ? "impreciseI" : "preciseI"};
           vec2 scaledUV = (fUV - .5) * (fScale / (fScale - fScaleStep * vec2(i)));
@@ -1516,7 +1562,7 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
       this.updateCtx();
       return true;
     }
-    rescale(scales, lastScale, projectorSize, crop, settings) {
+    async rescale(scales, lastScale, projectorSize, crop, settings) {
       if (this.shadow) {
         this.shadow.rescale(lastScale, projectorSize, settings);
       }
@@ -1550,8 +1596,13 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
       }
       if (this.blurCtx) {
         this.blurCtx.filter = `blur(${blurPx / this.blurCanvasScale}px)`;
+        this.blurCtx.globalCompositeOperation = "copy";
       }
-      this.updateCtx();
+      if (this.scalesLength > 150) {
+        await this.initCtx();
+      } else {
+        this.updateCtx();
+      }
     }
     async updateVibrance() {
       const hadVibranceFilter = this.fVibrance !== void 0;
@@ -1838,8 +1889,8 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
 
   // src/projector-2d.js
   /*! youtube-ambilight (https://github.com/WesselKroos/youtube-ambilight) src/scripts/libs/projector-2d.js
-   * at commit 18d17188e5562e5ee913f005192d30c9a60be078. Copied unchanged.
-   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in ../LICENSE (vendor/ambilight/LICENSE). */
+   * at commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f (v2.38.17). Copied unchanged.
+   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in vendor/ambilight/LICENSE. */
   var Projector2d = class {
     type = "Projector2d";
     width = 1;
@@ -1966,56 +2017,11 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
 
   // src/worker.js
   /*! youtube-ambilight (https://github.com/WesselKroos/youtube-ambilight) src/scripts/libs/worker.js
-   * at commit 18d17188e5562e5ee913f005192d30c9a60be078. Copied unchanged.
-   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in ../LICENSE (vendor/ambilight/LICENSE). */
-  var workerFromCode = async (func) => {
-    try {
-      if (typeof OffscreenCanvas === "undefined") {
-        throw new Error("OffscreenCanvas class is undefined");
-      } else if (!OffscreenCanvas.prototype.transferToImageBitmap) {
-        throw new Error("OffscreenCanvas.transferToImageBitmap is undefined");
-      }
-      let created = () => void 0;
-      let timeout;
-      try {
-        const promise = new Promise((resolve, reject) => {
-          created = (error) => {
-            if (error) return reject(error);
-            resolve();
-          };
-        });
-        const worker = new Worker(
-          URL.createObjectURL(
-            new Blob(["(", func.toString(), ")()"], { type: "text/javascript" })
-          )
-        );
-        worker.onerror = (e) => created(
-          new Error(
-            e?.message ?? "Worker creation failed probably because it violates the worker-src or script-src Content Security Policy"
-          )
-        );
-        worker.onmessage = (e) => {
-          if (e.data === false) {
-            created();
-          }
-        };
-        worker.postMessage(false);
-        timeout = setTimeout(
-          () => created(new Error("Worker creation timed-out after 5 seconds")),
-          5e3
-        );
-        await promise;
-        worker.onerror = void 0;
-        worker.onmessage = void 0;
-        return worker;
-      } finally {
-        clearTimeout(timeout);
-        created = void 0;
-      }
-    } catch (error) {
-      console.warn(
-        `Failed to create a native worker. Creating a fallback worker on the main thread instead (${error.message})`
-      );
+   * at commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f (v2.38.17). Copied unchanged.
+   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in vendor/ambilight/LICENSE. */
+  var workerFromCode = (
+    // async 
+    (func) => {
       class FallbackWorker {
         isFallbackWorker = true;
         constructor(func2) {
@@ -2031,27 +2037,54 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
           };
           func2.bind(globalScope)();
         }
-        onerror = (error2) => {
-          console.error(error2);
+        onerror = (error) => {
+          console.error(error);
         };
         postMessage = (data) => {
           try {
             this.globalScope.onmessage({
               data
             });
-          } catch (error2) {
-            this.onerror(error2);
+          } catch (error) {
+            this.onerror(error);
           }
         };
       }
       return new FallbackWorker(func);
     }
+  );
+
+  // src/utils.js
+  /*! youtube-ambilight (https://github.com/WesselKroos/youtube-ambilight) src/scripts/libs/utils.js
+   * at commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f (v2.38.17). Copied unchanged.
+   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in vendor/ambilight/LICENSE. */
+  var browsersUAList = [
+    { ua: "Firefox", name: "Firefox" },
+    { ua: "OPR", name: "Opera" },
+    { ua: "Edg", name: "Edge" },
+    { ua: "Chrome", name: "Chrome" }
+  ];
+  var browser;
+  var getBrowser = () => {
+    if (browser === void 0) {
+      try {
+        const ua = globalThis.navigator.userAgent;
+        const _browser = browsersUAList.find(
+          (browser2) => ua.indexOf(browser2.ua) >= 0
+        );
+        browser = _browser ? _browser.name : "";
+      } catch {
+        browser = null;
+      }
+    }
+    return browser;
   };
 
   // src/bar-detection.js
   /*! youtube-ambilight (https://github.com/WesselKroos/youtube-ambilight) src/scripts/libs/bar-detection.js
-   * at commit 18d17188e5562e5ee913f005192d30c9a60be078. Copied unchanged.
-   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in ../LICENSE (vendor/ambilight/LICENSE). */
+   * at commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f (v2.38.17). Copied unchanged.
+   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in vendor/ambilight/LICENSE. */
+  var isFirefox = getBrowser() === "Firefox";
   var workerCode = function() {
     class ImageHelper {
       imageData;
@@ -2062,26 +2095,35 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
       get height() {
         return this.imageData?.height ?? 0;
       }
-      getDataOffset(x, y) {
-        return (y * this.width + x) * this.channels;
+      getDataOffset(x, y, width = this.width) {
+        return (y * width + x) * this.channels;
       }
-      getPixel(x, y, data, dataOffset, alpha = true) {
-        let returnValue = !data;
-        if (returnValue) data = new Uint8Array(4);
-        if (!dataOffset) dataOffset = 0;
-        const offset = this.getDataOffset(x, y);
-        if (offset < 0 || offset > (this.imageData?.data?.length ?? 0)) {
-          data[dataOffset + 0] = 0;
+      getPixel(x, y, data, dataOffset = 0, alpha = true) {
+        const returnValue = !data;
+        if (returnValue) {
+          data = new Uint8Array(4);
+        }
+        const imageData = this.imageData;
+        if (!imageData || x < 0 || y < 0 || x >= imageData.width || y >= imageData.height) {
+          data[dataOffset] = 0;
           data[dataOffset + 1] = 0;
           data[dataOffset + 2] = 0;
-          if (alpha) data[dataOffset + 3] = 0;
+          if (alpha) {
+            data[dataOffset + 3] = 0;
+          }
         } else {
-          data[dataOffset + 0] = this.imageData?.data?.[offset];
-          data[dataOffset + 1] = this.imageData?.data?.[offset + 1];
-          data[dataOffset + 2] = this.imageData?.data?.[offset + 2];
-          if (alpha) data[dataOffset + 3] = this.imageData?.data?.[offset + 3];
+          const source = imageData.data;
+          const offset = this.getDataOffset(x, y, imageData.width);
+          data[dataOffset] = source[offset];
+          data[dataOffset + 1] = source[offset + 1];
+          data[dataOffset + 2] = source[offset + 2];
+          if (alpha) {
+            data[dataOffset + 3] = source[offset + 3];
+          }
         }
-        if (returnValue) return data;
+        if (returnValue) {
+          return data;
+        }
       }
     }
     let catchedWorkerCreationError = false;
@@ -2189,14 +2231,16 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
       const brightness = color[0] + color[1] + color[2];
       return brightness > 500 ? maxLightDeviation : brightness > 20 ? maxDarkDeviation : maxBlackDeviation;
     }
-    function isColorWithinMaxDeviation(currentColor, referenceColor) {
+    function isColorWithinMaxDeviation(currentColor, referenceColor, maxDeviation = getMaxDeviationLimits(referenceColor)) {
       const hueDeviation = getHueDeviation(currentColor, referenceColor);
+      if (hueDeviation > maxDeviation.hue) {
+        return false;
+      }
       const brightnessDeviation = getBrightnessDeviation(
         currentColor,
         referenceColor
       );
-      const maxDeviation = getMaxDeviationLimits(referenceColor);
-      return hueDeviation <= maxDeviation.hue && brightnessDeviation <= maxDeviation.brightness && hueDeviation + brightnessDeviation <= maxDeviation.sum;
+      return brightnessDeviation <= maxDeviation.brightness && hueDeviation + brightnessDeviation <= maxDeviation.sum;
     }
     const enhancedCertainty = true;
     const minDeviationScore = enhancedCertainty ? 0.25 : 0.4;
@@ -2205,77 +2249,110 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
     const edgePointYCenter = 2 / edgePointYRange;
     const easeInOutQuad = (x) => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
     const getCertaintyColorData = new Uint8Array(4);
-    const getCertainty = (pointX, pointY, yAxis, yDirection, color) => {
+    function getCertainty(pointX, pointY, yAxis, yDirection, color, maxDeviation = getMaxDeviationLimits(color)) {
       const x = pointX - (enhancedCertainty ? edgePointXRange : 1);
       const y = pointY - edgePointYRange * 2 * (yDirection === 1 ? edgePointYCenter : 1 - edgePointYCenter);
       const xLength = 1 + (enhancedCertainty ? edgePointXRange * 2 : 0);
       const yLength = 1 + edgePointYRange * 2;
+      const horizontal = yAxis === "height";
+      const forward = yDirection === 1;
+      const withinThreshold = Math.floor(
+        1 + edgePointYRange * 2 * edgePointYCenter
+      );
+      const maxDeviationScore = 1 - minDeviationScore;
       let score = 0;
       for (let dx = 0; dx < xLength; dx += 2) {
+        const sampleX = x + dx;
         for (let dy = 0; dy < yLength; dy += 2) {
-          const dy2 = yDirection === 1 ? dy : yLength - 1 - dy;
+          const dy2 = forward ? dy : yLength - 1 - dy;
+          const sampleY = y + dy2;
           let iColor = getCertaintyColorData;
-          if (yAxis === "height") {
-            image.getPixel(x + dx, y + dy2, iColor);
+          if (horizontal) {
+            image.getPixel(sampleX, sampleY, iColor);
           } else {
-            image.getPixel(y + dy2, x + dx, iColor);
+            image.getPixel(sampleY, sampleX, iColor);
           }
-          if (iColor[3] === 0) iColor = color;
-          const expectWithinDeviation = dy < Math.floor(1 + edgePointYRange * 2 * edgePointYCenter);
-          if (!expectWithinDeviation) {
-            const maxDeviation = getMaxDeviationLimits(color);
+          if (iColor[3] === 0) {
+            iColor = color;
+          }
+          if (dy < withinThreshold) {
+            if (isColorWithinMaxDeviation(
+              iColor,
+              color,
+              maxDeviation
+            )) {
+              score += 1;
+            }
+          } else {
             const hueDeviation = getHueDeviation(iColor, color);
-            const brightnessDeviation = getBrightnessDeviation(iColor, color);
+            const brightnessDeviation = getBrightnessDeviation(
+              iColor,
+              color
+            );
             const deviationScore = Math.max(
               0,
               Math.min(
-                1 - minDeviationScore,
+                maxDeviationScore,
                 (hueDeviation + brightnessDeviation) / maxDeviation.score / 0.05
               )
             );
             score += minDeviationScore + deviationScore;
-          } else {
-            const within = isColorWithinMaxDeviation(iColor, color);
-            if (within) score += 1;
           }
         }
       }
       const length = (1 + (xLength - 1) / 2) * (1 + (yLength - 1) / 2);
       const certainty = (score - length / 2) / (length / 2);
       return easeInOutQuad(certainty);
-    };
+    }
     const largeStep = 4;
     const ignoreEdge = 2;
     const middleYOffset = 10;
     const minCertainty = 0.65;
     const maxCertaintyChecks = enhancedCertainty ? 3 : 5;
     const sureCertainty = enhancedCertainty ? 0.65 : 0.65;
-    const getAverageLineColorRange = 9;
-    const getAverageLineColorRangeOffset = (getAverageLineColorRange - 1) / 2;
-    const getAverageLineColorData = new Uint8Array(4 * getAverageLineColorRange);
     function getAverageLineColor(x, y, yAxis, iColor) {
-      const iColors = getAverageLineColorData;
-      const range = getAverageLineColorRange;
-      const rangeOffset = getAverageLineColorRangeOffset;
-      for (let i = 0; i < range; i++) {
-        const x2 = x + (i - rangeOffset) * 2;
-        const iColorsOffset = i * 4;
-        if (yAxis === "height") {
-          image.getPixel(x2, y, iColors, iColorsOffset);
-        } else {
-          image.getPixel(y, x2, iColors, iColorsOffset);
+      const imageData = image.imageData;
+      if (!imageData) {
+        iColor[0] = 0;
+        iColor[1] = 0;
+        iColor[2] = 0;
+        return;
+      }
+      const { data, width, height } = imageData;
+      const horizontal = yAxis === "height";
+      const start = x - 8;
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      if (horizontal ? y >= 0 && y < height && start >= 0 && x + 8 < width : y >= 0 && y < width && start >= 0 && x + 8 < height) {
+        const stride = horizontal ? 8 : width * 8;
+        let offset = horizontal ? (y * width + start) * 4 : (start * width + y) * 4;
+        for (let i = 0; i < 9; i++, offset += stride) {
+          r += data[offset];
+          g += data[offset + 1];
+          b += data[offset + 2];
+        }
+      } else {
+        for (let i = 0; i < 9; i++) {
+          const position = start + i * 2;
+          const px = horizontal ? position : y;
+          const py = horizontal ? y : position;
+          if (px < 0 || px >= width || py < 0 || py >= height) {
+            continue;
+          }
+          const offset = (py * width + px) * 4;
+          r += data[offset];
+          g += data[offset + 1];
+          b += data[offset + 2];
         }
       }
-      for (let i = 0; i < 4; i++) {
-        let sum = 0;
-        for (let j = 0; j < range; j++) {
-          sum += iColors[j * 4 + i];
-        }
-        iColor[i] = Math.round(sum / range);
-      }
+      iColor[0] = Math.round(r / 9);
+      iColor[1] = Math.round(g / 9);
+      iColor[2] = Math.round(b / 9);
     }
-    const detectEdgesColorData = new Uint8Array(4);
+    const detectEdgesColorData = new Uint8Array(3);
     function detectEdges(linesX, color, yAxis) {
+      const maxDeviation = getMaxDeviationLimits(color);
       const maxY = image[yAxis];
       const middleY = maxY / 2;
       const topEdges = [];
@@ -2292,7 +2369,6 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
             wasUncertain = false;
             step = 1;
           }
-          getAverageLineColor(x, y, yAxis, iColor);
           const limitNotReached = y < middleY - middleYOffset - 1;
           if (!limitNotReached || detectedEdges > maxCertaintyChecks) {
             if (mostCertainEdge?.certainty > minCertainty) {
@@ -2309,7 +2385,8 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
             }
             break;
           }
-          const isDeviating = !isColorWithinMaxDeviation(iColor, color);
+          getAverageLineColor(x, y, yAxis, iColor);
+          const isDeviating = !isColorWithinMaxDeviation(iColor, color, maxDeviation);
           if (limitNotReached && wasDeviating && !isDeviating) {
             wasDeviating = false;
             continue;
@@ -2352,12 +2429,11 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
         wasUncertain = false;
         mostCertainEdge = void 0;
         detectedEdges = 0;
-        for (let y = maxY - 1 + ignoreEdge; y >= 0; y -= step) {
+        for (let y = maxY - 1 - ignoreEdge; y >= 0; y -= step) {
           if (wasUncertain) {
             wasUncertain = false;
             step = 1;
           }
-          getAverageLineColor(x, y, yAxis, iColor);
           const limitNotReached = y > middleY + middleYOffset;
           if (!limitNotReached || detectedEdges > maxCertaintyChecks) {
             if (mostCertainEdge?.certainty > minCertainty) {
@@ -2374,7 +2450,8 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
             }
             break;
           }
-          const isDeviating = !isColorWithinMaxDeviation(iColor, color);
+          getAverageLineColor(x, y, yAxis, iColor);
+          const isDeviating = !isColorWithinMaxDeviation(iColor, color, maxDeviation);
           if (limitNotReached && wasDeviating && !isDeviating) {
             wasDeviating = false;
             continue;
@@ -2518,11 +2595,11 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
       const workerDetectBarSize = (id, xLength, yAxis, scale, detectColored, offsetPercentage, currentPercentage, allowedAnomaliesPercentage, allowedUnevenBarsPercentage, xOffset) => {
         const partSizeBorderMultiplier = -0.1 + 2 * allowedAnomaliesPercentage / 100;
         const partSize = Math.floor(
-          canvas[xLength] / (scanlinesAmount + partSizeBorderMultiplier * 2)
+          image[xLength] / (scanlinesAmount + partSizeBorderMultiplier * 2)
         );
         const linesX = workerDetectBarSizeLinesX;
         let linesXIndex = 0;
-        for (let index = Math.ceil(partSize / 2) - 1 + partSizeBorderMultiplier * partSize; index < canvas[xLength] - partSizeBorderMultiplier * partSize; index += partSize) {
+        for (let index = Math.ceil(partSize / 2) - 1 + partSizeBorderMultiplier * partSize; index < image[xLength] - partSizeBorderMultiplier * partSize; index += partSize) {
           const xIndex = Math.min(
             Math.max(
               0,
@@ -2530,19 +2607,19 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
                 index + Math.round(xOffset * (partSize / 2) - partSize / 4)
               )
             ),
-            canvas[xLength] - 1
+            image[xLength] - 1
           );
           linesX[linesXIndex] = xIndex;
           linesXIndex++;
         }
         const color = getAverageColor(yAxis);
         if (!detectColored && (color[0] + color[1] + color[2] > 16 || Math.abs(color[0] - color[1]) > 3 || Math.abs(color[1] - color[2]) > 3 || Math.abs(color[2] - color[0]) > 3)) {
-          const topEdges2 = linesX.map((x) => ({
+          const topEdges2 = Array.from(linesX, (x) => ({
             xIndex: x,
             yIndex: 0,
             deviates: true
           }));
-          const bottomEdges2 = linesX.map((x) => ({
+          const bottomEdges2 = Array.from(linesX, (x) => ({
             xIndex: x,
             yIndex: 0,
             deviates: true
@@ -2668,12 +2745,23 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
             }
             ctx.drawImage(bitmap, 0, 0, 512, 512);
             bitmap.close();
-          } else {
+            image.imageData = ctx.getImageData(0, 0, 512, 512);
+          } else if (canvasInfo.canvas) {
             canvas = canvasInfo.canvas;
             canvasIsCreatedInWorker = false;
             ctx = canvasInfo.ctx;
+            image.imageData = ctx.getImageData(0, 0, 512, 512);
+          } else if (canvasInfo.imageData) {
+            if (isFirefox) {
+              image.imageData = globalThis.structuredClone(
+                canvasInfo.imageData
+              );
+            } else {
+              image.imageData = canvasInfo.imageData;
+            }
+          } else {
+            throw new Error("No bitmap, canvas or imageData has been received by the BarDetection worker");
           }
-          image.imageData = ctx.getImageData(0, 0, 512, 512);
           globalXOffsetIndex++;
           if (globalXOffsetIndex >= xOffsetSize) globalXOffsetIndex = 0;
           const xOffset = xOffsetSize === 1 ? 0.5 : xOffsetSize === 2 ? globalXOffsetIndex : (Math.ceil(globalXOffsetIndex / 2) + globalXOffsetIndex % 2) / (xOffsetSize - 1);
@@ -2704,7 +2792,7 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
           if (id !== globalRunId) {
             return;
           }
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx?.clearRect?.(0, 0, canvas?.width, canvas?.height);
           this.postMessage({
             id,
             horizontalBarSizeInfo,
@@ -2724,6 +2812,88 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
       postError(ex);
     }
   };
+  var getImageDataFromImage = (() => {
+    const W = 512, H = 512;
+    const canvas = new SafeOffscreenCanvas(W, H);
+    const gl = canvas.getContext("webgl2", {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      preserveDrawingBuffer: true
+    });
+    const vs = `#version 300 es
+  out vec2 uv;
+
+  void main() {
+    vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+    uv = p;
+    gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+  }`;
+    const fs = `#version 300 es
+  precision mediump float;
+  uniform sampler2D tex;
+  in vec2 uv;
+  out vec4 color;
+
+  void main() {
+    color = texture(tex, uv);
+  }`;
+    function compile(type, src) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    }
+    const prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl.VERTEX_SHADER, vs));
+    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(prog);
+    gl.useProgram(prog);
+    gl.bindVertexArray(gl.createVertexArray());
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const pbo = gl.createBuffer();
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
+    gl.viewport(0, 0, W, H);
+    function clientWaitSyncFence(sync, firstTimeout = 5, recurringTimeout = 2, afterTwoSecondsTimeout = 1e3) {
+      const start = performance.now();
+      return new Promise((resolve, reject) => {
+        setTimeout(function clientWaitSyncPoll() {
+          try {
+            const r = gl.clientWaitSync(sync, 0, 0);
+            if (r === gl.WAIT_FAILED) return reject(new Error("WebGL clientWaitSync WAIT_FAILED"));
+            if (r === gl.TIMEOUT_EXPIRED) return setTimeout(
+              clientWaitSyncPoll,
+              performance.now() - start > 2e3 ? afterTwoSecondsTimeout : recurringTimeout
+            );
+            resolve();
+          } catch (ex) {
+            reject(ex);
+          }
+        }, firstTimeout);
+      });
+    }
+    async function getVideoFrameBufferPixels(image) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.bufferData(gl.PIXEL_PACK_BUFFER, W * H * 4, gl.STREAM_READ);
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+      const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+      gl.flush();
+      await clientWaitSyncFence(sync);
+      gl.deleteSync(sync);
+      const imageData = new ImageData(W, H);
+      gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, imageData.data);
+      return imageData;
+    }
+    return getVideoFrameBufferPixels;
+  })();
   var BarDetection = class {
     worker;
     runId = 0;
@@ -2782,7 +2952,7 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
         this.timeout = void 0;
       }
     };
-    detect = async (buffer, detectColored, offsetPercentage, detectHorizontal, currentHorizontalPercentage, detectVertical, currentVerticalPercentage, ratio, allowedToTransfer, averageHistorySize, allowedAnomaliesPercentage, allowedUnevenBarsPercentage, callback) => {
+    detect = async (buffer, detectColored, offsetPercentage, detectHorizontal, currentHorizontalPercentage, detectVertical, currentVerticalPercentage, ratio, allowedToTransfer, averageHistorySize, allowedAnomaliesPercentage, allowedUnevenBarsPercentage, callback, setWarning) => {
       if (this.running) {
         return;
       }
@@ -2791,7 +2961,7 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
       this.running = true;
       if (!this.worker) {
         this.worker = await workerFromCode(workerCode);
-        const stack = new Error().stack;
+        const stackHolder = new Error();
         this.worker.onmessage = (e) => {
           if (this.onWorkerMessageListener) {
             return this.onWorkerMessageListener(e);
@@ -2800,7 +2970,7 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
             return;
           }
           if (e.data.error) {
-            appendErrorStack(stack, e.data.error);
+            appendErrorStack(stackHolder.stack, e.data.error);
             SentryReporter.captureException(e.data.error);
           }
         };
@@ -2838,7 +3008,8 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
             averageHistorySize,
             allowedAnomaliesPercentage,
             allowedUnevenBarsPercentage,
-            callback
+            callback,
+            setWarning
           );
         }.bind(this),
         { timeout: 1 },
@@ -2932,35 +3103,17 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
       }
       return percentage < minPercentage ? 0 : percentage;
     }
-    idleHandler = async (runId, buffer, detectColored, offsetPercentage, detectHorizontal, currentHorizontalPercentage, detectVertical, currentVerticalPercentage, ratio, allowedToTransfer, averageHistorySize, allowedAnomaliesPercentage, allowedUnevenBarsPercentage, callback) => {
+    idleHandler = async (runId, buffer, detectColored, offsetPercentage, detectHorizontal, currentHorizontalPercentage, detectVertical, currentVerticalPercentage, ratio, allowedToTransfer, averageHistorySize, allowedAnomaliesPercentage, allowedUnevenBarsPercentage, callback, setWarning) => {
       if (this.runId !== runId) return;
       let canvasInfo;
       let bufferCtx;
       try {
         const start = performance.now();
         if (this.worker.isFallbackWorker || !allowedToTransfer || !buffer.transferToImageBitmap || !buffer.getContext) {
-          if (!this.canvas) {
-            this.canvas = new SafeOffscreenCanvas(
-              512,
-              512
-              // Math.min(buffer.videoWidth || buffer.width || 512, 512),
-              // Math.min(buffer.videoHeight || buffer.height || 512, 512)
-            );
-            this.ctx = void 0;
-          }
-          if (!this.ctx || this.ctx?.isContextLost && this.ctx.isContextLost()) {
-            this.ctx = this.canvas.getContext("2d", {
-              // alpha: false, // Decreases performance on some platforms
-              desynchronized: true
-            });
-            this.ctx.imageSmoothingEnabled = true;
-          }
-          this.ctx.drawImage(buffer, 0, 0, this.canvas.width, this.canvas.height);
-          canvasInfo = this.worker.isFallbackWorker || !this.canvas.transferToImageBitmap ? {
-            canvas: this.canvas,
-            ctx: this.ctx
-          } : {
-            bitmap: this.canvas.transferToImageBitmap()
+          const imageData = await getImageDataFromImage(buffer);
+          canvasInfo = {
+            imageData
+            // canvas,
           };
         } else {
           bufferCtx = buffer.getContext("2d");
@@ -2982,9 +3135,9 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
           return;
         }
         this.ambientlight.stats.updateBarDetectionImage(
-          canvasInfo.bitmap ?? canvasInfo.canvas
+          canvasInfo.bitmap ?? canvasInfo.imageData ?? canvasInfo.canvas
         );
-        const stack = new Error().stack;
+        const stackHolder = new Error();
         const onMessagePromise = new Promise(
           function onMessagePromise2(resolve, reject) {
             this.onWorkerRejectListener = (err) => reject(err);
@@ -3000,7 +3153,7 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
                     /blob:.+?:\/.+?:/g,
                     "extension://scripts/bar-detection-worker.js:"
                   );
-                  appendErrorStack(stack, error);
+                  appendErrorStack(stackHolder.stack, error);
                   throw error;
                 }
                 const minPercentage = 1.25 + offsetPercentage;
@@ -3089,7 +3242,7 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
             allowedUnevenBarsPercentage,
             xOffsetSize: averageHistorySize
           },
-          canvasInfo.bitmap ? [canvasInfo.bitmap] : void 0
+          canvasInfo.imageData?.data?.buffer ? [canvasInfo.imageData.data.buffer] : canvasInfo.bitmap ? [canvasInfo.bitmap] : void 0
         );
         await onMessagePromise;
         if (this.runId !== runId) return;
@@ -3125,9 +3278,11 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
           }),
           throttle
         );
+        setWarning("", false, true, "bar-detection");
       } catch (ex) {
         const isKnownError = ex.message?.includes("ImageBitmap construction failed") || // Chromium
-        ex.name === "DataCloneError";
+        ex.name === "DataCloneError" || // Firefox
+        ex.message === "WebGL clientWaitSync WAIT_FAILED";
         if (!isKnownError) {
           ex.details = {
             ...ex.details ? { details: ex.details } : {},
@@ -3157,15 +3312,30 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
                 width: canvasInfo.bitmap.width,
                 height: canvasInfo.bitmap.height,
                 type: canvasInfo.bitmap.constructor?.name
+              } : void 0,
+              imageData: canvasInfo?.imageData ? {
+                width: canvasInfo.imageData.width,
+                height: canvasInfo.imageData.height,
+                type: canvasInfo.imageData.constructor?.name
               } : void 0
             } : void 0
           };
         }
+        setWarning(`Failed to detect black/colored bars. 
+
+${ex.name}: ${ex.message}`, false, true, "bar-detection");
         if (this.runId === runId) {
           if (canvasInfo?.bitmap) {
             canvasInfo.bitmap.close();
           }
-          this.running = false;
+          this.timeout = setTimeout(
+            wrapErrorHandler(() => {
+              this.timeout = void 0;
+              if (this.runId !== runId) return;
+              this.running = false;
+            }),
+            2e3
+          );
         }
         if (this.catchedDetectBarSizeError || isKnownError) return;
         this.catchedDetectBarSizeError = true;
@@ -3174,15 +3344,10 @@ Another possible workaround could be to turn off the "Quality" > "WebGL renderer
     };
   };
 
-  // src/utils.js
-  /*! youtube-ambilight (https://github.com/WesselKroos/youtube-ambilight) src/scripts/libs/utils.js
-   * at commit 18d17188e5562e5ee913f005192d30c9a60be078. Copied unchanged.
-   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in ../LICENSE (vendor/ambilight/LICENSE). */
-
   // src/settings-config.js
   /*! youtube-ambilight (https://github.com/WesselKroos/youtube-ambilight) src/scripts/libs/settings-config.js
-   * at commit 18d17188e5562e5ee913f005192d30c9a60be078. Copied unchanged.
-   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in ../LICENSE (vendor/ambilight/LICENSE). */
+   * at commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f (v2.38.17). Copied unchanged.
+   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in vendor/ambilight/LICENSE. */
   var SettingsConfig = [
     {
       type: "section",
@@ -3608,7 +3773,7 @@ Click on the questionmark for more and updated information about these artifacts
       description: "Uses: CPU power",
       type: "checkbox",
       default: false,
-      defaultKey: "V"
+      defaultKey: "N"
     },
     {
       name: "detectColoredHorizontalBarSizeEnabled",
@@ -3842,8 +4007,8 @@ Click on the questionmark for more and updated information about these artifacts
       description: "To better see what changes: Turn the blur to 0%",
       type: "list",
       default: 12,
-      min: 2,
-      max: 50,
+      min: 0.3,
+      max: 60,
       step: 0.1,
       advanced: true
     },
@@ -3997,6 +4162,14 @@ Click on the questionmark for more and updated information about these artifacts
       advanced: true
     },
     {
+      name: "enableWhileDischarging",
+      label: "While on battery",
+      description: "When your device's battery is discharging",
+      type: "checkbox",
+      default: true,
+      advanced: true
+    },
+    {
       type: "section",
       label: "General",
       name: "sectionGeneralCollapsed",
@@ -4027,12 +4200,701 @@ Click on the questionmark for more and updated information about these artifacts
   ];
   var settings_config_default = SettingsConfig;
 
+  // src/canvas-webgl.js
+  /*! youtube-ambilight (https://github.com/WesselKroos/youtube-ambilight) src/scripts/libs/canvas-webgl.js
+   * at commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f (v2.38.17). Copied unchanged.
+   * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in vendor/ambilight/LICENSE. */
+  var WebGLOffscreenCanvas = class {
+    constructor(width, height, ambientlight, settings) {
+      if (typeof OffscreenCanvas !== "undefined") {
+        this.canvas = new OffscreenCanvas(width, height);
+      } else {
+        this.canvas = document.createElement("canvas");
+        this.canvas.width = width;
+        this.canvas.height = height;
+      }
+      this.canvas._getContext = this.canvas.getContext;
+      this.canvas.getContext = async (type, options = {}) => {
+        if (type === "2d") {
+          this.canvas.ctx = this.ctx = this.canvas.ctx || await new WebGLContext(
+            this.canvas,
+            type,
+            options,
+            ambientlight,
+            settings
+          );
+        } else {
+          this.canvas.ctx = this.ctx = this.canvas._getContext(type, options);
+        }
+        return this.ctx;
+      };
+      return this.canvas;
+    }
+  };
+  var WebGLContext = class {
+    lostCount = 0;
+    constructor(canvas, type, options, ambientlight, settings) {
+      return async function WebGLContextConstructor() {
+        this.ambientlight = ambientlight;
+        this.settings = settings;
+        this.setWarning = settings.setWarning;
+        this.canvas = canvas;
+        this.canvas.addEventListener(
+          "webglcontextlost",
+          wrapErrorHandler(
+            function webGLContextLost(event) {
+              event.preventDefault();
+              this.lost = true;
+              this.lostCount++;
+              this.viewport = void 0;
+              this.scaleX = void 0;
+              this.scaleY = void 0;
+              this.program = void 0;
+              console.log(`WebGLContext lost (${this.lostCount})`);
+              this.setWebGLWarning("restore");
+            }.bind(this)
+          ),
+          false
+        );
+        this.canvas.addEventListener(
+          "webglcontextrestored",
+          wrapErrorHandler(
+            async function webGLContextRestored() {
+              if (this.lostCount >= 3) {
+                console.error(
+                  "WebGLContext was lost 3 times. The current restoration has been aborted to prevent an infinite restore loop."
+                );
+                this.setWebGLWarning("3 times restore");
+                return;
+              }
+              await new Promise((resolve) => requestAnimationFrame(resolve));
+              if (!await this.initCtx()) return;
+              if (this.ctx && !this.ctx.isContextLost()) {
+                this.lost = false;
+                if (!this.ambientlight.projector?.lost && !this.ambientlight.projector?.blurLost)
+                  this.setWarning("");
+              } else {
+                console.error(`WebGLContext restore failed (${this.lostCount})`);
+                this.setWebGLWarning("restore");
+              }
+            }.bind(this)
+          ),
+          false
+        );
+        this.canvas.addEventListener(
+          "webglcontextcreationerror",
+          wrapErrorHandler(
+            function webGLContextCreationError(e) {
+              this.webglcontextcreationerrors.push({
+                message: e.statusMessage || "?",
+                time: performance.now(),
+                webGLVersion: this.webGLVersion
+              });
+            }.bind(this)
+          ),
+          false
+        );
+        this.options = options;
+        await this.initCtx();
+        this.initializedTime = performance.now();
+        return this;
+      }.bind(this)();
+    }
+    setWebGLWarning(action = "restore") {
+      this.setWarning(
+        `Failed to ${action} the WebGL renderer from a GPU crash.${canvasWebGLCrashTips}`
+      );
+    }
+    webglcontextcreationerrors = [];
+    // syncCompilation prevents black flickering while settings are changed
+    async initCtx(syncCompilation = false) {
+      if (this.program) {
+        try {
+          this.ctx.finish();
+          this.ctx.deleteProgram(this.program);
+        } catch (ex) {
+          console.warn("Failed to delete previous WebGLContext program", ex);
+        }
+        this.program = void 0;
+      }
+      if (!this.ctx) {
+        this.ctxOptions = {
+          failIfMajorPerformanceCaveat: false,
+          preserveDrawingBuffer: false,
+          // Allows the browser to swap the visible- and drawbuffers, which is faster
+          // alpha: false, // Decreases performance on some platforms
+          depth: false,
+          antialias: false,
+          desynchronized: true,
+          ...this.options
+        };
+        this.webGLVersion = 2;
+        this.ctx = await this.canvas.getContext("webgl2", this.ctxOptions);
+        if (!this.ctx) {
+          this.webGLVersion = 1;
+          this.ctx = await this.canvas.getContext("webgl", this.ctxOptions);
+          if (!this.ctx) {
+            this.webGLVersion = void 0;
+            await new Promise((resolve) => setTimeout(resolve, 1e3));
+            const errors = this.webglcontextcreationerrors;
+            this.webglcontextcreationerrors = [];
+            let lastErrorMessage = "";
+            for (const error of errors) {
+              const duplicate = error.message === lastErrorMessage;
+              lastErrorMessage = error.message;
+              if (duplicate) error.message = '"';
+            }
+            throw new AmbientlightError(
+              `WebGLContext creation failed: ${lastErrorMessage}`,
+              errors
+            );
+          }
+        }
+      }
+      if (this.isContextLost()) return;
+      if ("drawingBufferColorSpace" in this.ctx && "unpackColorSpace" in this.ctx) {
+        this.ctx.drawingBufferColorSpace = ctxOptions.colorSpace;
+      }
+      let flickerReductionDifference;
+      if (this.settings.flickerReduction) {
+        flickerReductionDifference = (118 - this.settings.flickerReduction) / 118;
+      }
+      const vertexShaderSrc = `
+      precision lowp float;
+      attribute vec2 vPosition;
+      attribute vec2 vUV;
+      varying vec2 fUV;
+      
+      void main(void) {
+        fUV = vUV;
+        gl_Position = vec4(vPosition, 0, 1);
+      }
+    `.replace(/\n {6}/g, "\n").replace(/ +\n/g, "").replace(/\n+/g, "\n").trim();
+      const fragmentShaderSrc = `
+      precision lowp float;
+      varying vec2 fUV;
+      uniform sampler2D textureSampler[${this.settings.flickerReduction ? 2 : 1}];
+      uniform float fMipmapLevel;
+      ${this.settings.flickerReduction ? "uniform float fPreviousCleared;" : ""}
+      
+      void main(void) {
+        ${this.settings.flickerReduction ? `
+        vec4 currentColor = texture2D(textureSampler[0], fUV${this.webGLVersion !== 1 ? ", fMipmapLevel" : ""});
+        if(fPreviousCleared < .5) {
+          vec4 previousColor = texture2D(textureSampler[1], fUV${this.webGLVersion !== 1 ? ", fMipmapLevel" : ""});
+          
+          float difference = abs(
+            (currentColor.r * .213 + currentColor.g * .715 + currentColor.b * .072) - 
+            (previousColor.r * .213 + previousColor.g * .715 + previousColor.b * .072)
+          );
+          float percentage = 1.;
+          percentage = min(1., (1. - (difference * difference * difference)) * ${flickerReductionDifference.toFixed(
+        3
+      )});
+          gl_FragColor = currentColor * percentage + previousColor * (1. - percentage);
+          return;
+        }
+        ` : ""}
+        gl_FragColor = texture2D(textureSampler[0], fUV${this.webGLVersion !== 1 ? ", fMipmapLevel" : ""});
+      }
+    `.replace(/\n {6}/g, "\n").replace(/ +\n/g, "").replace(/\n+/g, "\n").trim();
+      const vertexShader = this.ctx.createShader(this.ctx.VERTEX_SHADER);
+      const fragmentShader = this.ctx.createShader(this.ctx.FRAGMENT_SHADER);
+      this.ctx.shaderSource(vertexShader, vertexShaderSrc);
+      this.ctx.shaderSource(fragmentShader, fragmentShaderSrc);
+      this.ctx.compileShader(vertexShader);
+      this.ctx.compileShader(fragmentShader);
+      const program = this.ctx.createProgram();
+      this.ctx.attachShader(program, vertexShader);
+      this.ctx.attachShader(program, fragmentShader);
+      this.ctx.linkProgram(program);
+      const parallelShaderCompileExt = syncCompilation ? void 0 : this.ctx.getExtension("KHR_parallel_shader_compile");
+      if (parallelShaderCompileExt?.COMPLETION_STATUS_KHR) {
+        this.ctx.getProgramParameter(
+          program,
+          parallelShaderCompileExt.COMPLETION_STATUS_KHR
+        );
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        try {
+          let compiled = false;
+          while (!compiled) {
+            const completionStatus = this.ctx.getProgramParameter(
+              program,
+              parallelShaderCompileExt.COMPLETION_STATUS_KHR
+            );
+            if (completionStatus === false) {
+              await new Promise(
+                (resolve) => requestIdleCallback(resolve, { timeout: 200 })
+              );
+              await new Promise((resolve) => requestAnimationFrame(resolve));
+            } else {
+              compiled = true;
+            }
+          }
+          if (!compiled) return;
+        } catch (ex) {
+          ex.details = {};
+          try {
+            ex.details = {
+              program: program?.toString(),
+              webGLVersion: this.webGLVersion,
+              ctxOptions: this.ctxOptions
+            };
+          } catch (ex2) {
+            ex2.details = {
+              detailsException: ex2
+            };
+          }
+          throw ex;
+        }
+      }
+      const vertexShaderCompiled = this.ctx.getShaderParameter(
+        vertexShader,
+        this.ctx.COMPILE_STATUS
+      );
+      const fragmentShaderCompiled = this.ctx.getShaderParameter(
+        fragmentShader,
+        this.ctx.COMPILE_STATUS
+      );
+      const programLinked = this.ctx.getProgramParameter(
+        program,
+        this.ctx.LINK_STATUS
+      );
+      if (!vertexShaderCompiled || !fragmentShaderCompiled || !programLinked) {
+        const programCompilationError = new Error("Program compilation failed");
+        programCompilationError.name = "WebGLError";
+        programCompilationError.details = {
+          webGLVersion: this.webGLVersion,
+          ctxOptions: this.ctxOptions
+        };
+        try {
+          programCompilationError.details = {
+            ...programCompilationError.details,
+            vertexShaderCompiled,
+            vertexShaderInfoLog: this.ctx.getShaderInfoLog(vertexShader),
+            fragmentShaderCompiled,
+            fragmentShaderInfoLog: this.ctx.getShaderInfoLog(fragmentShader),
+            programLinked,
+            programInfoLog: this.ctx.getProgramInfoLog(program)
+          };
+        } catch (ex) {
+          programCompilationError.details.getCompiledAndLinkedInfoLogsError = ex;
+        }
+        try {
+          this.ctx.validateProgram(program);
+          programCompilationError.details.programValidated = this.ctx.getProgramParameter(program, this.ctx.VALIDATE_STATUS);
+          programCompilationError.details.programValidationInfoLog = this.ctx.getProgramInfoLog(program);
+        } catch (ex) {
+          programCompilationError.details.validateProgramError = ex;
+        }
+        try {
+          const ext = this.ctx.getExtension("WEBGL_debug_shaders");
+          if (ext) {
+            programCompilationError.details.\u03A9sources = {
+              vertexShader: ext.getTranslatedShaderSource(vertexShader),
+              fragmentShader: ext.getTranslatedShaderSource(fragmentShader)
+            };
+            if (!programCompilationError.details.\u03A9sources.vertexShader) {
+              programCompilationError.details.\u03A9sources.vertexShaderCode = vertexShaderSrc;
+            }
+            if (!programCompilationError.details.\u03A9sources.fragmentShader) {
+              programCompilationError.details.\u03A9sources.fragmentShaderCode = fragmentShaderSrc;
+            }
+          }
+        } catch (ex) {
+          programCompilationError.details.debugShadersError = ex;
+        }
+        try {
+          const debugRendererInfo = this.ctx.getExtension(
+            "WEBGL_debug_renderer_info"
+          );
+          programCompilationError.details.gpuVendor = debugRendererInfo?.UNMASKED_VENDOR_WEBGL ? this.ctx.getParameter(debugRendererInfo.UNMASKED_VENDOR_WEBGL) : "unknown";
+          programCompilationError.details.gpuRenderer = debugRendererInfo?.UNMASKED_RENDERER_WEBGL ? this.ctx.getParameter(debugRendererInfo.UNMASKED_RENDERER_WEBGL) : "unknown";
+        } catch (ex) {
+          programCompilationError.details.gpuError = ex;
+        }
+        if (programCompilationError.details.vertexShaderInfoLog || programCompilationError.details.fragmentShaderInfoLog || programCompilationError.details.getCompiledAndLinkedInfoLogsError || programCompilationError.details.programValidationInfoLog || programCompilationError.details.validateProgramError || programCompilationError.details.\u03A9sources?.vertexShader || programCompilationError.details.\u03A9sources?.vertexShaderCode || programCompilationError.details.\u03A9sources?.fragmentShader || programCompilationError.details.\u03A9sources?.fragmentShaderCode || programCompilationError.details.debugShadersError) {
+          programCompilationError.name = "WebGLErrorWithInfoLog";
+        }
+        throw programCompilationError;
+      }
+      this.ctx.useProgram(program);
+      this.program = program;
+      this.fMipmapLevelLoc = this.ctx.getUniformLocation(
+        this.program,
+        "fMipmapLevel"
+      );
+      const vUVBuffer = this.ctx.createBuffer();
+      this.ctx.bindBuffer(this.ctx.ARRAY_BUFFER, vUVBuffer);
+      this.ctx.bufferData(
+        this.ctx.ARRAY_BUFFER,
+        new Float32Array([0, 0, 0, 1, 1, 1, 1, 0]),
+        this.ctx.STATIC_DRAW
+      );
+      const vUVLoc = this.ctx.getAttribLocation(this.program, "vUV");
+      this.ctx.vertexAttribPointer(
+        vUVLoc,
+        2,
+        this.ctx.FLOAT,
+        false,
+        2 * Float32Array.BYTES_PER_ELEMENT,
+        0
+      );
+      this.ctx.enableVertexAttribArray(vUVLoc);
+      const vPositionBuffer = this.ctx.createBuffer();
+      this.ctx.bindBuffer(this.ctx.ARRAY_BUFFER, vPositionBuffer);
+      this.ctx.bufferData(
+        this.ctx.ARRAY_BUFFER,
+        new Float32Array([-1, 1, -1, -1, 1, -1, 1, 1]),
+        this.ctx.STATIC_DRAW
+      );
+      const vPositionLoc = this.ctx.getAttribLocation(this.program, "vPosition");
+      this.ctx.vertexAttribPointer(
+        vPositionLoc,
+        2,
+        this.ctx.FLOAT,
+        false,
+        2 * Float32Array.BYTES_PER_ELEMENT,
+        0
+      );
+      this.ctx.enableVertexAttribArray(vPositionLoc);
+      this.textures = [];
+      for (let i = 0; i < (this.settings.flickerReduction ? 2 : 1); i++) {
+        const texture = this.ctx.createTexture();
+        this.ctx.activeTexture(this.ctx[`TEXTURE${i}`]);
+        this.ctx.bindTexture(this.ctx.TEXTURE_2D, texture);
+        this.ctx.texParameteri(
+          this.ctx.TEXTURE_2D,
+          this.ctx.TEXTURE_MAG_FILTER,
+          this.ctx.LINEAR
+        );
+        if (this.webGLVersion == 1) {
+          this.ctx.texParameteri(
+            this.ctx.TEXTURE_2D,
+            this.ctx.TEXTURE_MIN_FILTER,
+            this.ctx.LINEAR
+          );
+          this.ctx.texParameteri(
+            this.ctx.TEXTURE_2D,
+            this.ctx.TEXTURE_WRAP_S,
+            this.ctx.CLAMP_TO_EDGE
+          );
+          this.ctx.texParameteri(
+            this.ctx.TEXTURE_2D,
+            this.ctx.TEXTURE_WRAP_T,
+            this.ctx.CLAMP_TO_EDGE
+          );
+        } else {
+          this.ctx.hint(this.ctx.GENERATE_MIPMAP_HINT, this.ctx.NICEST);
+          this.ctx.texParameteri(
+            this.ctx.TEXTURE_2D,
+            this.ctx.TEXTURE_MAX_LEVEL,
+            8
+          );
+          this.ctx.texParameteri(
+            this.ctx.TEXTURE_2D,
+            this.ctx.TEXTURE_MIN_FILTER,
+            this.ctx.LINEAR_MIPMAP_LINEAR
+          );
+          this.ctx.texParameteri(
+            this.ctx.TEXTURE_2D,
+            this.ctx.TEXTURE_WRAP_S,
+            this.ctx.MIRRORED_REPEAT
+          );
+          this.ctx.texParameteri(
+            this.ctx.TEXTURE_2D,
+            this.ctx.TEXTURE_WRAP_T,
+            this.ctx.MIRRORED_REPEAT
+          );
+        }
+        const tfaExt = this.ctx.getExtension("EXT_texture_filter_anisotropic") || this.ctx.getExtension("MOZ_EXT_texture_filter_anisotropic") || this.ctx.getExtension("WEBKIT_EXT_texture_filter_anisotropic");
+        if (tfaExt) {
+          const max = this.ctx.getParameter(tfaExt.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 1;
+          this.ctx.texParameteri(
+            this.ctx.TEXTURE_2D,
+            tfaExt.TEXTURE_MAX_ANISOTROPY_EXT,
+            Math.min(16, max)
+          );
+        }
+        this.ctx.texImage2D(
+          this.ctx.TEXTURE_2D,
+          0,
+          this.ctx.RGBA,
+          1,
+          1,
+          0,
+          this.ctx.RGBA,
+          this.ctx.UNSIGNED_BYTE,
+          new Uint8Array([0, 0, 0, 255])
+        );
+        this.textures.push(texture);
+      }
+      this.ctx.activeTexture(this.ctx["TEXTURE0"]);
+      const textureSamplerLoc = this.ctx.getUniformLocation(
+        this.program,
+        "textureSampler"
+      );
+      this.ctx.uniform1iv(
+        textureSamplerLoc,
+        this.textures.map((_, i) => i)
+      );
+      if (this.settings.flickerReduction) {
+        this.fPreviousClearedLoc = this.ctx.getUniformLocation(
+          this.program,
+          "fPreviousCleared"
+        );
+        this.ctx.uniform1f(this.fPreviousClearedLoc, 1);
+        this.fPreviousCleared = 1;
+      } else {
+        this.fPreviousClearedLoc = void 0;
+        this.fPreviousCleared = void 0;
+      }
+      return true;
+    }
+    clearRect = () => {
+      if (this.ctxIsInvalid || this.lost) return;
+      this.ctx.activeTexture(this.ctx["TEXTURE0"]);
+      this.ctx.texImage2D(
+        this.ctx.TEXTURE_2D,
+        0,
+        this.ctx.RGBA,
+        1,
+        1,
+        0,
+        this.ctx.RGBA,
+        this.ctx.UNSIGNED_BYTE,
+        new Uint8Array([0, 0, 0, 255])
+      );
+      this.ctx.clear(this.ctx.COLOR_BUFFER_BIT | this.ctx.DEPTH_BUFFER_BIT);
+      this.clearPreviousRect();
+    };
+    clearPreviousRect = () => {
+      if (!this.settings.flickerReduction || !this.fPreviousClearedLoc || this.fPreviousCleared === 1)
+        return;
+      this.ctx.activeTexture(this.ctx["TEXTURE1"]);
+      this.ctx.texImage2D(
+        this.ctx.TEXTURE_2D,
+        0,
+        this.ctx.RGBA,
+        1,
+        1,
+        0,
+        this.ctx.RGBA,
+        this.ctx.UNSIGNED_BYTE,
+        new Uint8Array([0, 0, 0, 255])
+      );
+      this.ctx.activeTexture(this.ctx["TEXTURE0"]);
+      this.ctx.uniform1f(this.fPreviousClearedLoc, 1);
+      this.fPreviousCleared = 1;
+    };
+    defaultScale = new Float32Array([-1, 1, -1, -1, 1, -1, 1, 1]);
+    _cachedScale = new Float32Array([-1, 1, -1, -1, 1, -1, 1, 1]);
+    _cachedScaleX = 1;
+    _cachedScaleY = 1;
+    getCachedScale(x, y) {
+      if (this._cachedScaleX !== x || this._cachedScaleY !== y) {
+        this._cachedScale = new Float32Array([-x, y, -x, -y, x, -y, x, y]);
+        this._cachedScaleX = x;
+        this._cachedScaleY = y;
+      }
+      return this._cachedScale;
+    }
+    drawImage = (src, srcX, srcY, srcWidth, srcHeight, destX, destY, destWidth, destHeight) => {
+      if (this.ctxIsInvalid || this.lost) return;
+      const internalFormat = this.ctx.RGBA;
+      const format = this.ctx.RGBA;
+      const formatType = this.ctx.UNSIGNED_BYTE;
+      if (destX === void 0) {
+        destX = srcX;
+        destY = srcY;
+        destWidth = srcWidth;
+        destHeight = srcHeight;
+        srcX = 0;
+        srcY = 0;
+        srcWidth = void 0;
+        srcHeight = void 0;
+      }
+      srcWidth = srcWidth || src.videoWidth || src.width;
+      srcHeight = srcHeight || src.videoHeight || src.height;
+      destWidth = destWidth || this.ctx.drawingBufferWidth;
+      destHeight = destHeight || this.ctx.drawingBufferHeight;
+      const scaleX = 1 + srcX / srcWidth * 2;
+      const scaleY = 1 + srcY / srcHeight * 2;
+      if (scaleX !== this.scaleX || scaleY !== this.scaleY) {
+        this.ctx.bufferData(
+          this.ctx.ARRAY_BUFFER,
+          this.getCachedScale(scaleX, scaleY),
+          this.ctx.STATIC_DRAW
+        );
+        this.scaleX = scaleX;
+        this.scaleY = scaleY;
+      }
+      const resolutionChanged = !this.viewport || this.viewport.width !== destWidth || this.viewport.height !== destHeight;
+      if (resolutionChanged) {
+        this.ctx.viewport(0, 0, destWidth, destHeight);
+        this.viewport = { width: destWidth, height: destHeight };
+      }
+      const mipmapLevel = 1;
+      if (mipmapLevel !== this.fMipmapLevel) {
+        this.fMipmapLevel = mipmapLevel;
+        this.ctx.uniform1f(this.fMipmapLevelLoc, mipmapLevel);
+      }
+      let start = this.settings.showResolutions ? performance.now() : void 0;
+      this.ctx.texImage2D(
+        this.ctx.TEXTURE_2D,
+        0,
+        internalFormat,
+        format,
+        formatType,
+        src
+      );
+      if (this.webGLVersion !== 1) {
+        this.ctx.generateMipmap(this.ctx.TEXTURE_2D);
+      }
+      if (this.settings.showResolutions)
+        this.loadTime = performance.now() - start;
+      if (this.settings.showResolutions) start = performance.now();
+      this.ctx.drawArrays(this.ctx.TRIANGLE_FAN, 0, 4);
+      if (this.settings.flickerReduction && this.fPreviousClearedLoc && this.fPreviousCleared === 1) {
+        this.fPreviousCleared = 0;
+        this.ctx.uniform1f(this.fPreviousClearedLoc, 0);
+      }
+      if (this.settings.flickerReduction) {
+        this.ctx.activeTexture(this.ctx["TEXTURE1"]);
+        this.ctx.texImage2D(
+          this.ctx.TEXTURE_2D,
+          0,
+          internalFormat,
+          format,
+          formatType,
+          this.canvas
+        );
+        if (this.webGLVersion !== 1) {
+          this.ctx.generateMipmap(this.ctx.TEXTURE_2D);
+        }
+        this.ctx.activeTexture(this.ctx["TEXTURE0"]);
+      }
+      if (resolutionChanged) {
+        this.checkForDrawErrors(src, srcX, srcY, srcWidth, srcHeight, destX, destY, destWidth, destHeight);
+      }
+      if (this.settings.showResolutions)
+        this.drawTime = performance.now() - start;
+    };
+    drawErrors = [];
+    checkForDrawErrors = (src, srcX, srcY, srcWidth, srcHeight, destX, destY, destWidth, destHeight) => {
+      const webGLError = this.ctx.getError();
+      if (webGLError === this.ctx.NO_ERROR) {
+        this.drawErrors.length = 0;
+        this.setWarning("");
+        return;
+      }
+      const error = new AmbientlightError(
+        `WebGL error: ${webGLErrorToString(webGLError)}`,
+        {
+          program: this.program?.toString(),
+          webGLVersion: this.webGLVersion,
+          ctxOptions: this.ctxOptions,
+          src: {
+            x: srcX,
+            y: srcY,
+            width: srcWidth,
+            height: srcHeight,
+            name: src?.constructor?.name,
+            ...src?.localName === "video" ? {
+              currentTime: src.currentTime,
+              duration: src.duration,
+              ended: src.ended,
+              videoWidth: src.videoWidth,
+              videoHeight: src.videoHeight,
+              readyState: readyStateToString(src.readyState),
+              networkState: networkStateToString(src.networkState)
+            } : {},
+            ...src?.localName === "img" ? {
+              currentSrc: !!src.currentSrc,
+              complete: src.complete,
+              "img.width": src.width,
+              "img.height": src.height
+            } : {}
+          },
+          dest: {
+            x: destX,
+            y: destY,
+            width: destWidth,
+            height: destHeight
+          },
+          canvas: {
+            width: this.canvas?.width,
+            height: this.canvas?.height,
+            drawingBufferWidth: this.ctx?.drawingBufferWidth,
+            drawingBufferHeight: this.ctx?.drawingBufferHeight,
+            viewport: this.viewport
+          },
+          "document.visibilityState": document.visibilityState
+        }
+      );
+      error.name = "WebGLDrawError";
+      this.viewport = void 0;
+      this.drawErrors.push(error);
+      if (this.drawErrors.length < 3) {
+        console.warn(error);
+        this.ambientlight.setDrawWarning(error);
+        return;
+      }
+      error.details.previousErrors = this.drawErrors.slice(0, -1);
+      throw error;
+    };
+    getImageDataBuffers = [];
+    getImageDataBuffersIndex = 0;
+    getImageData = (x = 0, y = 0, width = this.ctx.drawingBufferWidth, height = this.ctx.drawingBufferHeight) => {
+      if (this.ctxIsInvalid || this.lost) return;
+      if (this.getImageDataBuffersIndex > 9) {
+        this.getImageDataBuffersIndex = 0;
+      } else {
+        this.getImageDataBuffersIndex++;
+      }
+      let buffer = this.getImageDataBuffers[this.getImageDataBuffersIndex];
+      const bufferLength = width * height * 4;
+      if (!buffer) {
+        this.getImageDataBuffers[this.getImageDataBuffersIndex] = buffer = {
+          data: new Uint8Array(bufferLength)
+        };
+      } else if (buffer.data.length !== bufferLength) {
+        buffer.data = new Uint8Array(bufferLength);
+      }
+      buffer.width = width - x;
+      buffer.height = height - y;
+      this.ctx.readPixels(
+        x,
+        y,
+        width,
+        height,
+        this.ctx.RGBA,
+        this.ctx.UNSIGNED_BYTE,
+        buffer.data
+      );
+      return buffer;
+    };
+    get ctxIsInvalid() {
+      const invalid = this.isContextLost() || !this.program;
+      if (invalid && !this.ctxIsInvalidWarned && !this.program) {
+        this.ctxIsInvalidWarned = true;
+        console.log("WebGLContext is lost");
+      }
+      return invalid;
+    }
+    isContextLost = () => {
+      return !this.ctx || this.ctx.isContextLost();
+    };
+  };
+
   // src/ambilight.js
   /*! Ambient light renderer for nishal21's video page, built on youtube-ambilight's own code.
    * recreateProjectors(), resizeCanvasses(), the projector sizing and filter part of updateSizes(), the debanding
    * setup and the video frame callback scheduling are copied from youtube-ambilight src/scripts/libs/ambientlight.js
-   * (commit 18d17188e5562e5ee913f005192d30c9a60be078) and trimmed to what this page needs: no YouTube page DOM,
-   * no theater/fullscreen views, no HDR, VR, frame blending or video overlay, no stats UI.
+   * (commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f, v2.38.17), and so are initProjectorBuffers() and the
+   * frame-blending-off branch of drawAmbientlight(). Trimmed to what this page needs: no YouTube page DOM, no
+   * theater/fullscreen views, no HDR, VR or video overlay, no stats UI. Frame blending is off by default in the
+   * extension, so its branch is left out too.
    * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in ../LICENSE (vendor/ambilight/LICENSE). */
   setErrorHandler((ex) => console.warn("ambient light:", ex));
   var extensionDefaults = Object.fromEntries(
@@ -4086,8 +4948,7 @@ Click on the questionmark for more and updated information about these artifacts
       this.containerElem.append(this.filterElem);
       this.container.prepend(this.containerElem);
       this.barDetection = new BarDetection(this);
-      const elem = new SafeOffscreenCanvas(1, 1, true);
-      this.projectorBuffer = { elem, ctx: elem.getContext("2d", ctxOptions) };
+      await this.initProjectorBuffers();
       if (this.settings.webGL) {
         try {
           this.projector = await new ProjectorWebGL(this, this.projectorListElem, noop, this.settings);
@@ -4103,11 +4964,33 @@ Click on the questionmark for more and updated information about these artifacts
       this.updateStyles();
       return this;
     }
+    // ambientlight.js initProjectorBuffers(): a WebGL buffer when WebGL is on (the GPU scales the frame down with
+    // mipmaps), the 2D canvas otherwise
+    async initProjectorBuffers() {
+      let projectorsBufferElem;
+      let projectorsBufferCtx;
+      if (this.settings.webGL) {
+        try {
+          projectorsBufferElem = new WebGLOffscreenCanvas(1, 1, this, this.settings);
+          projectorsBufferCtx = await projectorsBufferElem.getContext("2d", ctxOptions);
+        } catch (ex) {
+          projectorsBufferCtx = void 0;
+          console.warn("ambient light: WebGL buffer failed, using canvas 2D", ex);
+        }
+      }
+      if (!projectorsBufferCtx) {
+        projectorsBufferElem = new SafeOffscreenCanvas(1, 1, true);
+        projectorsBufferCtx = projectorsBufferElem.getContext("2d", ctxOptions);
+      }
+      this.projectorBuffer = { elem: projectorsBufferElem, ctx: projectorsBufferCtx };
+    }
     // initProjector()'s canvas 2D branch, used when WebGL can't take the picture
     useProjector2d() {
       this.projectorListElem.replaceChildren();
       this.settings.webGL = false;
       this.projector = new Projector2d(this, this.projectorListElem, noop, this.settings);
+      const elem = new SafeOffscreenCanvas(1, 1, true);
+      this.projectorBuffer = { elem, ctx: elem.getContext("2d", ctxOptions) };
       this.canvassesInvalidated = true;
       this.sizesChanged = true;
     }
@@ -4233,11 +5116,14 @@ Click on the questionmark for more and updated information about these artifacts
       if (this.sizesChanged || this.canvassesInvalidated || !this.p || this.srcSize?.[0] !== w || this.srcSize?.[1] !== h) {
         if (!this.updateSizes(w, h)) return false;
       }
-      const buf = this.projectorBuffer;
-      if (sw) buf.ctx.drawImage(src, sx, sy, sw, sh, 0, 0, buf.elem.width, buf.elem.height);
-      else buf.ctx.drawImage(src, 0, 0, buf.elem.width, buf.elem.height);
+      const dontDrawAmbientlight = this.settings.spread === 0 && this.settings.blur2 === 0;
+      const detectBarSize = this.settings.detectHorizontalBarSizeEnabled || this.settings.detectVerticalBarSizeEnabled;
+      if (dontDrawAmbientlight && !detectBarSize) return false;
       try {
-        this.projector.draw(buf.elem);
+        const buf = this.projectorBuffer;
+        if (sw) buf.ctx.drawImage(src, sx, sy, sw, sh, 0, 0, buf.elem.width, buf.elem.height);
+        else buf.ctx.drawImage(src, 0, 0, buf.elem.width, buf.elem.height);
+        if (!dontDrawAmbientlight) this.projector.draw(buf.elem);
       } catch (ex) {
         if (this.settings.webGL && ex?.name === "SecurityError") {
           this.useProjector2d();
@@ -4247,7 +5133,7 @@ Click on the questionmark for more and updated information about these artifacts
       }
       this.buffersCleared = false;
       this.frameCount = (this.frameCount || 0) + 1;
-      if (this.settings.detectHorizontalBarSizeEnabled || this.settings.detectVerticalBarSizeEnabled) this.scheduleBarSizeDetection();
+      if (detectBarSize) this.scheduleBarSizeDetection();
       return true;
     }
     // ambientlight.js scheduleBarSizeDetection() / scheduleBarSizeDetectionCallback(), at most twice a second

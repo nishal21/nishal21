@@ -1935,7 +1935,6 @@ const amb = (() => {
   const extSettings = () => ({
     spread: s.spread, blur2: s.blur, brightness: s.bright, saturation: s.sat,
     spreadFadeStart: AMB_FADE_START * 100, spreadFadeCurve: AMB_FADE_CURVE, edge: AMB_EDGE,
-    detectHorizontalBarSizeEnabled: true, detectVerticalBarSizeEnabled: true,
     assetsUrl: new URL("vendor/ambilight/", location.href).href,
   });
   let ambi = null, ambiReady = false;

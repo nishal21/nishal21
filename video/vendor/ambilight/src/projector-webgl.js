@@ -1,11 +1,13 @@
 /*! youtube-ambilight (https://github.com/WesselKroos/youtube-ambilight) src/scripts/libs/projector-webgl.js
- * at commit 18d17188e5562e5ee913f005192d30c9a60be078. Copied unchanged.
- * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in ../LICENSE (vendor/ambilight/LICENSE). */
+ * at commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f (v2.38.17). Copied unchanged.
+ * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in vendor/ambilight/LICENSE. */
 import SentryReporter from './errors/sentry-reporter';
 import { AmbientlightError } from './errors/ambient-light-error';
 import {
   canvasWebGLCrashTips,
   ctxOptions,
+  networkStateToString,
+  readyStateToString,
   requestIdleCallback,
   SafeOffscreenCanvas,
   webGLErrorToString,
@@ -124,7 +126,7 @@ export default class ProjectorWebGL {
 
     const textureMipmapLevel = Math.max(
       0,
-      Math.log(srcHeight / this.height) / Math.log(2) - 0
+      Math.log(srcHeight / this.height) / Math.log(2) - 0,
     );
     if (textureMipmapLevel !== this.fTextureMipmapLevel) {
       this.fTextureMipmapLevel = textureMipmapLevel;
@@ -168,16 +170,16 @@ export default class ProjectorWebGL {
       // Set opacities
 
       const filledOpacities = this.fTextureOpacity.slice(
-        this.projectorsCount - 1 - this.drawIndex
+        this.projectorsCount - 1 - this.drawIndex,
       );
       const emptyOpacities = this.fTextureOpacity.slice(
         0,
-        this.projectorsCount - 1 - this.drawIndex
+        this.projectorsCount - 1 - this.drawIndex,
       );
       const opacities = [
         ...(this.drawInitial
           ? filledOpacities.map((o, i) =>
-              i === 0 ? emptyOpacities.reduce((s, o) => s + o, o) : o
+              i === 0 ? emptyOpacities.reduce((s, o) => s + o, o) : o,
             )
           : filledOpacities),
         ...(this.drawInitial ? emptyOpacities.map(() => 0) : emptyOpacities),
@@ -187,7 +189,7 @@ export default class ProjectorWebGL {
 
       const textureIndex = Math.floor(this.drawIndex / this.subProjectorsCount);
       const previousTextureIndex = Math.floor(
-        (this.drawIndex - 1) / this.subProjectorsCount
+        (this.drawIndex - 1) / this.subProjectorsCount,
       );
 
       const isNewTexture = textureIndex !== previousTextureIndex;
@@ -218,7 +220,7 @@ export default class ProjectorWebGL {
           0,
           format,
           formatType,
-          null
+          null,
         );
       }
       this.ctx.texSubImage2D(
@@ -228,7 +230,7 @@ export default class ProjectorWebGL {
         y,
         format,
         formatType,
-        src
+        src,
       );
       this.ctx.generateMipmap(this.ctx.TEXTURE_2D);
     } else {
@@ -239,7 +241,7 @@ export default class ProjectorWebGL {
           internalFormat,
           format,
           formatType,
-          src
+          src,
         );
       } else {
         this.ctx.texSubImage2D(
@@ -249,7 +251,7 @@ export default class ProjectorWebGL {
           0,
           format,
           formatType,
-          src
+          src,
         );
       }
       this.ctx.generateMipmap(this.ctx.TEXTURE_2D);
@@ -263,24 +265,19 @@ export default class ProjectorWebGL {
     const isNewTextureUpload =
       this.drawTextureSize.width === 0 && this.drawTextureSize.height === 0;
     if (isNewTextureUpload) {
-      this.checkForDrawErrors();
+      this.checkForDrawErrors(src);
     }
 
     if (this.settings.showResolutions)
       this.drawTime = performance.now() - start;
 
     if (this.settings.showResolutions) start = performance.now();
-    this.blurCtx.clearRect(0, 0, this.blurCanvas.width, this.blurCanvas.height);
-    if (this.settings.showResolutions) {
-      this.blurClearTime = performance.now() - start;
-      start = performance.now();
-    }
     this.blurCtx.drawImage(
       this.elem,
       blurCanvasBound,
       blurCanvasBound,
       blurCanvasWidthMinBounds,
-      blurCanvasHeightMinBounds
+      blurCanvasHeightMinBounds,
     );
     if (this.settings.showResolutions)
       this.blurDrawTime = performance.now() - start;
@@ -294,7 +291,7 @@ export default class ProjectorWebGL {
   };
 
   drawErrors = [];
-  checkForDrawErrors = () => {
+  checkForDrawErrors = (src) => {
     // Only do this once for the first texture. Because getError takes 0.3 to 20ms
     const webGLError = this.ctx.getError();
 
@@ -314,7 +311,37 @@ export default class ProjectorWebGL {
         webGLVersion: this.webGLVersion,
         majorPerformanceCaveat: this.majorPerformanceCaveat,
         ctxOptions: this.ctxOptions,
-      }
+        src: {
+          width: src?.width,
+          height: src?.height,
+          videoWidth: src?.videoWidth,
+          videoHeight: src?.videoHeight,
+          name: src?.constructor?.name,
+          ...(src?.localName === 'video' ? {
+            currentTime: src.currentTime,
+            duration: src.duration,
+            ended: src.ended,
+            videoWidth: src.videoWidth,
+            videoHeight: src.videoHeight,
+            readyState: readyStateToString(src.readyState),
+            networkState: networkStateToString(src.networkState),
+          } : {}),
+          ...(src?.localName === 'img' ? {
+            currentSrc: !!src.currentSrc,
+            complete: src.complete,
+            'img.width': src.width,
+            'img.height': src.height,
+          } : {})
+        },
+        canvas: {
+          width: this.elem?.width,
+          height: this.elem?.height,
+          drawingBufferWidth: this.ctx?.drawingBufferWidth,
+          drawingBufferHeight: this.ctx?.drawingBufferHeight,
+          viewport: this.viewport,
+        },
+        'document.visibilityState': document.visibilityState
+      },
     );
     error.name = 'ProjectorWebGLDrawError';
 
@@ -331,7 +358,7 @@ export default class ProjectorWebGL {
 
   setWebGLWarning(action = 'restore') {
     this.setWarning(
-      `Failed to ${action} the WebGL renderer from a GPU crash.${canvasWebGLCrashTips}`
+      `Failed to ${action} the WebGL renderer from a GPU crash.${canvasWebGLCrashTips}`,
     );
   }
 
@@ -352,17 +379,17 @@ export default class ProjectorWebGL {
 
       // The bardetection worker offscreencanvas does not trigger contextlost events
       this.ambientlight.barDetection.clear();
-    }.bind(this)
+    }.bind(this),
   );
 
   onBlurCtxRestored = wrapErrorHandler(
     async function wrappedOnBlurCtxRestored() {
       console.log(
-        `ProjectorWebGL blur context restored (${this.blurLostCount})`
+        `ProjectorWebGL blur context restored (${this.blurLostCount})`,
       );
       if (this.blurLostCount >= 3) {
         console.error(
-          'ProjectorWebGL blur context was lost 3 times. The current restoration has been aborted to prevent an infinite restore loop.'
+          'ProjectorWebGL blur context was lost 3 times. The current restoration has been aborted to prevent an infinite restore loop.',
         );
         this.setWebGLWarning('3 times restore');
         return;
@@ -384,11 +411,11 @@ export default class ProjectorWebGL {
         }
       } else {
         console.error(
-          `ProjectorWebGL blur context restore failed (${this.blurLostCount})`
+          `ProjectorWebGL blur context restore failed (${this.blurLostCount})`,
         );
         this.setWebGLWarning('restore');
       }
-    }.bind(this)
+    }.bind(this),
   );
 
   initBlurCtx() {
@@ -398,7 +425,7 @@ export default class ProjectorWebGL {
         this.blurCanvas.removeEventListener('contextlost', this.onBlurCtxLost);
         this.blurCanvas.removeEventListener(
           'contextrestored',
-          this.onBlurCtxRestored
+          this.onBlurCtxRestored,
         );
       }
     }
@@ -467,7 +494,7 @@ export default class ProjectorWebGL {
 
       console.log(`ProjectorWebGL context lost (${this.lostCount})`);
       this.setWebGLWarning('restore');
-    }.bind(this)
+    }.bind(this),
   );
 
   onCtxRestored = wrapErrorHandler(
@@ -497,14 +524,14 @@ export default class ProjectorWebGL {
         }
       } else {
         console.error(
-          `ProjectorWebGL context restore failed (${this.lostCount})`
+          `ProjectorWebGL context restore failed (${this.lostCount})`,
         );
         this.setWebGLWarning('restore');
         return;
       }
 
       if (this.handleRestored) this.handleRestored();
-    }.bind(this)
+    }.bind(this),
   );
 
   webglcontextcreationerrors = [];
@@ -518,7 +545,7 @@ export default class ProjectorWebGL {
         message: e.statusMessage || '?',
         time: performance.now(),
       });
-    }.bind(this)
+    }.bind(this),
   );
 
   // syncCompilation prevents black flickering while settings are changed
@@ -539,7 +566,7 @@ export default class ProjectorWebGL {
       this.elem.removeEventListener('contextrestored', this.onCtxRestored);
       this.elem.removeEventListener(
         'webglcontextcreationerror',
-        this.onCtxCreationError
+        this.onCtxCreationError,
       );
       this.elem = undefined;
       this.webGLVersion = undefined;
@@ -551,12 +578,12 @@ export default class ProjectorWebGL {
       this.elem.addEventListener(
         'webglcontextrestored',
         this.onCtxRestored,
-        false
+        false,
       );
       this.elem.addEventListener(
         'webglcontextcreationerror',
         this.onCtxCreationError,
-        false
+        false,
       );
     }
 
@@ -606,7 +633,7 @@ export default class ProjectorWebGL {
 
               throw new AmbientlightError(
                 `ProjectorWebGL context creation failed: ${lastErrorMessage}`,
-                errors
+                errors,
               );
             }
           }
@@ -641,7 +668,7 @@ export default class ProjectorWebGL {
     const maxAnisotropy = tfaExt
       ? Math.min(
           16,
-          this.ctx.getParameter(tfaExt.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 1
+          this.ctx.getParameter(tfaExt.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 1,
         )
       : 0;
 
@@ -652,22 +679,22 @@ export default class ProjectorWebGL {
     this.ctx.texParameteri(
       this.ctx.TEXTURE_2D,
       this.ctx.TEXTURE_MIN_FILTER,
-      this.ctx.LINEAR
+      this.ctx.LINEAR,
     );
     this.ctx.texParameteri(
       this.ctx.TEXTURE_2D,
       this.ctx.TEXTURE_MAG_FILTER,
-      this.ctx.LINEAR
+      this.ctx.LINEAR,
     );
     this.ctx.texParameteri(
       this.ctx.TEXTURE_2D,
       this.ctx.TEXTURE_WRAP_S,
-      this.ctx.CLAMP_TO_EDGE
+      this.ctx.CLAMP_TO_EDGE,
     );
     this.ctx.texParameteri(
       this.ctx.TEXTURE_2D,
       this.ctx.TEXTURE_WRAP_T,
-      this.ctx.CLAMP_TO_EDGE
+      this.ctx.CLAMP_TO_EDGE,
     );
     this.ctx.texImage2D(
       this.ctx.TEXTURE_2D,
@@ -678,14 +705,14 @@ export default class ProjectorWebGL {
       0,
       this.ctx.RGBA,
       this.ctx.UNSIGNED_BYTE,
-      new Uint8Array([0, 0, 0, 255])
+      new Uint8Array([0, 0, 0, 255]),
     );
 
     // Texture - Projectors
     this.projectorsTexture = [];
     const maxTextures = Math.min(
       this.ctx.getParameter(this.ctx.MAX_TEXTURE_IMAGE_UNITS) || 8,
-      16
+      16,
     ); // MAX_TEXTURE_IMAGE_UNITS can be more than 16 in software mode
     const maxProjectorTextures = maxTextures - 1;
     ProjectorWebGL.subProjectorDimensionMax = this.webGLVersion === 2 ? 3 : 2; // WebGL1 does not allow non-power-of-two textures
@@ -701,10 +728,10 @@ export default class ProjectorWebGL {
     }
     this.projectorsCount = Math.min(
       frameFading + 1,
-      maxProjectorTextures * this.subProjectorsCount
+      maxProjectorTextures * this.subProjectorsCount,
     );
     const projectorsTextureCount = Math.ceil(
-      this.projectorsCount / this.subProjectorsCount
+      this.projectorsCount / this.subProjectorsCount,
     );
     for (let i = 0; i < projectorsTextureCount; i++) {
       this.projectorsTexture[i] = this.ctx.createTexture();
@@ -713,35 +740,35 @@ export default class ProjectorWebGL {
       this.ctx.texParameteri(
         this.ctx.TEXTURE_2D,
         this.ctx.TEXTURE_MIN_FILTER,
-        this.ctx.LINEAR_MIPMAP_LINEAR
+        this.ctx.LINEAR_MIPMAP_LINEAR,
       );
       this.ctx.texParameteri(
         this.ctx.TEXTURE_2D,
         this.ctx.TEXTURE_MAG_FILTER,
-        this.ctx.LINEAR
+        this.ctx.LINEAR,
       );
       this.ctx.texParameteri(
         this.ctx.TEXTURE_2D,
         this.ctx.TEXTURE_WRAP_S,
-        this.ctx.CLAMP_TO_EDGE
+        this.ctx.CLAMP_TO_EDGE,
       );
       this.ctx.texParameteri(
         this.ctx.TEXTURE_2D,
         this.ctx.TEXTURE_WRAP_T,
-        this.ctx.CLAMP_TO_EDGE
+        this.ctx.CLAMP_TO_EDGE,
       );
       if (this.webGLVersion !== 1) {
         this.ctx.texParameteri(
           this.ctx.TEXTURE_2D,
           this.ctx.TEXTURE_MAX_LEVEL,
-          16
+          16,
         );
       }
       if (maxAnisotropy) {
         this.ctx.texParameteri(
           this.ctx.TEXTURE_2D,
           tfaExt.TEXTURE_MAX_ANISOTROPY_EXT,
-          maxAnisotropy
+          maxAnisotropy,
         );
       }
       this.ctx.texImage2D(
@@ -753,7 +780,7 @@ export default class ProjectorWebGL {
         0,
         this.ctx.RGBA,
         this.ctx.UNSIGNED_BYTE,
-        new Uint8Array([0, 0, 0, 255])
+        new Uint8Array([0, 0, 0, 255]),
       );
       this.ctx.generateMipmap(this.ctx.TEXTURE_2D);
     }
@@ -802,7 +829,7 @@ export default class ProjectorWebGL {
         vec2 direction = ceil(fUV * 2.) - 1.;
         vec2 iUV = ((direction - fUV) * fScale) / ((direction - .5) * fScaleStep);
         int impreciseI = int(min(iUV[0], iUV[1]));
-        for (int preciseI = 0; preciseI < 200; preciseI++) {
+        for (int preciseI = 0; preciseI < ${this.scalesLength > 150 ? Math.min(2000 /* spread 400% / edge 0.3 = 1333 * 1.4 for inner projectors */, Math.ceil(this.scalesLength * 1.4)) : 200}; preciseI++) { ${''/* The loop is limited to 200 for maximum compatibility with WebGL 1 loop unrolling on lower end hardware */}
           if (preciseI < impreciseI) continue;
           int i = ${this.webGLVersion === 1 ? 'impreciseI' : 'preciseI'};
           vec2 scaledUV = (fUV - .5) * (fScale / (fScale - fScaleStep * vec2(i)));
@@ -811,7 +838,7 @@ export default class ProjectorWebGL {
           ${(() => {
             if (this.projectorsCount > 1) {
               const subProjectorsDimensionMultiplier = Math.sqrt(
-                this.subProjectorsCount
+                this.subProjectorsCount,
               );
               const croppedUvScale = (1 / subProjectorsDimensionMultiplier)
                 .toString()
@@ -863,7 +890,7 @@ export default class ProjectorWebGL {
                 .fill(undefined)
                 .map((_, i) => {
                   const projectorIndex = Math.floor(
-                    i / this.subProjectorsCount
+                    i / this.subProjectorsCount,
                   );
                   const subIndex = i % this.subProjectorsCount;
 
@@ -974,13 +1001,13 @@ export default class ProjectorWebGL {
             await new Promise((resolve) => setTimeout(resolve, 0)); // Make sure to finish the current task first
             this.compilationPromise = undefined;
             resolve();
-          })
+          }),
       );
 
       // The first getProgramParameter COMPLETION_STATUS_KHR request returns always false on chromium and the return value seems to be cached between animation frames
       this.ctx.getProgramParameter(
         program,
-        parallelShaderCompileExt.COMPLETION_STATUS_KHR
+        parallelShaderCompileExt.COMPLETION_STATUS_KHR,
       );
       await new Promise((resolve) => requestAnimationFrame(resolve));
 
@@ -989,12 +1016,12 @@ export default class ProjectorWebGL {
         while (!compiled) {
           const completionStatus = this.ctx.getProgramParameter(
             program,
-            parallelShaderCompileExt.COMPLETION_STATUS_KHR
+            parallelShaderCompileExt.COMPLETION_STATUS_KHR,
           );
           // COMPLETION_STATUS_KHR can be null because of webgl-lint
           if (completionStatus === false) {
             await new Promise((resolve) =>
-              requestIdleCallback(resolve, { timeout: 200 })
+              requestIdleCallback(resolve, { timeout: 200 }),
             );
             await new Promise((resolve) => requestAnimationFrame(resolve));
           } else {
@@ -1047,15 +1074,15 @@ export default class ProjectorWebGL {
     // Validate these parameters after program compilation to prevent render blocking validation
     const vertexShaderCompiled = this.ctx.getShaderParameter(
       vertexShader,
-      this.ctx.COMPILE_STATUS
+      this.ctx.COMPILE_STATUS,
     );
     const fragmentShaderCompiled = this.ctx.getShaderParameter(
       fragmentShader,
-      this.ctx.COMPILE_STATUS
+      this.ctx.COMPILE_STATUS,
     );
     const programLinked = this.ctx.getProgramParameter(
       program,
-      this.ctx.LINK_STATUS
+      this.ctx.LINK_STATUS,
     );
     if (!vertexShaderCompiled || !fragmentShaderCompiled || !programLinked) {
       const programCompilationError = new Error('Program compilation failed');
@@ -1111,7 +1138,7 @@ export default class ProjectorWebGL {
 
       try {
         const debugRendererInfo = this.ctx.getExtension(
-          'WEBGL_debug_renderer_info'
+          'WEBGL_debug_renderer_info',
         );
         programCompilationError.details.gpuVendor =
           debugRendererInfo?.UNMASKED_VENDOR_WEBGL
@@ -1188,7 +1215,7 @@ export default class ProjectorWebGL {
       this.ctx.FLOAT,
       false,
       2 * Float32Array.BYTES_PER_ELEMENT,
-      0
+      0,
     );
     this.ctx.enableVertexAttribArray(vUVLoc);
 
@@ -1201,35 +1228,35 @@ export default class ProjectorWebGL {
       this.ctx.FLOAT,
       false,
       2 * Float32Array.BYTES_PER_ELEMENT,
-      0
+      0,
     );
     this.ctx.enableVertexAttribArray(vPositionLoc);
 
     const shadowSamplerLoc = this.ctx.getUniformLocation(
       this.program,
-      'shadowSampler'
+      'shadowSampler',
     );
     this.ctx.uniform1i(shadowSamplerLoc, 0);
 
     const textureSamplerLoc = this.ctx.getUniformLocation(
       this.program,
-      'textureSampler'
+      'textureSampler',
     );
     this.ctx.uniform1iv(
       textureSamplerLoc,
-      this.projectorsTexture.map((_, i) => 1 + i)
+      this.projectorsTexture.map((_, i) => 1 + i),
     );
 
     this.fTextureMipmapLevelLoc = this.ctx.getUniformLocation(
       this.program,
-      'fTextureMipmapLevel'
+      'fTextureMipmapLevel',
     );
     this.ctx.uniform1f(this.fTextureMipmapLevelLoc, 0);
 
     if (this.settings.vibrance !== 100) {
       this.fVibranceLoc = this.ctx.getUniformLocation(
         this.program,
-        'fVibrance'
+        'fVibrance',
       );
       this.ctx.uniform1f(this.fVibranceLoc, 0);
     }
@@ -1239,30 +1266,30 @@ export default class ProjectorWebGL {
 
     this.fScaleStepLoc = this.ctx.getUniformLocation(
       this.program,
-      'fScaleStep'
+      'fScaleStep',
     );
     this.ctx.uniform2fv(this.fScaleStepLoc, new Float32Array([1, 1]));
 
     this.fCropOffsetUVLoc = this.ctx.getUniformLocation(
       this.program,
-      'fCropOffsetUV'
+      'fCropOffsetUV',
     );
     this.ctx.uniform2fv(this.fCropOffsetUVLoc, new Float32Array([0, 0]));
 
     this.fCropScaleUVLoc = this.ctx.getUniformLocation(
       this.program,
-      'fCropScaleUV'
+      'fCropScaleUV',
     );
     this.ctx.uniform2fv(this.fCropScaleUVLoc, new Float32Array([0, 0]));
 
     if (this.projectorsCount > 1) {
       this.fTextureOpacityLoc = this.ctx.getUniformLocation(
         this.program,
-        'fTextureOpacity'
+        'fTextureOpacity',
       );
       this.ctx.uniform1fv(
         this.fTextureOpacityLoc,
-        new Float32Array(Array(this.projectorsCount).fill(0))
+        new Float32Array(Array(this.projectorsCount).fill(0)),
       );
     }
 
@@ -1272,7 +1299,7 @@ export default class ProjectorWebGL {
     return true;
   }
 
-  rescale(scales, lastScale, projectorSize, crop, settings) {
+  async rescale(scales, lastScale, projectorSize, crop, settings) {
     if (this.shadow) {
       this.shadow.rescale(lastScale, projectorSize, settings);
     }
@@ -1312,9 +1339,15 @@ export default class ProjectorWebGL {
     }
     if (this.blurCtx) {
       this.blurCtx.filter = `blur(${blurPx / this.blurCanvasScale}px)`;
+      this.blurCtx.globalCompositeOperation = 'copy';
     }
 
-    this.updateCtx();
+    // A this.scalesLength higher than 150 requires a shader recompilation to increase the shader loop
+    if (this.scalesLength > 150) {
+      await this.initCtx();
+    } else {
+      this.updateCtx();
+    }
   }
 
   async updateVibrance() {
@@ -1345,7 +1378,7 @@ export default class ProjectorWebGL {
       this.fScale = this.scale;
       this.ctx.uniform2fv(
         this.fScaleLoc,
-        new Float32Array([this.fScale?.x, this.fScale?.y])
+        new Float32Array([this.fScale?.x, this.fScale?.y]),
       );
     }
 
@@ -1356,23 +1389,23 @@ export default class ProjectorWebGL {
       this.fScaleStep = this.scaleStep;
       this.ctx.uniform2fv(
         this.fScaleStepLoc,
-        new Float32Array([this.fScaleStep?.x, this.fScaleStep?.y])
+        new Float32Array([this.fScaleStep?.x, this.fScaleStep?.y]),
       );
     }
 
     const crop = this.crop || [0, 0];
     const fCropChanged = crop.some(
-      (crop, i) => crop !== (this.fCrop || [undefined, undefined])[i]
+      (crop, i) => crop !== (this.fCrop || [undefined, undefined])[i],
     );
     if (fCropChanged) {
       this.fCrop = crop;
       const fCropScaleUV = crop.map((crop) => 1 / (1 - crop * 2));
       const fCropOffsetUV = fCropScaleUV.map(
-        (cropScale, i) => crop[i] + 1 / (cropScale * 2)
+        (cropScale, i) => crop[i] + 1 / (cropScale * 2),
       );
       this.ctx.uniform2fv(
         this.fCropOffsetUVLoc,
-        new Float32Array(fCropOffsetUV)
+        new Float32Array(fCropOffsetUV),
       );
       this.ctx.uniform2fv(this.fCropScaleUVLoc, new Float32Array(fCropScaleUV));
     }
@@ -1397,7 +1430,7 @@ export default class ProjectorWebGL {
       this.ctx.ALPHA,
       this.ctx.ALPHA,
       this.ctx.UNSIGNED_BYTE,
-      this.shadow.elem
+      this.shadow.elem,
     );
     this.ctx.activeTexture(this.ctx.TEXTURE1);
 
@@ -1414,7 +1447,7 @@ export default class ProjectorWebGL {
         0,
         0,
         this.ctx.drawingBufferWidth,
-        this.ctx.drawingBufferHeight
+        this.ctx.drawingBufferHeight,
       );
     }
 
@@ -1465,7 +1498,7 @@ export default class ProjectorWebGL {
       right: Math.min(canvasRect.right, windowRect.right),
       bottom: Math.min(
         canvasRect.bottom,
-        windowRect.bottom + (this.settings.fixedPosition ? 0 : 100)
+        windowRect.bottom + (this.settings.fixedPosition ? 0 : 100),
       ), // 100 = a single scroll step
     };
     const cropPerc = {
@@ -1532,7 +1565,7 @@ export default class ProjectorWebGL {
 
   updatePositionAndUvCoordinates(
     crop = { t: 1, r: 1, b: -1, l: -1 },
-    cut = { t: 0, r: 0, b: 0, l: 0 }
+    cut = { t: 0, r: 0, b: 0, l: 0 },
   ) {
     // Convert cut and crop rectangles to position coordinates
     //   [p1x, p1y, p2x, p2y, p3x, p3y] = triangle points
@@ -1604,7 +1637,7 @@ export default class ProjectorWebGL {
     this.ctx.bufferData(
       this.ctx.ARRAY_BUFFER,
       new Float32Array(this.vPosition),
-      this.ctx.STATIC_DRAW
+      this.ctx.STATIC_DRAW,
     );
 
     // Convert positions coordinates to UV coördinates
@@ -1612,14 +1645,14 @@ export default class ProjectorWebGL {
       (p, i) =>
         ((i % 2 == 0 ? p : -p) + // Flip the y-axis of UV coördinates
           1) /
-        2
+        2,
     );
 
     this.ctx.bindBuffer(this.ctx.ARRAY_BUFFER, this.vUVBuffer);
     this.ctx.bufferData(
       this.ctx.ARRAY_BUFFER,
       new Float32Array(this.vUV),
-      this.ctx.STATIC_DRAW
+      this.ctx.STATIC_DRAW,
     );
   }
 
@@ -1642,7 +1675,7 @@ export default class ProjectorWebGL {
         0,
         this.ctx.RGBA,
         this.ctx.UNSIGNED_BYTE,
-        new Uint8Array([0, 0, 0, 255])
+        new Uint8Array([0, 0, 0, 255]),
       );
       // this.ctx.texImage2D(this.ctx.TEXTURE_2D, 0, this.ctx.ALPHA, this.ctx.ALPHA, this.ctx.UNSIGNED_BYTE, null)
 
@@ -1658,7 +1691,7 @@ export default class ProjectorWebGL {
           0,
           this.ctx.RGBA,
           this.ctx.UNSIGNED_BYTE,
-          new Uint8Array([0, 0, 0, 255])
+          new Uint8Array([0, 0, 0, 255]),
         );
         this.ctx.generateMipmap(this.ctx.TEXTURE_2D);
         // this.ctx.texImage2D(this.ctx.TEXTURE_2D, 0, this.ctx.RGBA, this.ctx.RGBA, this.ctx.UNSIGNED_BYTE, null)
@@ -1675,7 +1708,7 @@ export default class ProjectorWebGL {
         0,
         0,
         this.blurCanvas.width,
-        this.blurCanvas.height
+        this.blurCanvas.height,
       );
     }
   }

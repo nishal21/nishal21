@@ -1,13 +1,16 @@
 /*! Ambient light renderer for nishal21's video page, built on youtube-ambilight's own code.
  * recreateProjectors(), resizeCanvasses(), the projector sizing and filter part of updateSizes(), the debanding
  * setup and the video frame callback scheduling are copied from youtube-ambilight src/scripts/libs/ambientlight.js
- * (commit 18d17188e5562e5ee913f005192d30c9a60be078) and trimmed to what this page needs: no YouTube page DOM,
- * no theater/fullscreen views, no HDR, VR, frame blending or video overlay, no stats UI.
+ * (commit 63585027ebcd09a2aa4be0d5aeebe9c7f3837b0f, v2.38.17), and so are initProjectorBuffers() and the
+ * frame-blending-off branch of drawAmbientlight(). Trimmed to what this page needs: no YouTube page DOM, no
+ * theater/fullscreen views, no HDR, VR or video overlay, no stats UI. Frame blending is off by default in the
+ * extension, so its branch is left out too.
  * MIT License, Copyright (c) 2017 Wessel Kroos. The full license is in ../LICENSE (vendor/ambilight/LICENSE). */
 import ProjectorWebGL from './projector-webgl';
 import Projector2d from './projector-2d';
 import BarDetection from './bar-detection';
 import SettingsConfig from './settings-config';
+import { WebGLOffscreenCanvas } from './canvas-webgl';
 import { ctxOptions, SafeOffscreenCanvas, setErrorHandler, setStyleProperty } from './generic';
 
 setErrorHandler((ex) => console.warn('ambient light:', ex));
@@ -66,9 +69,7 @@ export class Ambilight {
     this.container.prepend(this.containerElem);
 
     this.barDetection = new BarDetection(this);
-    // initProjectorBuffers(): the extension's 2D buffer (its WebGL buffer is an optional speed-up we leave out)
-    const elem = new SafeOffscreenCanvas(1, 1, true);
-    this.projectorBuffer = { elem, ctx: elem.getContext('2d', ctxOptions) };
+    await this.initProjectorBuffers();
 
     // initProjector()
     if (this.settings.webGL) {
@@ -87,12 +88,35 @@ export class Ambilight {
     return this;
   }
 
+  // ambientlight.js initProjectorBuffers(): a WebGL buffer when WebGL is on (the GPU scales the frame down with
+  // mipmaps), the 2D canvas otherwise
+  async initProjectorBuffers() {
+    let projectorsBufferElem;
+    let projectorsBufferCtx;
+    if (this.settings.webGL) {
+      try {
+        projectorsBufferElem = new WebGLOffscreenCanvas(1, 1, this, this.settings);
+        projectorsBufferCtx = await projectorsBufferElem.getContext('2d', ctxOptions);
+      } catch (ex) {
+        projectorsBufferCtx = undefined;
+        console.warn('ambient light: WebGL buffer failed, using canvas 2D', ex);
+      }
+    }
+    if (!projectorsBufferCtx) {
+      projectorsBufferElem = new SafeOffscreenCanvas(1, 1, true);
+      projectorsBufferCtx = projectorsBufferElem.getContext('2d', ctxOptions);
+    }
+    this.projectorBuffer = { elem: projectorsBufferElem, ctx: projectorsBufferCtx };
+  }
+
   // initProjector()'s canvas 2D branch, used when WebGL can't take the picture
   useProjector2d() {
     // (the projectors' own remove() would take the whole list with it, so the list is emptied instead)
     this.projectorListElem.replaceChildren();
     this.settings.webGL = false;
     this.projector = new Projector2d(this, this.projectorListElem, noop, this.settings);
+    const elem = new SafeOffscreenCanvas(1, 1, true);
+    this.projectorBuffer = { elem, ctx: elem.getContext('2d', ctxOptions) };
     this.canvassesInvalidated = true;
     this.sizesChanged = true;
   }
@@ -251,13 +275,17 @@ export class Ambilight {
     if (this.sizesChanged || this.canvassesInvalidated || !this.p || this.srcSize?.[0] !== w || this.srcSize?.[1] !== h) {
       if (!this.updateSizes(w, h)) return false;
     }
-    const buf = this.projectorBuffer;
-    if (sw) buf.ctx.drawImage(src, sx, sy, sw, sh, 0, 0, buf.elem.width, buf.elem.height);
-    else buf.ctx.drawImage(src, 0, 0, buf.elem.width, buf.elem.height);
+    // drawAmbientlight(): nothing to show when both spread and blur are 0
+    const dontDrawAmbientlight = this.settings.spread === 0 && this.settings.blur2 === 0;
+    const detectBarSize = this.settings.detectHorizontalBarSizeEnabled || this.settings.detectVerticalBarSizeEnabled;
+    if (dontDrawAmbientlight && !detectBarSize) return false;
     try {
-      this.projector.draw(buf.elem);
+      const buf = this.projectorBuffer;
+      if (sw) buf.ctx.drawImage(src, sx, sy, sw, sh, 0, 0, buf.elem.width, buf.elem.height);
+      else buf.ctx.drawImage(src, 0, 0, buf.elem.width, buf.elem.height);
+      if (!dontDrawAmbientlight) this.projector.draw(buf.elem);
     } catch (ex) {
-      // WebGL refuses pictures from another site that didn't allow it (a tainted buffer); canvas 2D can still show them
+      // WebGL refuses pictures from another site that didn't allow it (a tainted frame); canvas 2D can still show them
       if (this.settings.webGL && ex?.name === 'SecurityError') {
         this.useProjector2d();
         return this.draw(src, sx, sy, sw, sh);
@@ -266,7 +294,7 @@ export class Ambilight {
     }
     this.buffersCleared = false;
     this.frameCount = (this.frameCount || 0) + 1;
-    if (this.settings.detectHorizontalBarSizeEnabled || this.settings.detectVerticalBarSizeEnabled) this.scheduleBarSizeDetection();
+    if (detectBarSize) this.scheduleBarSizeDetection();
     return true;
   }
 
