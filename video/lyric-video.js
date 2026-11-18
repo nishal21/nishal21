@@ -20,12 +20,15 @@
   const M = (size, w = 500) => `${w} ${size}px LVMono, ui-monospace, monospace`;
 
   // The plan's looks are paper ones (cream, lime chorus, dark outro), as in the MP4. On the dark page they're turned
-  // into night versions of the same colours: the light backgrounds go near black and lend their colour to the words.
+  // into night versions of the same colours: the light backgrounds go deep and dark and lend their colour to the words.
+  // They keep a clear hue (wine for the cream verses, olive for the lime chorus) because the ambient light copies the
+  // picture's edges, and a near-black picture would give it nothing to show.
   const lum = (c) => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255;
+  const mix = (a, k) => a.map((c) => Math.round(18 + (c - 18) * k));
   function nightLook(L) {
     if (lum(L.bg) < 0.5) return L;
     const paper = Math.max(...L.bg) - Math.min(...L.bg) < 40;  // the cream page, not a coloured one
-    return { bg: paper ? [20, 20, 22] : L.bg.map((c) => Math.round(18 + c * 0.05)), ink: L.bg, acc: L.acc };
+    return { bg: paper ? mix(L.acc, 0.16) : mix(L.bg, 0.2), ink: L.bg, acc: L.acc };
   }
 
   function attach({ stage, video, planUrl, reduce, night, onFrame }) {
