@@ -70,7 +70,7 @@ def transcribe(path, prompt):
     from faster_whisper import WhisperModel
     model = WhisperModel(os.environ.get("PIN_WHISPER", "small.en"), device="cpu", compute_type="int8")
     audio = decode(path, 16000).astype(np.float32)  # decoded with ffmpeg, so no PyAV version issues
-    segs, _ = model.transcribe(audio, word_timestamps=True, initial_prompt=prompt[:800], vad_filter=False,
+    segs, _ = model.transcribe(audio, word_timestamps=True, initial_prompt=prompt[:800] or None, vad_filter=False,
                                condition_on_previous_text=False, beam_size=5)
     words = []
     for s in segs:
@@ -189,8 +189,14 @@ def main():
     out_dir = opt("--out")
     y = decode(take)
     length = len(y) / SR
-    heard = transcribe(take, " ".join(t for _, t in sheet))
-    al = align(sheet, heard)
+    # with the sheet as a prompt Whisper hears most takes better, but on a fast rap it can lock up; keep the better pass
+    al = None
+    for prompt in (" ".join(t for _, t in sheet), ""):
+        got = align(sheet, transcribe(take, prompt))
+        if al is None or sum(1 for r in got if r) > sum(1 for r in al if r):
+            al = got
+        if all(al):
+            break
     lines = []
     for (sec, text), r in zip(sheet, al):
         if r:

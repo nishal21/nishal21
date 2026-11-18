@@ -12,12 +12,28 @@
   function loadFonts() {
     if (fontsReady) return fontsReady;
     const faces = [new FontFace("LVDisplay", "url(../player/fonts/bricolage-grotesque.woff2)", { weight: "200 800" }),
-                   new FontFace("LVMono", "url(../player/fonts/jetbrains-mono.woff2)", { weight: "100 800" })];
+                   new FontFace("LVMono", "url(../player/fonts/jetbrains-mono.woff2)", { weight: "100 800" }),
+                   new FontFace("LVRap", "url(../player/fonts/anton.woff2)", { weight: "400" })];
     fontsReady = Promise.all(faces.map((f) => f.load().then((x) => document.fonts.add(x)).catch(() => null)));
     return fontsReady;
   }
   const F = (size, w = 800) => `${w} ${size}px LVDisplay, system-ui, sans-serif`;
   const M = (size, w = 500) => `${w} ${size}px LVMono, ui-monospace, monospace`;
+  const R = (size) => `400 ${size}px LVRap, Impact, "Arial Narrow", sans-serif`;  // Anton: heavy, condensed
+
+  // Two moods for the contribution song, both timed from the take's own tempo in the plan (bpm, beat0), so a new
+  // take drops in without touching this file. Original ("rap"): a hard beat grid, a punch-in on every bar, a nudge
+  // on 2 and 4, the section name huge and outlined behind the words, pulse bars, a flash on each new section and
+  // heavy condensed capitals lit word by word. Acoustic ("calm"): warm and dim, a soft light drifting and breathing
+  // once a bar, slow fades, the drawings.
+  const CALM = {
+    Intro: { bg: [34, 25, 21], ink: [244, 233, 214], acc: [236, 170, 96] },
+    Verse: { bg: [38, 27, 22], ink: [244, 233, 214], acc: [236, 170, 96] },
+    Chorus: { bg: [52, 34, 24], ink: [250, 238, 218], acc: [244, 186, 110] },
+    Breakdown: { bg: [30, 26, 28], ink: [236, 226, 214], acc: [214, 160, 120] },
+    Outro: { bg: [28, 22, 20], ink: [244, 233, 214], acc: [236, 170, 96] },
+  };
+  const calmLook = (name) => CALM[name] || CALM[String(name || "").replace(/\s*\d+$/, "")] || CALM.Verse;
 
   // The plan's looks are paper ones (cream, lime chorus, dark outro), as in the MP4. On the dark page they're turned
   // into night versions of the same colours: the light backgrounds go deep and dark and lend their colour to the words.
@@ -38,6 +54,7 @@
     video.after(canvas);
     const ctx = canvas.getContext("2d");
     let plan = null, dead = false, raf = 0, scale = 1;
+    let mood = null, beat = 60 / 140, beat0 = 0;
     const still = () => reduce?.matches;
     const art = {};        // slot|look -> {img, w, h} or null while loading
     const wrapCache = new Map();
@@ -105,17 +122,18 @@
       ctx.restore();
     }
 
-    function layout(text) {
-      if (wrapCache.has(text)) return wrapCache.get(text);
-      const words = text.split(/\s+/).filter(Boolean);
+    function layout(text, rap = false) {
+      const key = (rap ? "R|" : "") + text;
+      if (wrapCache.has(key)) return wrapCache.get(key);
+      const words = (rap ? text.toUpperCase() : text).split(/\s+/).filter(Boolean);
       let res = null;
-      for (const s of [112, 100, 88, 76, 66, 58, 50, 44]) {
-        ctx.font = F(s);
-        const rows = wrap(words, TEXT_W);
+      for (const s of rap ? [168, 150, 134, 118, 104, 92, 80, 70] : [112, 100, 88, 76, 66, 58, 50, 44]) {
+        ctx.font = rap ? R(s) : F(s);
+        const rows = wrap(words, rap ? TEXT_W + 60 : TEXT_W);
         res = { size: s, rows };
         if (rows.length <= 3) break;
       }
-      wrapCache.set(text, res);
+      wrapCache.set(key, res);
       return res;
     }
     function wrap(words, width) {
@@ -140,11 +158,18 @@
 
     function current(t) { let r = null, i = -1; plan.lines.forEach((x, k) => { if (x.t - 0.5 <= t) { r = x; i = k; } }); return [r, i]; }
     function lookAt(t) {
+      if (mood === "calm") {
+        if (t < plan.first - 0.5) return calmLook("Intro");
+        if (t >= plan.roll_start) return calmLook("Outro");
+        return calmLook(current(t)[0]?.section);
+      }
       if (t < plan.first - 0.5) return plan.looks.Intro;
       if (t >= plan.roll_start) return plan.looks.Credits;
       const [r] = current(t);
       return plan.looks[r?.section] || plan.looks.Verse;
     }
+    // where t sits on the take's beat grid: beat number and seconds since it
+    function onBeat(t) { const x = (t - beat0) / beat, n = Math.floor(x); return { n, dt: (x - n) * beat }; }
 
     function title(t, L, drift) {
       const x = TEXT_X + drift[0], y = 300 + drift[1];
@@ -166,32 +191,43 @@
       const [r, idx] = current(t);
       if (!r) return;
       const start = r.t - 0.5, stop = Math.min(r.next - 0.5, plan.roll_start);
-      const { size: fs, rows } = r.rows ? { size: r.size, rows: r.rows } : layout(r.text);
-      const lh = Math.round(fs * 1.08), block = lh * rows.length;
-      const leave = ease((t - (stop - 0.35)) / 0.35);
+      const rap = mood === "rap", calm = mood === "calm";
+      const { size: fs, rows } = rap ? layout(r.text, true) : r.rows ? { size: r.size, rows: r.rows } : layout(r.text);
+      const lh = Math.round(fs * (rap ? 1.0 : 1.08)), block = lh * rows.length;
+      const out = calm ? 0.8 : rap ? 0.18 : 0.35;
+      const leave = ease((t - (stop - out)) / out);
       const y0 = (TOP + BOTTOM) / 2 - block / 2 - 40 + drift[1] - (still() ? 0 : 30 * leave);
       const x0 = TEXT_X + drift[0];
       const ghost = L.bg.map((c, i) => Math.round(c * 0.78 + L.ink[i] * 0.22));
       const times = r.words.map((w) => w[1]);
-      ctx.font = F(fs); ctx.textBaseline = "top";
+      ctx.font = rap ? R(fs) : F(fs); ctx.textBaseline = "top";
       const sp = ctx.measureText(" ").width;
       let k = 0, sung = null;
-      const pre = still() ? 1 : ease((t - start) / 0.5);
+      const pre = still() ? 1 : ease((t - start) / (calm ? 1.0 : rap ? 0.12 : 0.5));
+      const litFor = calm ? 0.6 : rap ? 0.07 : 0.28, rise = calm ? 6 : rap ? 0 : 18;
       rows.forEach((row, ri) => {
         let x = x0;
         for (const w of row) {
           const wt = times[Math.min(k, times.length - 1)];
           if (!w.endsWith("-")) k++;
           const adv = ctx.measureText(w).width, y = y0 + ri * lh;
-          const lit = ease((t - wt) / 0.28), a = 1 - leave;
-          if (lit < 1) { ctx.fillStyle = rgb(ghost, pre * a); ctx.fillText(w, x, y); }
-          if (lit > 0) { ctx.fillStyle = rgb(L.ink, lit * a); ctx.fillText(w, x, y + (still() ? 0 : 18 * (1 - lit))); }
+          const lit = ease((t - wt) / litFor), a = 1 - leave;
           const nxt = k < times.length ? times[k] : wt + 0.6;
-          if (wt <= t && t < nxt) sung = [x, y, adv];
+          const now = wt <= t && t < nxt;
+          if (lit < 1) { ctx.fillStyle = rgb(ghost, pre * a); ctx.fillText(w, x, y); }
+          if (lit > 0 && rap && now && !still()) {
+            // the word being rapped: accent colour, a quick pop that settles
+            const pop = 1 + 0.1 * Math.exp(-(t - wt) / 0.09);
+            ctx.save(); ctx.translate(x, y + fs * 0.5); ctx.scale(pop, pop);
+            ctx.fillStyle = rgb(L.acc, a); ctx.fillText(w, 0, -fs * 0.5); ctx.restore();
+          } else if (lit > 0) {
+            ctx.fillStyle = rgb(rap && now ? L.acc : L.ink, lit * a); ctx.fillText(w, x, y + (still() ? 0 : rise * (1 - lit)));
+          }
+          if (now) sung = [x, y, adv];
           x += adv + sp;
         }
       });
-      if (sung && leave < 0.5) { ctx.fillStyle = rgb(L.acc); ctx.fillRect(sung[0], sung[1] + fs * 1.02, sung[2], 7); }
+      if (sung && leave < 0.5 && !rap) { ctx.fillStyle = rgb(L.acc, calm ? 0.7 : 1); ctx.fillRect(sung[0], sung[1] + fs * 1.02, sung[2], calm ? 4 : 7); }
       // who wrote it
       const p = ease((t - start - 0.3) / 0.6) * (1 - leave);
       if (p > 0.02 && r.who.startsWith("@")) {  // only visitor lines get a card
@@ -210,7 +246,59 @@
       }
       ctx.font = M(24); ctx.fillStyle = rgb(L.ink, 0.7);
       ctx.fillText(`${r.section.toLowerCase()} · ${String(idx + 1).padStart(2, "0")} / ${String(plan.lines.length).padStart(2, "0")}`, TEXT_X, TOP + 40);
-      putDrawing("line" + idx, L, start + 0.15, stop, t, drift);
+      if (!rap) putDrawing("line" + idx, L, start + 0.15, stop, t, drift);
+    }
+
+    /* ----- the moods' backgrounds ----- */
+    // rap: the section name, huge and outlined, sliding slowly behind the words
+    function rapBack(t, L) {
+      const r = current(t)[0], name = (t >= plan.roll_start ? "nishal21" : (r?.section || "Intro").replace(/\s*\d+$/, "")).toUpperCase();
+      ctx.save();
+      ctx.font = R(520); ctx.textBaseline = "alphabetic";
+      const w = ctx.measureText(name).width;
+      const x = W - w * 0.86 - (still() ? 0 : (t * 26) % 260);
+      ctx.lineWidth = 3; ctx.strokeStyle = rgb(L.acc, 0.2); ctx.strokeText(name, x, BOTTOM - 70);
+      ctx.restore();
+    }
+    // rap: pulse bars along the bottom, every one hit on the beat and falling off before the next
+    function rapBars(t, L) {
+      const { n, dt } = onBeat(t), N = 32, bw = (W - 2 * TEXT_X) / N;
+      const fall = still() ? 0.5 : Math.exp(-dt / (beat * 0.45));
+      for (let i = 0; i < N; i++) {
+        const seed = Math.sin((i + 1) * 12.9898 + n * 78.233) * 43758.5453, rnd = seed - Math.floor(seed);
+        const h = 10 + (n % 4 === 0 ? 70 : 44) * fall * (0.35 + 0.65 * rnd);
+        ctx.fillStyle = rgb(L.acc, 0.34); ctx.fillRect(TEXT_X + i * bw + 3, BOTTOM - 26 - h, bw - 6, h);
+      }
+    }
+    // rap: a flash on the first beat of a new section
+    function rapFlash(t, L) {
+      let prev = null;
+      for (const r of plan.lines) {
+        if (prev !== null && r.section !== prev) {
+          const dt = t - r.t;
+          if (dt >= -0.02 && dt < 0.14) { ctx.fillStyle = rgb(L.acc, 0.55 * (1 - Math.max(0, dt) / 0.14)); ctx.fillRect(0, TOP, W, BOTTOM - TOP); }
+        }
+        prev = r.section;
+      }
+      const dt = t - plan.roll_start;
+      if (dt >= 0 && dt < 0.14) { ctx.fillStyle = rgb(L.acc, 0.5 * (1 - dt / 0.14)); ctx.fillRect(0, TOP, W, BOTTOM - TOP); }
+    }
+    // calm: a soft light drifting across the picture, breathing once a bar
+    function calmLight(t, L) {
+      const { n, dt } = onBeat(t), barPos = ((((n % 4) + 4) % 4) * beat + dt) / (4 * beat);
+      const breath = still() ? 0.5 : 0.5 - 0.5 * Math.cos(2 * Math.PI * barPos);
+      const cx = W * 0.62 + (still() ? 0 : 320 * Math.sin(t * 0.06)), cy = H * 0.46 + (still() ? 0 : 110 * Math.cos(t * 0.045));
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 760);
+      g.addColorStop(0, rgb(L.acc, 0.13 + 0.05 * breath)); g.addColorStop(0.55, rgb(L.acc, 0.04)); g.addColorStop(1, rgb(L.acc, 0));
+      ctx.fillStyle = g; ctx.fillRect(0, TOP, W, BOTTOM - TOP);
+    }
+    // rap: the camera punches in on each bar's downbeat and nudges on 2 and 4
+    function rapCamera(t) {
+      if (still() || t < plan.first - 0.5 || t >= plan.roll_start) return [1, 0, 0];
+      const { n, dt } = onBeat(t), b = ((n % 4) + 4) % 4;
+      const z = b === 0 ? 1 + 0.04 * Math.exp(-dt / 0.12) : 1 + 0.008 * Math.exp(-dt / 0.1);
+      const kick = b === 1 || b === 3 ? Math.exp(-dt / 0.06) : 0;
+      return [z, (n % 8 < 4 ? 1 : -1) * 7 * kick, -4 * kick];
     }
 
     function credits(t, L, drift) {
@@ -264,13 +352,23 @@
       if (dead || !plan) return;
       const t = video.currentTime || 0;
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      const drift = still() ? [0, 0] : [6 * Math.sin(t * 0.21), 4 * Math.cos(t * 0.17)];
-      const L0 = lookAt(t), L = night?.() ? nightLook(L0) : L0;
+      const slow = mood === "calm" ? 0.6 : 1;
+      const drift = still() ? [0, 0] : [6 * Math.sin(t * 0.21 * slow), 4 * Math.cos(t * 0.17 * slow)];
+      // the rap look is always the dark one (tinted, so the ambient light still has a colour to pick up)
+      const L0 = lookAt(t), L = mood === "calm" ? L0 : night?.() || mood === "rap" ? nightLook(L0) : L0;
       ctx.fillStyle = rgb(L.bg); ctx.fillRect(0, 0, W, H);
+      if (mood === "rap") {
+        const [z, dx, dy] = rapCamera(t);
+        ctx.setTransform(scale * z, 0, 0, scale * z, scale * ((1 - z) * W / 2 + dx), scale * ((1 - z) * H / 2 + dy));
+        rapBack(t, L);
+        if (t >= plan.first - 0.5 && t < plan.roll_start) rapBars(t, L);
+      } else if (mood === "calm") calmLight(t, L);
       if (t < plan.first - 0.5) title(t, L, drift);
       else if (t >= plan.roll_start) credits(t, L, drift);
       else lyric(t, L, drift);
-      if (!still()) wipe(t);
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      if (!still() && mood === "rap") rapFlash(t, L);
+      else if (!still() && !mood) wipe(t);
       // grain, then the letterbox
       ctx.save(); ctx.globalAlpha = 0.05; ctx.globalCompositeOperation = "overlay";
       const g = grain[still() ? 0 : frameNo++ % 4];
@@ -289,7 +387,11 @@
     size();
     Promise.all([fetch(planUrl).then((r) => r.json()), loadFonts()]).then(([p]) => {
       if (dead) return;
-      plan = p; stage.classList.add("lyric-on"); wrapCache.clear(); draw(); loop();
+      plan = p;
+      mood = p.mood || (/contribution-acoustic-video/.test(planUrl) ? "calm" : /contribution-video/.test(planUrl) ? "rap" : null);
+      const bpm = +p.bpm || (mood === "calm" ? 76 : 140);
+      beat = 60 / bpm; beat0 = +p.beat0 || 0;
+      stage.classList.add("lyric-on"); wrapCache.clear(); draw(); loop();
     }).catch(() => canvas.remove());
     return {
       canvas,

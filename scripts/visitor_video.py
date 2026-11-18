@@ -228,6 +228,8 @@ class Video:
                 self.people.append((r["who"], r["text"]))
         self.notes = len(data.get("notes", []))
         self.engine = data.get("engine", "Kokoro")
+        self.bpm = float(data.get("bpm") or 0) or None  # the take's tempo, for the page's beat grid
+        self.beat0 = float(data.get("beat0") or 0)
         # credits roll: starts as the last line clears, scrolls at a calm, readable speed
         self.roll_start = max(self.last_end - 0.6, 1.0)
         self.credit_rows = self.build_credits()
@@ -496,6 +498,7 @@ def plan(v, art_url):
     return dict(
         total=round(v.total, 3), song=round(v.song, 3), first=v.first, roll_start=round(v.roll_start, 3),
         speed=v.speed, end_card=round(v.end_card, 3), notes=v.notes, people=len(v.people),
+        bpm=v.bpm, beat0=v.beat0, mood={"contribution": "rap", "contribution-acoustic": "calm"}.get(NAME[0]),
         looks={k: dict(bg=x[0], ink=x[1], acc=x[2]) for k, x in LOOKS.items()},
         lines=[dict(t=r["t"], next=r["next"], text=r["text"], who=r["who"], section=r["section"],
                     words=[[w, round(t, 3)] for w, t in r["words"]], **wrapped(r["text"])) for r in v.rows],
