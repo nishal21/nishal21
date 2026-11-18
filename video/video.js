@@ -336,7 +336,7 @@ let trailerMeta = null;   // trailer.json: fps, bar, cuts, kicks, hits and (newe
 let trailerTall = false, hasTall = false;
 // The trailer's sections in trailer bars, as laid out by plan() in scripts/year_trailer.py. Newer builds write
 // them into trailer.json; older ones only have the bar length, so the same layout is rebuilt from it here.
-const TRAILER_SECTIONS = [[0, "Intro"], [4, "Build"], [6, "Drop"], [10, "Breather"], [14, "Build"], [16, "Final drop"], [22, "Outro"]];
+const TRAILER_SECTIONS = [[0, "Breakdown"], [4, "Build"], [6, "Chorus"], [14, "Outro"]];
 function trailerChapters(m) {
   if (Array.isArray(m.sections) && m.sections.length) return m.sections.filter((c) => isFinite(c.t)).map((c) => ({ t: +c.t, title: String(c.title) }));
   const bar = +m.bar || 1.714286, len = +m.length || Infinity;
@@ -406,7 +406,7 @@ function ytItem(v) {
 }
 function metaLine(it) {
   if (it === CLIP) return CLIP.metaText || "15 seconds from the contribution song";
-  if (it === TRAILER) return TRAILER.metaText || "45 seconds, cut to the contribution song";
+  if (it === TRAILER) return TRAILER.metaText || "35 seconds of the contribution song, cut on the beat";
   if (it === SONG_O || it === SONG_A) return it.metaText || "The contribution song with its lyrics";
   if (it === VISITOR) return VISITOR.metaText || "Notes and lyric lines added by people who visit my profile";
   const bits = [];

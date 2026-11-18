@@ -1,4 +1,4 @@
-"""Year trailer: a ~45 second edit of my year on GitHub, cut to the contribution song.
+"""Year trailer: a ~35 second edit of my year on GitHub, cut to the contribution song.
 
   python3 scripts/year_trailer.py video <out dir> [--site _site/player] [--only wide|tall]
       trailer.mp4 (1920x1080), trailer-vertical.mp4 (1080x1920), trailer-poster.jpg and trailer.json
@@ -6,24 +6,22 @@
   python3 scripts/year_trailer.py poster
       assets/trailer-dark.svg and trailer-light.svg, the README card, from assets/contribution-song.json.
 
-The edit uses whole bars of the song (Intro, the first Build into the Chorus, the Breakdown, the second
-Build into the Chorus, the Outro), so every splice falls on a downbeat. It runs at 28 fps because at
+The audio is one continuous piece of the song, bars 34 to the end (Breakdown, Build, Chorus, Outro), with
+no splices and the vocal never muted, so every line is sung start to finish. It runs at 28 fps because at
 140 BPM a 16th note is exactly 3 frames, so every cut, slam and flash lands on a frame boundary with
-no rounding. Structure:
+no rounding. Structure (the picture follows the song's own sections):
 
-  intro      4 bars  the voice says the handle; the year's grid fills in on the hats
+  breakdown  4 bars  the breakdown line word by word over the dim grid, then the grid fills in, the name lands
   build      2 bars  months on 8ths, then the count running up on 16ths, one 8th of black before the drop
-  drop       4 bars  impact frame, total, busiest week, busiest day and streak, top repos on the beat
-  breather   4 bars  the whole grid with a slow push, then languages
-  build      2 bars  releases on 8ths, then 16ths
-  final drop 6 bars  impact frame, the counts slam on kick and snare, new repos on 8ths, the grid lights up
-  outro      3 bars  the handle and links, fade to black
+  chorus     8 bars  impact frame, total, busiest week, busiest day and streak, top repos, languages,
+                     then the counts slam on kick and snare
+  outro      5 bars  the grid lights up under "that was 1,003 contributions", then the handle and links, fade
 
 The soundtrack is scored to this cut list rather than just cut from the song: the song's stems are laid on
-the trailer's timeline, the 808 drops out of the builds while a riser and a high-pass take over, everything
-stops on the black 8th, each drop opens on an impact, the slams and section cuts get hits, the breather sits
-behind a low-pass that opens into the second build, and the outro lands on a last hit with an A minor chord
-under the handle. Mastered to -14 LUFS with a -1.5 dBTP ceiling. Without the stems it falls back to the
+the trailer's timeline, the 808 drops out of the build while a riser and a high-pass take over, the band
+stops on the black 8th (no vocal there), the drop opens on an impact, the slams and section cuts get hits, the
+breakdown sits behind a low-pass that opens into the build, and the outro lands on a last hit with an A minor
+chord under the handle. Mastered to -14 LUFS with a -1.5 dBTP ceiling. Without the stems it falls back to the
 plain song edit with the same hits on top.
 
 Only public repos appear: everything comes from contribution-song.json, which the song step builds from
@@ -59,11 +57,14 @@ SLEEVES = ["#a9d6f5", "#cbef4a", "#ff8a65", "#f6a6c6", "#7fe3b4", "#ffc53d",
 HANDLE = "nishal21"
 SITE_URL = "nishal21.github.io/nishal21"
 
-# (first song bar, bars) of each piece of the song, in trailer order. Contiguous pieces are joined, so
-# the builds run into their drops untouched; the 4 splices all sit on downbeats.
-EDIT = [(0, 4), (12, 6), (34, 12), (48, 2), (52, None)]  # None: to the end of the song (its last bar + fade)
-# The trailer's sections as plan() lays them out, in trailer bars. Written to trailer.json as chapters for the video page.
-SECTIONS = [(0, "Intro"), (4, "Build"), (6, "Drop"), (10, "Breather"), (14, "Build"), (16, "Final drop"), (22, "Outro")]
+# (first song bar, bars) of each piece of the song, in trailer order. One piece: the song from the Breakdown
+# (bar 34) to its end, so nothing is spliced and no lyric line is cut.
+EDIT = [(34, None)]  # None: to the end of the song (its last bar + fade)
+SONG_BAR0 = EDIT[0][0]
+# The trailer's sections as plan() lays them out, in trailer bars (the song's own sections from bar 34).
+# Written to trailer.json as chapters for the video page.
+SECTIONS = [(0, "Breakdown"), (4, "Build"), (6, "Chorus"), (14, "Outro")]
+TRAILER_BARS = 19  # 4 + 2 + 8 + 5
 
 
 def rgb(h):
@@ -165,6 +166,9 @@ def cut_audio(song, x):
         if k < len(pieces) - 1 and seg.shape[1] > e - a:
             n = seg.shape[1] - (e - a)
             seg[:, e - a:] *= np.cos(np.linspace(0, np.pi / 2, n)) ** 2
+        if k == 0 and a > 0:  # starts mid-song: a 15 ms fade-in so the downbeat doesn't click
+            m = int(0.015 * SR)
+            seg[:, :m] *= np.linspace(0, 1, m)
         out[:, at:at + seg.shape[1]] += seg
     out = out[:, :t]
     return out, [p[0] / SR for p in pieces]
@@ -214,7 +218,7 @@ def vocal_onsets(site, start, end, song_bar):
 # ---------- the edit: the score ----------
 # The soundtrack is rebuilt from the song's stems on the trailer's own timeline, then the picture's events
 # are scored on top: a riser into each drop, a beat of silence on the black 8th, an impact on each impact
-# frame, hits on the slams and section cuts, a filtered breather, a last hit and a held chord under the
+# frame, hits on the slams and section cuts, a filtered breakdown, a last hit and a held chord under the
 # handle. Every hit is placed from the cut list, so it lands on the frame it belongs to.
 
 STEM_NAMES = ["drums", "bass", "keys", "synths", "vocals", "fx"]
@@ -401,28 +405,22 @@ def score(song, site, shots, n_samples):
     ramp = 0.012
     if stems is not None:
         tracks["fx"] *= 0  # the song's own risers and hits are replaced by ones placed on the picture
-        # vocals: the intro line, the first hook line of each drop ("Light up the grid"), the breakdown line
-        # over the grid, and the outro line under the handle. The rest of the chorus would talk over the numbers.
-        tracks["vocals"] *= gain_curve(n, [(0, 1), (T(7.62), 1), (T(7.62) + 0.15, 0), (T(10) - 0.01, 0), (T(10), 1),
-                                           (T(17.62), 1), (T(17.62) + 0.15, 0), (T(22) - 0.01, 0), (T(22), 1), (n / SR, 1)])
-        tracks["drums"] *= gain_curve(n, [(0, 1), (T(10), 1), (T(10) + ramp, 0.55), (T(13.5), 0.55), (T(14), 1), (n / SR, 1)])
+        # vocals: left alone. Every line plays start to finish over the picture.
         # builds: the 808 drops out and the band climbs from 60% to full, so the drop has somewhere to go
         build = lambda b0: [(T(b0), 1), (T(b0) + 0.4, 0.55), (T(b0 + 1.875), 0.78)]
-        tracks["bass"] *= gain_curve(n, [(0, 1), (T(4), 1), (T(4) + 0.43, 0), (T(6) - 0.01, 0), (T(6), 1),
-                                         (T(14), 1), (T(14) + 0.43, 0), (T(16) - 0.01, 0), (T(16), 1), (n / SR, 1)])
-        bed = gain_curve(n, [(0, 1)] + build(4) + [(T(6) - 0.01, 0.95), (T(6), 1)] + build(14) + [(T(16) - 0.01, 0.95), (T(16), 1), (n / SR, 1)])
+        tracks["bass"] *= gain_curve(n, [(0, 1), (T(4), 1), (T(4) + 0.43, 0), (T(6) - 0.01, 0), (T(6), 1), (n / SR, 1)])
+        bed = gain_curve(n, [(0, 1)] + build(4) + [(T(6) - 0.01, 0.95), (T(6), 1), (n / SR, 1)])
         for k in ("drums", "keys", "synths"):
             tracks[k] *= bed
         music = sum(tracks[k] for k in ("drums", "bass", "keys", "synths"))
         vox = tracks["vocals"]
     else:
         music, vox = tracks["mix"], np.zeros((2, n))
-    # breather: the band goes behind a low-pass that opens back up across the four bars into the build
-    music = sweep(music, T(10), T(14), 650, 16000)
-    # and a high-pass climbing through each build (thins the band out as the riser takes over)
-    for b0 in (4, 14):
-        music = sweep(music, T(b0), T(b0 + 1.875), 30, 420, "highpass")
-    # the black 8th before each drop: everything stops
+    # breakdown: the band sits behind a low-pass that opens back up across its four bars into the build
+    music = sweep(music, T(0), T(4), 900, 16000)
+    # and a high-pass climbing through the build (thins the band out as the riser takes over)
+    music = sweep(music, T(4), T(5.875), 30, 420, "highpass")
+    # the black 8th before the drop: the band stops (the song has no vocal there, so no line is cut)
     gate = np.ones(n)
     blacks = [s for s in shots if s.kind == "black"]
     for s in blacks:
@@ -431,28 +429,29 @@ def score(song, site, shots, n_samples):
         gate[a:b] = 0
         gate[a - k:a] = np.linspace(1, 0, k)
     music *= gate
-    vox *= gate
     fx = Fx()
     sfx = np.zeros((2, n))
     events = []
     impacts = [s for s in shots if s.kind == "impact"]
     duck = []
-    # intro: a swell into the grid filling in, a hit when the name lands
-    place_audio(sfx, fx.swell(T(1)), T(2), 0.5, end=True)
-    place_audio(sfx, fx.hit(0.8), T(3), 0.75); events.append((T(3), "hit: name"))
-    # builds: a riser up to the black 8th, a short swell inside it, then the impact on the drop
+    # open: a soft sub drop under the first frame
+    place_audio(sfx, fx.boom(sec=2.5, f0=48, f1=28, tau=0.9) * 0.5, 0.0, 0.6)
+    events.append((0.0, "sub drop: breakdown"))
+    # the grid fills: a swell into it, a hit when the name lands
+    place_audio(sfx, fx.swell(T(1)), T(3), 0.5, end=True)
+    place_audio(sfx, fx.hit(0.8), T(3.5), 0.75); events.append((T(3.5), "hit: name"))
+    # build: a riser up to the black 8th, a short swell inside it, then the impact on the drop
     for i, imp in enumerate(impacts):
         drop = fr(imp.f0)
         blk = next(s for s in blacks if s.f1 == imp.f0)
-        size = 1.0 if i == 0 else 1.35
-        r = fx.riser(fr(blk.f0) - (drop - 2 * bar), top=8000 if i == 0 else 11000)
-        place_audio(sfx, r, fr(blk.f0), 0.3 if i == 0 else 0.38, end=True)
+        r = fx.riser(fr(blk.f0) - (drop - 2 * bar), top=10000)
+        place_audio(sfx, r, fr(blk.f0), 0.34, end=True)
         place_audio(sfx, fx.swell(fr(blk.f1 - blk.f0) + 0.02), drop, 0.45, end=True)
-        place_audio(sfx, fx.impact(size), drop, 0.95 if i == 0 else 1.0)
+        place_audio(sfx, fx.impact(1.2), drop, 1.0)
         place_audio(sfx, fx.downlifter(2 * bar), drop + 0.05, 0.22)
         duck.append((drop, 0.5))
         events.append((drop, f"impact {i + 1}"))
-    # hits on the cuts that change the subject inside the drops, and on every slam
+    # hits on the cuts that change the subject inside the chorus, and on every slam
     for s in shots:
         t = fr(s.f0)
         if s.kind in ("slam", "stat", "final") and s.f0 not in {i.f1 for i in impacts}:
@@ -462,11 +461,8 @@ def score(song, site, shots, n_samples):
         elif s.kind in ("week", "langs") or (s.kind == "repo" and s.kw.get("rank") == 1):
             place_audio(sfx, fx.hit(0.7), t, 0.5)
             events.append((t, f"hit: {s.kind}"))
-    # out of the breather: a swell over the last two beats lifts it into the second build
-    place_audio(sfx, fx.swell(T(0.5)) * 1.2, T(14), 0.6, end=True)
-    # into the breather: a soft sub drop as the filter closes
-    place_audio(sfx, fx.boom(sec=2.5, f0=48, f1=28, tau=0.9) * 0.5, T(10), 0.6)
-    events.append((T(10), "sub drop: breather"))
+    # out of the breakdown: a swell over the last two beats lifts it into the build
+    place_audio(sfx, fx.swell(T(0.5)) * 1.2, T(4), 0.6, end=True)
     # the light-up: a short riser into the last slam
     fin = next((s for s in shots if s.kind == "final"), None)
     lu = next((s for s in shots if s.kind == "lightup"), None)
@@ -523,17 +519,19 @@ def plan(song, F, site):
         shots.append(Shot(f0, f0 + length, kind, **kw))
 
     st = F["stats"]
-    # intro: 4 bars. Words follow the voice; the grid fills on the hats in bars 3-4.
-    line = next((l for l in song["lines"] if l["section"] == "Intro"), None)
-    words = []
+    # breakdown: 4 bars. The handle, then the breakdown line word by word with the voice over the dim
+    # grid (3 bars); the grid fills on the hats and the name lands in the 4th.
+    line = next((l for l in song["lines"] if l["section"] == "Breakdown"), None)
+    words = [(HANDLE, 2)]
     if line:
+        t0 = SONG_BAR0 * song["bar"]
         on = vocal_onsets(site, line["t"] - 0.1, line["end"] + 0.2, song["bar"])
         parts = [p.strip() for p in line["text"].replace(".", ".|").replace(",", ",|").split("|") if p.strip()]
         times = on[:len(parts)] if len(on) >= len(parts) else [line["t"] + i * (line["end"] - line["t"]) / len(parts) for i in range(len(parts))]
-        words = [(p.rstrip(".,"), int(round(t * FPS))) for p, t in zip(parts, times)]
-    add(0, 0, 2 * BAR, "cold", words=words)
-    add(2, 0, 2 * BAR, "fill")
-    # build 1: months on 8ths, then the rest on 16ths and the count running up; black on the last 8th
+        words += [(p.rstrip(".,"), int(round((t - t0) * FPS))) for p, t in zip(parts, times)]
+    add(0, 0, 3 * BAR, "cold", words=words)
+    add(3, 0, BAR, "fill")
+    # build: months on 8ths, then the rest on 16ths and the count running up; black on the last 8th
     months = F["months"]
     cum, run = [], 0
     for _, c in months:
@@ -553,7 +551,7 @@ def plan(song, F, site):
         add(5, k * S16, S16, "count", n=int(round(start_n + (st["total"] - start_n) * (1 - (1 - p) ** 2))), last=j == steps - 1)
         k += 1
     add(5, 14 * S16, 2 * S16, "black")
-    # drop 1
+    # chorus
     add(6, 0, 2, "impact", text=str(st["total"]))
     add(6, 2, BAR - 2, "hero", n=st["total"], label="contributions", sub=f"{fmt_day(st['first'])} to {fmt_day(st['last'])}")
     b = F["busiest"][0]
@@ -562,35 +560,18 @@ def plan(song, F, site):
     add(8, 2 * BEAT, 2 * BEAT, "stat", n=st["streak"], label="days in a row", sub=f"{fmt_day(st['streak_start'], False)} to {fmt_day(st['streak_end'], False)}")
     for i, r in enumerate(F["repos"][:4]):
         add(9, i * BEAT, BEAT, "repo", r=r, rank=i + 1)
-    # breather
-    add(10, 0, 2 * BAR, "grid", month=st["month"], month_n=st["month_n"], song_bar=EDIT[2][0])
-    add(12, 0, 2 * BAR, "langs", langs=F["langs"])
-    # build 2: releases, newest last
-    rel = F["releases"][-22:]
-    slots = [(14, i * E8, E8) for i in range(8)] + [(15, i * S16, S16) for i in range(14)]
-    for i, (bb, off, ln) in enumerate(slots):
-        if i < len(rel):
-            add(bb, off, ln, "release", r=rel[i], n=i + 1)
-        else:
-            add(bb, off, ln, "count", n=len(F["releases"]), label="releases", last=i == len(slots) - 1)
-    add(15, 14 * S16, 2 * S16, "black")
-    # final drop
-    add(16, 0, 2, "impact", text=str(len(F["releases"])))
-    add(16, 2, 2 * BEAT - 2, "slam", n=len(F["releases"]), label="releases")
+    add(10, 0, 2 * BAR, "langs", langs=F["langs"])
+    add(12, 0, 2 * BEAT, "slam", n=len(F["releases"]), label="releases")
     if F["prs"] is not None:
-        add(16, 2 * BEAT, 2 * BEAT, "slam", n=F["prs"], label="merged pull requests")
+        add(12, 2 * BEAT, 2 * BEAT, "slam", n=F["prs"], label="merged pull requests")
     else:
-        add(16, 2 * BEAT, 2 * BEAT, "slam", n=st["active"], label="active days")
-    add(17, 0, 2 * BEAT, "slam", n=len(F["created"]), label="new repos")
-    add(17, 2 * BEAT, 2 * BEAT, "slam", n=F["commits"] or st["active"], label="commits to public repos" if F["commits"] else "active days")
-    cr = F["created"]
-    pick = [cr[round(i * (len(cr) - 1) / 15)] for i in range(16)] if len(cr) >= 16 else (cr * 16)[:16]
-    for i, r in enumerate(pick):
-        add(18 + i // 8, (i % 8) * E8, E8, "newrepo", r=r)
-    add(20, 0, BAR + 2 * BEAT, "lightup")
-    add(21, 2 * BEAT, 2 * BEAT, "final", n=st["total"])
-    # outro: handle, links, fade
-    add(22, 0, 3 * BAR + int(round(2.0 * FPS)), "outro")
+        add(12, 2 * BEAT, 2 * BEAT, "slam", n=st["active"], label="active days")
+    add(13, 0, 2 * BEAT, "slam", n=len(F["created"]), label="new repos")
+    add(13, 2 * BEAT, 2 * BEAT, "slam", n=F["commits"] or st["active"], label="commits to public repos" if F["commits"] else "active days")
+    # outro: the grid lights up under "that was ... contributions", the total slams, then the handle, links, fade
+    add(14, 0, BAR + 2 * BEAT, "lightup")
+    add(15, 2 * BEAT, 2 * BEAT, "final", n=st["total"])
+    add(16, 0, 3 * BAR + int(round(2.0 * FPS)), "outro")
     shots.sort(key=lambda s: s.f0)
     return shots
 
@@ -762,8 +743,8 @@ def draw_shot(c, sh, f, F, song):
                   lit=lambda i, j: 1.0 if i < math.floor(prog / 1) else 0.12)
         sp = label(c, f"{fmt_day(F['stats']['first'])}  to  {fmt_day(F['stats']['last'])}", 28)
         place(img, sp, cx, cy - (H * 0.36 if c.tall else 290 * u), alpha=min(1, lf / 10))
-        if lf >= 48:  # second bar: the name lands on the downbeat
-            s, a = slam(lf - 48)
+        if lf >= 24:  # the name lands on beat 3
+            s, a = slam(lf - 24)
             sp = c.text("Nishal K", 120 * u, 800)
             place(img, sp, cx, cy + (H * 0.36 if c.tall else 330 * u), s, a)
         return img
@@ -963,7 +944,7 @@ class Edit:
         self.c = Canvas(W, H, F["ground"])
         self.n = length_frames
         self.kick_frames = [int(round(t * FPS)) for t in kicks]
-        drops = [(6 * 48, 10 * 48), (16 * 48, 22 * 48)]
+        drops = [(6 * 48, 14 * 48)]
         self.drop = lambda f: any(a <= f < b for a, b in drops)
         self.after_impact = {s.f1 for s in shots if s.kind == "impact"}
 
@@ -978,18 +959,18 @@ class Edit:
         """Zoom and shake. Builds zoom in faster and faster (a speed ramp into the drop); drops kick the
         camera on every low hit; each drop shot lands slightly zoomed and settles."""
         z, dx, dy = 1.0, 0.0, 0.0
-        for a, b in ((4 * 48, 6 * 48), (14 * 48, 16 * 48)):
-            if a <= f < b:
-                p = (f - a) / (b - a)
-                z *= 1 + 0.16 * p ** 3
-        if 2 * 48 <= f < 4 * 48:
-            z *= 1 + 0.05 * ((f - 96) / 96) ** 2
-        if 20 * 48 <= f < 21 * 48 + 24:  # the light-up: a push that speeds up into the last slam
-            z *= 1 + 0.2 * ((f - 960) / 72) ** 2.2
-        if f >= 22 * 48:  # outro: one long, slow push to the end
-            z *= 1 + 0.08 * ((f - 22 * 48) / (self.n - 22 * 48)) ** 0.8
-        if 10 * 48 <= f < 14 * 48:  # breather: one slow push per shot
-            z *= 1 + 0.045 * ((f - 480) % 96) / 96
+        a, b = 4 * 48, 6 * 48
+        if a <= f < b:
+            p = (f - a) / (b - a)
+            z *= 1 + 0.16 * p ** 3
+        if 3 * 48 <= f < 4 * 48:
+            z *= 1 + 0.05 * ((f - 144) / 48) ** 2
+        if 0 <= f < 3 * 48:  # breakdown: one slow push
+            z *= 1 + 0.04 * f / 144
+        if 14 * 48 <= f < 15 * 48 + 24:  # the light-up: a push that speeds up into the last slam
+            z *= 1 + 0.2 * ((f - 672) / 72) ** 2.2
+        if f >= 16 * 48:  # outro: one long, slow push to the end
+            z *= 1 + 0.08 * ((f - 16 * 48) / (self.n - 16 * 48)) ** 0.8
         if self.drop(f) and sh is not None:
             lf = f - sh.f0
             z *= 1 + 0.07 * math.exp(-lf / 3.5)
@@ -1116,9 +1097,8 @@ def poster(song):
     F = year_facts(song)
     shots = plan(song, F, ROOT / "assets")
     bar = song["bar"]
-    total_bars = sum(nb for _, nb in EDIT if nb) + 1
-    length = total_bars * bar + 2.0
-    secs = [("Intro", 0, 4), ("Build", 4, 2), ("Drop", 6, 4), ("Breather", 10, 4), ("Build", 14, 2), ("Drop", 16, 6), ("Outro", 22, 3)]
+    length = TRAILER_BARS * bar + 2.0
+    secs = [("Breakdown", 0, 4), ("Build", 4, 2), ("Chorus", 6, 8), ("Outro", 14, 5)]
     W, H = 495, 195
     out = {}
     for name, t in THEMES.items():
@@ -1144,7 +1124,7 @@ def poster(song):
         ty = 120
         for nm, b0, nb in secs:
             a, b = sx(b0), sx(b0 + nb)
-            drop = nm == "Drop"
+            drop = nm == "Chorus"
             s.append(f'<rect x="{a:.1f}" y="{ty}" width="{b - a - 2:.1f}" height="22" rx="3" fill="{t["icon"] if drop else t["faint"]}" fill-opacity="{0.22 if drop else 1}"/>')
             if b - a > 34:
                 s.append(f'<text x="{a + 4:.1f}" y="{ty + 36}" font-family="{CARD_FONT}" font-size="9.5" fill="{t["muted"]}">{nm}</text>')
@@ -1153,7 +1133,7 @@ def poster(song):
             if tb <= 0:
                 continue
             xx = sx(tb)
-            drop = 6 <= tb < 10 or 16 <= tb < 22
+            drop = 6 <= tb < 14
             s.append(f'<rect x="{xx - 0.5:.1f}" y="{ty + (2 if drop else 6)}" width="1" height="{18 if drop else 10}" fill="{t["icon"] if drop else t["muted"]}"/>')
         s.append(f'<text x="25" y="{H - 18}" font-family="{CARD_FONT}" font-size="11.5" fill="{t["text"]}"><tspan font-weight="700">▶ Watch</tspan> · '
                  f'rebuilt every night from the same data as the song</text>')

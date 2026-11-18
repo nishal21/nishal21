@@ -41,7 +41,7 @@ fi
 mkdir -p _site/video
 cp -R video/. _site/video/
 python3 scripts/youtube_videos.py site _site/video || echo "video library not built; the page still plays links"
-# Year trailer: a 45 s edit of the song with the year's numbers, cut on the beat (wide and vertical)
+# Year trailer: a 35 s edit of the song (bars 34 to the end, one take) with the year's numbers, cut on the beat (wide and vertical)
 python3 scripts/year_trailer.py video _site/video --site _site/player || echo "year trailer not built"
 if [ -f _site/player/share-clip.mp4 ]; then
   ffmpeg -loglevel error -y -ss 1 -i _site/player/share-clip.mp4 -frames:v 1 -vf scale=540:-2 -q:v 4 _site/video/clip-poster.jpg \

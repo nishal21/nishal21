@@ -1,4 +1,4 @@
-"""A 15 second vertical clip (1080x1920, H.264 + AAC) of the busiest week in the song, for X, Reels and
+"""A ~15 second vertical clip (1080x1920, H.264 + AAC) of the busiest week in the song, for X, Reels and
 Shorts: the real audio around that week's bar, the record from the player spinning with the playing
 week's dots flashing on their hits, the lyric line at that moment, and a few stats.
 
@@ -17,7 +17,7 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "player"))
 import make_cover as MC  # noqa: E402  (same record, fonts and colors as the player)
 
-W, H, FPS, LEN = 1080, 1920, 30, 15.0
+W, H, FPS = 1080, 1920, 30
 INK = MC.INK
 WHITE = (245, 246, 240)
 SOFT = (200, 204, 192)
@@ -57,28 +57,49 @@ def busiest(song):
 
 
 def choose_window(song, b):
-    """15 s that always has lyrics on screen: the window holding the busiest week's bar and the most
-    complete lyric lines (at least 2), as centred on that bar as possible. If no such window exists,
-    the chorus closest to the busiest week."""
+    """A clip of whole bars that starts on the downbeat of the bar where a lyric line begins and ends on a
+    bar line with no line cut in half. Among those (8 or 9 bars, about 14-15 s), the one holding the busiest
+    week's bar with the most complete lines, as centred on that bar as possible. If none holds it, the chorus
+    closest to the busiest week. Returns (start, seconds, why)."""
     bar, length, lines = song["bar"], song["length"], song["lines"]
-    last = max(0.0, length - LEN)
     a, e = b * bar, (b + 1) * bar
 
-    def count(s):
-        return sum(1 for l in lines if l["t"] >= s and l["end"] <= s + LEN)
+    def ok(s, n):
+        end = s + n * bar
+        if end > length + 1e-6:
+            return False
+        # no line may run across either edge
+        return not any(l["t"] < s - 0.05 < l["end"] or l["t"] < end - 0.05 < l["end"] for l in lines)
 
-    best = None
-    for k in range(int(last / 0.25) + 1):
-        s = k * 0.25
-        if s <= a and e <= s + LEN and count(s) >= 2:
-            score = (count(s), -abs(s + LEN / 2 - (a + e) / 2))
-            if best is None or score > best[0]:
-                best = (score, s)
+    def count(s, n):
+        return sum(1 for l in lines if l["t"] >= s - 0.05 and l["end"] <= s + n * bar)
+
+    starts = sorted({int(l["t"] / bar + 0.02) for l in lines})  # bar the line starts in (0.02: float slack)
+    best, near = None, None
+    for sb in starts:
+        s = sb * bar
+        for n in (9, 8):
+            if not ok(s, n):
+                continue
+            c = count(s, n)
+            if c < 2:
+                continue
+            centre = -abs(s + n * bar / 2 - (a + e) / 2)
+            if s <= a and e <= s + n * bar:
+                score = (c, centre, n)
+                if best is None or score > best[0]:
+                    best = (score, s, n)
+            if near is None or centre > near[0]:
+                near = (centre, s, n)
     if best:
-        return best[1], f"busiest week with {best[0][0]} lyric lines"
-    choruses = [x["start"] for x in song["sections"] if x["name"] == "Chorus"]
-    c = min(choruses, key=lambda t: abs(t - a))
-    return min(max(0.0, c - 0.3), last), "nearest chorus (busiest week has no lyrics nearby)"
+        return best[1], best[2] * bar, f"busiest week with {best[0][0]} lyric lines, bars {round(best[1] / bar)}-{round(best[1] / bar) + best[2]}"
+    choruses = [x for x in song["sections"] if x["name"] == "Chorus"]
+    if choruses:
+        c = min(choruses, key=lambda x: abs(x["start"] - a))
+        return c["start"], min(8, c["bars"]) * bar, "nearest chorus (busiest week has no lyrics nearby)"
+    if near:
+        return near[1], near[2] * bar, "closest whole-line window"
+    return 0.0, min(length, 8 * bar), "song start"
 
 
 def main():
@@ -88,7 +109,7 @@ def main():
     weeks, bar = song["weeks"], song["bar"]
     n = len(weeks)
     b = busiest(song)
-    start, why = choose_window(song, b)
+    start, LEN, why = choose_window(song, b)
     ground = MC.sleeve_color(song)
     dmax = max([1] + [x for w in weeks for x in w["days"]])
 
@@ -128,8 +149,10 @@ def main():
     enc = subprocess.Popen(
         ["ffmpeg", "-loglevel", "error", "-y",
          "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
-         "-ss", f"{start:.3f}", "-t", str(LEN), "-i", str(site / "contribution-song.mp3"),
-         "-af", f"afade=t=in:d=0.4,afade=t=out:st={LEN - 1.0}:d=1.0",
+         "-ss", f"{start:.3f}", "-t", f"{LEN:.3f}", "-i", str(site / "contribution-song.mp3"),
+         # the clip opens on a sung downbeat, so only a click-guard fade in; the fade out sits in the gap
+         # after the last line, on the closing bar
+         "-af", f"afade=t=in:d=0.02,afade=t=out:st={LEN - 0.8:.3f}:d=0.8",
          "-c:v", "libx264", "-preset", "medium", "-crf", "24", "-pix_fmt", "yuv420p",
          "-profile:v", "high", "-level", "4.1", "-g", str(FPS * 2),
          "-c:a", "aac", "-b:a", "160k", "-ar", "44100", "-shortest", "-movflags", "+faststart", str(out)],
