@@ -859,6 +859,7 @@ function ytAdapter(it) {
           poll = setInterval(() => { if (P === a) { if (a.paused) paint(); paintBuffered(); } }, 500);
           const data = yt.getVideoData?.();
           if (data?.title && !it.title) setTitle(data.title, data.author);
+          amb.videoId(it, data?.video_id);
           paint();
           if (it.autoplay) yt.playVideo();
           syncCC();
@@ -876,16 +877,20 @@ function ytAdapter(it) {
             if (it.id && only.includes(it.id)) { store.set("ytonly", only.filter((x) => x !== it.id)); markYtOnly(); }
             const data = yt.getVideoData?.();
             if (data?.title && (it.list || !it.title)) setTitle(data.title, data.author);
+            amb.videoId(it, data?.video_id);
             if (prefs.rate !== 1) yt.setPlaybackRate(prefs.rate);
             if (!store.get("captions", false)) apply();
             onPlay();
           } else if (state === 2 || state === 5 || state === -1) { setState("waiting", false); onPause(); }
           else if (state === 3) setState("waiting", true);
           else if (state === 0) onEnded();
+          // a playlist moves on to its next video inside the same player: the light follows the new id
+          if (state === -1 || state === 5) amb.videoId(it, yt.getVideoData?.()?.video_id);
           amb.sync();
         },
         onPlaybackRateChange(e) { prefs.rate = e.data; syncRateUI(); amb.sync(); },
         onError(e) {
+          amb.videoId(it, yt.getVideoData?.()?.video_id);
           if ((e.data === 101 || e.data === 150) && it.id) { const l = store.get("ytonly", []); if (!l.includes(it.id)) store.set("ytonly", [...l, it.id].slice(-200)); markYtOnly(); }
           embedBox.replaceChildren(); // our message instead of YouTube's own error screen
           onError(ytErrorText(e.data), it.href || it.src, "Watch on YouTube");
@@ -1131,6 +1136,7 @@ function load(it, { play = false, push = true, focus = false } = {}) {
   amb.setSource(it);
   extras.onLoad(it);
   if (it.kind === "vimeo") vimeoOembed(it, seq);
+  if (it.kind === "youtube" && !it.id && it.list && servedFromWeb) ytPlaylistOembed(it, seq);
   try {
   if (it.local) {
     if (location.search) history.replaceState(null, "", SITE);
@@ -1161,6 +1167,19 @@ function load(it, { play = false, push = true, focus = false } = {}) {
     const r = stage.getBoundingClientRect();
     if (r.top < 0 || r.bottom > innerHeight) stage.scrollIntoView({ block: "start", behavior: reduceMotion.matches ? "auto" : "smooth" });
   }
+}
+// a playlist link names no video, so until the player says which one it shows, the light (and the title) come
+// from YouTube's oEmbed, whose thumbnail is the playlist's first video
+async function ytPlaylistOembed(it, seq) {
+  try {
+    const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/playlist?list=${it.list}`)}`);
+    if (!r.ok || seq !== loadSeq) return;
+    const o = await r.json();
+    if (seq !== loadSeq || cur !== it) return;
+    const id = String(o.thumbnail_url || "").match(/^https:\/\/i\.ytimg\.com\/vi\/([\w-]{11})\//)?.[1];
+    if (id) amb.videoId(it, id, true);
+    if (typeof o.title === "string" && $("#title").textContent === "YouTube video") setTitle(o.title, o.author_name);
+  } catch {}
 }
 async function vimeoOembed(it, seq) {
   try {
@@ -2244,8 +2263,19 @@ const amb = (() => {
     if (it.thumb) return { type: "frames", frames: [{ img: img(it.thumb, !!it.remoteThumb), at: 0 }] };
     return null;
   }
+  // everything that keeps drawing the old video: the still timer, the frame follower and the crossfade
+  function teardown() {
+    clearInterval(timer);
+    timer = 0;
+    stopFollow();
+    cancelAnimationFrame(blendRaf);
+    blendRaf = 0;
+    blend.draw = null;
+    blendLeft = 0;
+  }
   function setSource(it) {
     stopMirror();
+    teardown();
     note = "";
     readable = true;
     colors = it.colors || null;
@@ -2254,10 +2284,29 @@ const amb = (() => {
     setColors(colors || neutral);
     source = it.lyric ? { type: "canvas", el: lyricView?.canvas || null }
       : it.kind === "file" || it.kind === "hls" || it.kind === "dash" ? { type: "video" } : stills(it);
+    vid = it.kind === "youtube" ? it.id || null : null;
     layout();
     sctx.fillStyle = "#000"; sctx.fillRect(0, 0, 320, 180);
     ambi?.clear(); ambi?.resetBars?.();
     startMirror(it);
+    kick();
+    applyVars();
+  }
+  // The video the YouTube player is really showing. A playlist link has no id until the player loads, and a
+  // playlist moves on by itself, so the player reports it and the light switches its stills (and its copy) over.
+  let vid = null;
+  function videoId(it, id, weak = false) {
+    if (weak && vid) return; // the player already said which video it shows
+    if (it !== cur || it.kind !== "youtube" || !id || !/^[\w-]{11}$/.test(id) || id === "videoseries" || id === vid) return;
+    const own = id === it.id;
+    vid = id;
+    teardown();
+    stillKey = "";
+    hardNext = true;
+    colors = own ? it.colors || null : null;
+    setColors(colors || neutral);
+    source = stills({ ...it, id, amb: own ? it.amb : null, thumb: own ? it.thumb : null, remoteThumb: own ? it.remoteThumb : false });
+    if (mirror && !own) { stopMirror(); startMirror({ ...it, id, list: null }); }
     kick();
     applyVars();
   }
@@ -2442,13 +2491,13 @@ const amb = (() => {
   layout();
   applyVars();
   return {
-    setSource, updateStills, kick, stopMirror, frameAt, lyric,
+    setSource, updateStills, videoId, kick, stopMirror, frameAt, lyric,
     sync() { mirrorTick(true); },
     // a seek on the main player hides the copy at once and lines it up again
     seeked(t) { if (mirror?.ready) { show(mirror, false); seekMirror(mirror, t); } stillKey = ""; hardNext = true; },
     refresh() { relayout(); if (cur && (cur.kind === "youtube" || cur.kind === "vimeo")) setSource(cur); },
     get stats() {
-      return { mode: s.mode, on: s.on, mirroring: !!mirror?.ready, visible: !!mirror?.visible, drift, seeks, lead: mirror?.lead, source: source?.type || (colors ? "colors" : "neutral"),
+      return { mode: s.mode, on: s.on, vid, mirroring: !!mirror?.ready, visible: !!mirror?.visible, drift, seeks, lead: mirror?.lead, source: source?.type || (colors ? "colors" : "neutral"),
         lastDraw: lastVideoDraw, lastMediaTime, draws, msPerDraw: +cost.toFixed(2), levels: ambi?.levels, scale: ambi?.lastScale && [+ambi.lastScale.x.toFixed(3), +ambi.lastScale.y.toFixed(3)], p: ambi?.p, renderer: ambi?.type || "none", bars: ambi && [ambi.settings.horizontalBarsClipPercentage, ambi.settings.verticalBarsClipPercentage], settings: { ...s } };
     },
   };
