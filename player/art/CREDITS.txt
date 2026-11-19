@@ -15,12 +15,21 @@ Visitor song voice and music
   The visitor song is sung by ACE-Step 1.5 (acestep-v15-turbo) by ACE Studio x StepFun.
   https://github.com/ace-step/ACE-Step-1.5  License: Apache-2.0.
   Each take comes from acemusic.ai, the ACE-Step team's free hosted API (https://acemusic.ai), or, when that is
-  unavailable, from the same open model running on a GitHub Actions CPU. The player, the lyrics page and the video
-  credits name which one made the current take. Voice and music are separated with Demucs (MIT, Meta) for the
-  vocal-forward mix, and the lyrics are timed with faster-whisper (MIT) using OpenAI Whisper (MIT).
+  unavailable, from the same open model running on a GitHub Actions CPU. If there is no take yet, Kokoro sings
+  instead. The player, the lyrics page and the video credits name which one made the current take. Voice and
+  music are separated with Demucs (MIT, Meta) for the vocal-forward mix, and the lyrics are timed with
+  faster-whisper (MIT) using OpenAI Whisper (MIT).
 
 Contribution song voice
-  When a take passes its checks, the contribution song's vocals are sung by the same ACE-Step 1.5 model, a section
-  at a time (acemusic.ai first, a GitHub Actions CPU for any section it can't sing well), separated with Demucs and
-  placed on the song's own beat grid. Otherwise the two Piper TTS voices sing it. The lyrics page, the card and
-  contribution-song.json name tonight's engine.
+  The contribution song uses pinned Runware takes (assets/song-voices.json and assets/song-pins.json).
+  The rap (Original) is MiniMax Music 2.6 for the male, female and duet voices.
+  The acoustic is ACE-Step v1.5 XL for the male and female voices, and MiniMax Music 2.6 for the duet.
+  Voices rotate each day in Asia/Kolkata, starting 19 Nov 2026: male rap with female acoustic, then female
+  rap with male acoustic, then both songs as a male and female duet. While a style is pinned, the nightly
+  job leaves its audio and timing alone and only updates the page and the calendar numbers. If a take is
+  not pinned, Kokoro sings (two voices). The lyrics page, the card and contribution-song.json name the
+  current engine.
+
+Ambient light
+  The video player's ambient light is drawn with youtube-ambilight by Wessel Kroos, vendored in
+  video/vendor/ambilight/. https://github.com/WesselKroos/youtube-ambilight  License: MIT.

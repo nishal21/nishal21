@@ -74,7 +74,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 
 /* ---------- page tint from the video ---------- */
 .backdrop {
-  position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--bg);
+  position: fixed; inset: 0; z-index: -2; pointer-events: none; background: var(--bg);
 }
 .backdrop::before {
   content: ""; position: absolute; inset: 0;
@@ -138,7 +138,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   grid-template-areas: "stage" "info" "link";
 }
 .primary { display: contents; }
-.stage-wrap { grid-area: stage; position: relative; min-width: 0; }
+.stage-wrap { grid-area: stage; position: relative; min-width: 0; overflow: visible; }
 .info { grid-area: info; min-width: 0; }
 .link { grid-area: link; min-width: 0; }
 .queue { grid-area: queue; display: none; min-width: 0; }

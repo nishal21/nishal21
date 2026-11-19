@@ -9,7 +9,7 @@ try{var l=new URLSearchParams(location.hash.slice(1)).get("persona")||localStora
 // fetch the song data this page needs straight away (the visitor song page used to preload the other one)
 try{var p=document.createElement("link");p.rel="preload";p.as="fetch";p.crossOrigin="anonymous";p.href=(/[?&]song=visitor(&|$)/.test(location.search)?"visitor-song":"contribution-song")+".json";document.head.appendChild(p)}catch(e){}</script>
 <title>Contribution song · Nishal K</title>
-<meta name="description" content="A song made from Nishal K's GitHub contributions over the last 12 months. One bar per week, lyrics from the real numbers, rebuilt every night.">
+<meta name="description" content="A song made from Nishal K's GitHub contributions over the last 12 months. One bar per week, lyrics from the real numbers. Pinned takes, with the voice changing each day.">
 <meta name="theme-color" content="#11140b">
 <meta property="og:type" content="music.song">
 <meta property="og:title" content="Contribution song · Nishal K">
@@ -257,7 +257,7 @@ try{var p=document.createElement("link");p.rel="preload";p.as="fetch";p.crossOri
       <h2 id="about-h">How it's made</h2>
     </header>
     <div class="prose">
-      <p>Every bar of this song is one week of my GitHub contribution calendar, in order. Drums follow the daily counts, busier weeks get more bass and melody, and the lyrics are filled in from the same numbers. A GitHub Action rebuilds the song, this page and the cover every night, so tomorrow it sounds a little different.</p>
+      <p>Every bar of this song is one week of my GitHub contribution calendar, in order. The lyrics come from those numbers. What you hear is a pinned take, so the music stays the same from night to night: the rap is MiniMax Music 2.6, and the acoustic is ACE-Step v1.5 XL (the acoustic duet is MiniMax too). Each day the voices change in IST: male rap with female acoustic, then the other way around, then both as a duet. A GitHub Action still updates this page and the calendar numbers every night, but it leaves the pinned takes alone.</p>
       <p><a href="https://github.com/nishal21/nishal21/blob/main/scripts/contribution_song.py">Read the generator</a> <span aria-hidden="true">·</span> <span id="gen"></span></p>
       <details class="keys">
         <summary>Keyboard shortcuts</summary>
@@ -276,7 +276,7 @@ try{var p=document.createElement("link");p.rel="preload";p.as="fetch";p.crossOri
 
 <footer class="foot">
   <p>Made by <a href="https://github.com/nishal21">Nishal K</a> in Kerala.</p>
-  <p class="credits">Illustrations on the covers and around the page: <a href="https://www.opendoodles.com">Open Doodles</a> by Pablo Stanley (CC0). Handwriting: a <a href="https://commons.wikimedia.org/wiki/File:Abraham_Lincoln_Letter_to_Mr._Brayman_September_23,_1854_-_NARA_-_192847.jpg">public domain letter</a> from the U.S. National Archives. Visitor song voice and music: <a href="https://github.com/ace-step/ACE-Step-1.5">ACE-Step 1.5</a> by ACE Studio x StepFun (Apache-2.0), via <a href="https://acemusic.ai">acemusic.ai</a> or a GitHub Actions CPU; the contribution song uses the same model, a section at a time, when its take passes the checks (Piper TTS otherwise). <a href="art/CREDITS.txt">Credits</a></p>
+  <p class="credits">Illustrations on the covers and around the page: <a href="https://www.opendoodles.com">Open Doodles</a> by Pablo Stanley (CC0). Handwriting: a <a href="https://commons.wikimedia.org/wiki/File:Abraham_Lincoln_Letter_to_Mr._Brayman_September_23,_1854_-_NARA_-_192847.jpg">public domain letter</a> from the U.S. National Archives. The contribution song uses pinned Runware takes: MiniMax Music 2.6 for the rap and the acoustic duet, <a href="https://github.com/ace-step/ACE-Step-1.5">ACE-Step v1.5 XL</a> for the other acoustic voices. The voice rotates each day (IST): rap and acoustic swap male and female, and every third day both are a duet. Kokoro sings if a take isn't pinned. Visitor song voice and music: ACE-Step 1.5 by ACE Studio x StepFun (Apache-2.0), via <a href="https://acemusic.ai">acemusic.ai</a> or a GitHub Actions CPU, or Kokoro when there's no take. <a href="art/CREDITS.txt">Credits</a></p>
 </footer>
 </body>
 </html>
