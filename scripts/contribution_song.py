@@ -804,17 +804,19 @@ def lyrics_md(timeline, s, length):
     out = [f"# Contribution song", "",
            f"{mmss(length)} · {BPM} BPM · A minor · {s['total']} contributions from "
            f"{s['first']:%b %-d, %Y} to {s['last']:%b %-d, %Y}", "",
-           "Every bar is one week of my GitHub contribution calendar, in order. Busier weeks get more hats, kicks, "
-           "808 notes and keys, and every day still triggers its own drum hit. The verses are rapped, the chorus is "
-           "sung on the hook melody, and the lyrics are filled in from the same numbers. A GitHub Action rebuilds it "
-           "every night.", ""]
+           ("A finished take sings it, with lyrics written from my GitHub contribution calendar. The player spins the "
+            "year's weeks under it and shows the numbers as they are tonight." if PIN else
+            "Every bar is one week of my GitHub contribution calendar, in order. Busier weeks get more hats, kicks, "
+            "808 notes and keys, and every day still triggers its own drum hit. The verses are rapped, the chorus is "
+            "sung on the hook melody, and the lyrics are filled in from the same numbers. A GitHub Action rebuilds it "
+            "every night."), ""]
     cur = None
     for line in timeline:
         if line["section"] != cur:
             cur = line["section"]
             out += ["", f"## {cur}", ""]
         out.append(f"`{mmss(line['start'])}` {line['text']}  ")
-    out += ["", "**Vocals:** " + (f"[ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5) by ACE Studio × StepFun (Apache-2.0), "
+    out += ["", "**Vocals:** " + (PIN["engine"] + " (a pinned take)" if PIN else f"[ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5) by ACE Studio × StepFun (Apache-2.0), "
                                   "sung tonight a section at a time " + engine_where(TAKE["used"]["engine"])
                                   if TAKE["used"] else "Kokoro TTS, two voices"),
             "", "[Play it in the browser](https://nishal21.github.io/nishal21/player/) or "
@@ -878,18 +880,21 @@ def render_card(s, length, wave_peaks, t):
     label = f"Contribution song · {mmss(length)} · {s['total']} contributions"
     out = [card_open(t, label=label)]
     out.append(f'<text x="25" y="35" font-family="{FONT}" font-size="18" font-weight="600" fill="{t["title"]}">Contribution song</text>')
-    out.append(f'<text x="{w-25}" y="34" text-anchor="end" font-family="{FONT}" font-size="11" fill="{t["muted"]}">{BPM} BPM · A minor · 1 bar = 1 week</text>')
+    out.append(f'<text x="{w-25}" y="34" text-anchor="end" font-family="{FONT}" font-size="11" fill="{t["muted"]}">{PIN["bpm"] if PIN else BPM} BPM · A minor{"" if PIN else " · 1 bar = 1 week"}</text>')
     x0, x1, mid, amp = 25, w - 25, 92, 34
     n = len(wave_peaks)
     bw = (x1 - x0) / n
     edges, acc = [], 0
-    for name, nb in SECTIONS:
+    if PIN:  # the take's own sections
+        ss = PIN["sections"]
+        edges = [(x["name"], x["start"] / length, (ss[i + 1]["start"] if i + 1 < len(ss) else length) / length) for i, x in enumerate(ss)]
+    for name, nb in ([] if PIN else SECTIONS):
         edges.append((name, acc * BAR / length, (acc + nb) * BAR / length))
         acc += nb
     def color_at(frac):
         for name, a, b in edges:
             if a <= frac < b:
-                return t[SEC_COLORS[name]]
+                return t[SEC_COLORS.get(name, "muted")]
         return t["muted"]
     for i, p in enumerate(wave_peaks):
         hh = max(1.5, amp * p)
@@ -897,13 +902,13 @@ def render_card(s, length, wave_peaks, t):
     # section strip
     for name, a, b in edges:
         xa, xb = x0 + a * (x1 - x0), x0 + min(b, 1) * (x1 - x0)
-        out.append(f'<rect x="{xa:.1f}" y="136" width="{xb - xa - 2:.1f}" height="3" rx="1.5" fill="{t[SEC_COLORS[name]]}" fill-opacity="0.8"/>')
+        out.append(f'<rect x="{xa:.1f}" y="136" width="{xb - xa - 2:.1f}" height="3" rx="1.5" fill="{t[SEC_COLORS.get(name, "muted")]}" fill-opacity="0.8"/>')
         short = SEC_SHORT.get(name, name)
         if not short or len(short) * 6 > xb - xa:
             continue
         out.append(f'<text x="{(xa + xb) / 2:.1f}" y="152" text-anchor="middle" font-family="{FONT}" font-size="10" fill="{t["muted"]}">{esc(short)}</text>')
-    out.append(f'<text x="25" y="{h-18}" font-family="{FONT}" font-size="11.5" fill="{t["text"]}"><tspan font-weight="700">{mmss(length)}</tspan> · {s["total"]} contributions · {len(SECTIONS)} sections</text>')
-    out.append(f'<text x="{w-25}" y="{h-18}" text-anchor="end" font-family="{FONT}" font-size="10" fill="{t["muted"]}">{"vocals: ACE-Step 1.5 (" + TAKE["used"]["engine"] + ")" if TAKE["used"] else "vocals: Kokoro TTS, two voices"}</text>')
+    out.append(f'<text x="25" y="{h-18}" font-family="{FONT}" font-size="11.5" fill="{t["text"]}"><tspan font-weight="700">{mmss(length)}</tspan> · {s["total"]} contributions · {len(edges)} sections</text>')
+    out.append(f'<text x="{w-25}" y="{h-18}" text-anchor="end" font-family="{FONT}" font-size="10" fill="{t["muted"]}">{"vocals: " + PIN["engine"] if PIN else "vocals: ACE-Step 1.5 (" + TAKE["used"]["engine"] + ")" if TAKE["used"] else "vocals: Kokoro TTS, two voices"}</text>')
     out.append("</svg>\n")
     return "\n".join(out)
 
@@ -937,6 +942,18 @@ def colour(inst, weeks, langs, events, timeline, n):
     return inst
 
 
+PIN = None  # the pinned Original's timing, when there is one (set in main)
+
+
+def pinned_original():
+    """The Original's pinned take (scripts/pin_song.py), as (mp3 path, timing dict), or None."""
+    pins = os.path.join(ASSETS, "song-pins.json")
+    mp, jp = os.path.join(ASSETS, "pinned", "contribution-song.mp3"), os.path.join(ASSETS, "pinned", "contribution-song.json")
+    if os.path.exists(pins) and "original" in json.load(open(pins)) and os.path.exists(mp) and os.path.exists(jp):
+        return mp, json.load(open(jp))
+    return None
+
+
 def main():
     if not shutil.which("ffmpeg"):
         fail("ffmpeg not found")
@@ -964,6 +981,16 @@ def main():
             import visitor_take as T
             song = T.decode(TAKE["whole"], SR)
             length, lufs = song.shape[1] / SR, TAKE["used"].get("lufs", -13.7)
+        global PIN
+        pin = pinned_original()
+        if pin:
+            PIN = pin[1]
+            # a pinned take sings the Original: its audio and timing replace tonight's render; weeks and stats stay
+            import visitor_take as T
+            song = T.decode(pin[0], SR)
+            length, lufs = song.shape[1] / SR, float("nan")
+            timeline = [dict(start=l["t"], end=l["end"], section=l["section"], text=l["text"]) for l in pin[1]["lines"]]
+            print(f"song: the Original is pinned ({pin[1].get('engine')}, {pin[1].get('voice', '?')} voice), kept as is")
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -977,9 +1004,12 @@ def main():
         write_wav(os.path.join(stems_dir, "vocals.wav"), vox_solo / (np.max(np.abs(vox_solo)) + 1e-9) * 0.89)
         with open(os.path.join(stems_dir, "notes.json"), "w") as f:
             json.dump(dict(timeline=timeline), f)
-    encode_mp3(song, os.path.join(ASSETS, "contribution-song.mp3"))
+    if pin:
+        shutil.copyfile(pin[0], os.path.join(ASSETS, "contribution-song.mp3"))
+    else:
+        encode_mp3(song, os.path.join(ASSETS, "contribution-song.mp3"))
     stem_info = None
-    if REMIX_STEMS and not TAKE.get("whole"):  # the remix stems are the Kokoro arrangement, not the take
+    if REMIX_STEMS and not TAKE.get("whole") and not pin:  # the remix stems are the Kokoro arrangement, not the take
         try:  # the song still ships if the stems fail; the player then just hides the remix
             stem_info = STEMS.export(stems, gain, hits, length, os.path.join(ASSETS, "stems"))
         except Exception as e:
@@ -995,6 +1025,9 @@ def main():
     js = json.loads(song_json(s, facts, weeks, timeline, length, song, langs, events, year, stem_info))
     if styles:
         js["styles"] = styles
+    if pin:
+        import pin_song
+        js = pin_song.merge_original(js, pin[1])
     write_atomic(os.path.join(ASSETS, "contribution-song.json"), json.dumps(js, separators=(",", ":")))
     print(f"song: {mmss(length)} ({length:.1f}s), {len(weeks)} bars, {len(timeline)} vocal lines, {lufs:.1f} LUFS")
 

@@ -56,13 +56,26 @@ def busiest(song):
     return max(range(len(tot)), key=lambda i: (tot[i], i))
 
 
+def beat0(song):
+    return float(song.get("beat0") or 0.0) if song.get("pinned") else 0.0
+
+
+def week_len(song):
+    """Seconds per week on the record, as player.js plays it: a bar, or less when a pinned take is shorter than a
+    bar a week."""
+    n = max(1, len(song["weeks"]))
+    return min(song["bar"], song["length"] / n)
+
+
 def choose_window(song, b):
     """A clip of whole bars that starts on the downbeat of the bar where a lyric line begins and ends on a
     bar line with no line cut in half. Among those (8 or 9 bars, about 14-15 s), the one holding the busiest
     week's bar with the most complete lines, as centred on that bar as possible. If none holds it, the chorus
     closest to the busiest week. Returns (start, seconds, why)."""
     bar, length, lines = song["bar"], song["length"], song["lines"]
-    a, e = b * bar, (b + 1) * bar
+    g0 = beat0(song)  # where the bar grid starts (a pinned take has its own first downbeat)
+    wk = week_len(song)
+    a, e = b * wk, (b + 1) * wk
 
     def ok(s, n):
         end = s + n * bar
@@ -74,10 +87,12 @@ def choose_window(song, b):
     def count(s, n):
         return sum(1 for l in lines if l["t"] >= s - 0.05 and l["end"] <= s + n * bar)
 
-    starts = sorted({int(l["t"] / bar + 0.02) for l in lines})  # bar the line starts in (0.02: float slack)
+    starts = sorted({int((l["t"] - g0) / bar + 0.02) for l in lines})  # bar the line starts in (0.02: float slack)
     best, near = None, None
     for sb in starts:
-        s = sb * bar
+        s = g0 + sb * bar
+        if s < 0:
+            continue
         for n in (9, 8):
             if not ok(s, n):
                 continue
@@ -92,11 +107,12 @@ def choose_window(song, b):
             if near is None or centre > near[0]:
                 near = (centre, s, n)
     if best:
-        return best[1], best[2] * bar, f"busiest week with {best[0][0]} lyric lines, bars {round(best[1] / bar)}-{round(best[1] / bar) + best[2]}"
+        sb = round((best[1] - g0) / bar)
+        return best[1], best[2] * bar, f"busiest week with {best[0][0]} lyric lines, bars {sb}-{sb + best[2]}"
     choruses = [x for x in song["sections"] if x["name"] == "Chorus"]
     if choruses:
         c = min(choruses, key=lambda x: abs(x["start"] - a))
-        return c["start"], min(8, c["bars"]) * bar, "nearest chorus (busiest week has no lyrics nearby)"
+        return c["start"], min(8, c.get("bars", 8)) * bar, "nearest chorus (busiest week has no lyrics nearby)"
     if near:
         return near[1], near[2] * bar, "closest whole-line window"
     return 0.0, min(length, 8 * bar), "song start"
@@ -107,6 +123,7 @@ def main():
     out = Path(sys.argv[2]) if len(sys.argv) > 2 else site / "share-clip.mp4"
     song = json.loads((site / "contribution-song.json").read_text())
     weeks, bar = song["weeks"], song["bar"]
+    week = week_len(song)
     n = len(weeks)
     b = busiest(song)
     start, LEN, why = choose_window(song, b)
@@ -160,7 +177,7 @@ def main():
     lines = song["lines"]
     for f in range(int(LEN * FPS)):
         t = start + f / FPS
-        pos = t / bar
+        pos = t / week
         im = base.copy()
         turn = ((pos - 0.5) * 360) / n  # PIL turns counter-clockwise, the player turns the other way
         rot = disc.rotate(turn, resample=Image.BICUBIC)

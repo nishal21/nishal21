@@ -16,6 +16,31 @@ done
 for f in contribution-song-acoustic.mp3 contribution-song-acoustic.json contribution-song-acoustic.lrc; do
   if [ -f "assets/$f" ]; then cp "assets/$f" _site/player/; fi
 done
+# Voice slots (assets/song-voices.json): the pages pick today's male or female take. The main takes are copied above;
+# any other filled slot brings its own mp3/json/lrc and gets its own lyric video plan below.
+SLOTS=$(python3 -c "
+import json, os, re
+try: v = json.load(open('assets/song-voices.json'))
+except Exception: v = {}
+main = {'contribution-song', 'contribution-song-acoustic'}
+for st in ('original', 'acoustic'):
+    for b in (v.get(st) or {}).values():
+        if isinstance(b, str) and re.fullmatch(r'[\w-]+', b) and b not in main and os.path.exists(f'assets/{b}.mp3') and os.path.exists(f'assets/{b}.json'):
+            print(b)
+")
+if [ -f assets/song-voices.json ]; then cp assets/song-voices.json _site/player/; fi
+for b in $SLOTS; do
+  for e in json lrc; do if [ -f "assets/$b.$e" ]; then cp "assets/$b.$e" _site/player/; fi; done
+  # a take with a trim in its json (pin_song.py --end) is cut there with its fade; the committed MP3 stays as delivered
+  TRIM=$(python3 -c "import json; t = json.load(open('assets/$b.json')).get('trim') or {}; print(t.get('end', ''), t.get('fade', ''))")
+  set -- $TRIM
+  if [ -n "${1:-}" ]; then
+    ffmpeg -loglevel error -y -i "assets/$b.mp3" -t "$1" -af "afade=t=out:st=$(python3 -c "print(max(0, $1 - ${2:-1.5}))"):d=${2:-1.5}" \
+      -c:a libmp3lame -b:a 192k -ar 44100 "_site/player/$b.mp3" || cp "assets/$b.mp3" _site/player/
+  else
+    cp "assets/$b.mp3" _site/player/
+  fi
+done
 # The visitor song (player.js loads it with ?song=visitor). The MP3 comes from the "Visitor song" step.
 for f in visitor-song.mp3 visitor-song.json visitor-song.lrc visitor-song-lyrics.md; do
   if [ -f "assets/$f" ]; then cp "assets/$f" _site/player/; else echo "visitor song: $f missing"; fi
@@ -36,12 +61,16 @@ if [ -f assets/contribution-song-acoustic.mp3 ]; then
   python3 scripts/visitor_video.py _site/video --web --name contribution-acoustic --lrc assets/contribution-song-acoustic.lrc \
     --json assets/contribution-song-acoustic.json --mp3 assets/contribution-song-acoustic.mp3 || echo "acoustic lyric video not built"
 fi
+for b in $SLOTS; do
+  python3 scripts/visitor_video.py _site/video --web --name "${b/contribution-song/contribution}" --lrc "assets/$b.lrc" \
+    --json "assets/$b.json" --mp3 "_site/player/$b.mp3" || echo "$b lyric video not built"
+done
 # The video page: the year trailer, the share clip, the YouTube library (videos.json, refreshed nightly into assets/
 # and kept from the last good run if the feed fails) and a player for any link.
 mkdir -p _site/video
 cp -R video/. _site/video/
 python3 scripts/youtube_videos.py site _site/video || echo "video library not built; the page still plays links"
-# Year trailer: a 35 s edit of the song (bars 34 to the end, one take) with the year's numbers, cut on the beat (wide and vertical)
+# Year trailer: one continuous piece of the song from a bar line to its end (the main Original take, so the male rap) with the year's numbers, cut on the beat (wide and vertical)
 python3 scripts/year_trailer.py video _site/video --site _site/player || echo "year trailer not built"
 if [ -f _site/player/share-clip.mp4 ]; then
   ffmpeg -loglevel error -y -ss 1 -i _site/player/share-clip.mp4 -frames:v 1 -vf scale=540:-2 -q:v 4 _site/video/clip-poster.jpg \

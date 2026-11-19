@@ -83,7 +83,7 @@ def main():
         n += 2
     if os.path.exists(os.path.join(SITE, "player", "share-clip.mp4")):
         page("video/clip/", "Contribution song, busiest week · Nishal K",
-             "A 15 second clip of my contribution song: the busiest week of the year, rebuilt every night.",
+             "A short clip of my contribution song around the busiest week of the year, rebuilt every night.",
              f"{BASE}/player/og.png", "../?v=clip", player=f"{BASE}/video/?embed=1&v=clip")
         n += 1
     tr = load(os.path.join(SITE, "video", "trailer.json"))

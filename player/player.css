@@ -1053,6 +1053,9 @@ kbd {
   :root[data-persona] .remix-open .rx-tempo { gap: var(--s2); }
 }
 
+/* which voice sings today (the takes alternate male / female by the date in IST) */
+.voice-today { margin: 2px 0 0; font-size: 0.8125rem; color: var(--fg-2); letter-spacing: 0.01em; }
+.voice-today[hidden] { display: none; }
 /* style switch: Original / Acoustic (same look as the page tabs) */
 .styles { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--wash); border: 1px solid var(--line); flex: none; }
 .styles[hidden] { display: none; }

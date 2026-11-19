@@ -1,12 +1,56 @@
 {
  "acoustic": {
   "file": "contribution-song-acoustic.mp3",
-  "engine": "Runware \u00b7 MiniMax Music 2.6",
-  "sheet": "assets/pinned/runware-lyrics.txt",
-  "bpm": 109.5,
-  "length": 102.342,
+  "voice": "male",
+  "engine": "Runware \u00b7 ACE-Step v1.5 XL",
+  "sheet": "assets/pinned/runware-female-lyrics.txt",
+  "bpm": 115.0,
+  "length": 180.0,
   "lines": 20,
   "unsung": 0,
-  "pinned": "2026-11-18T14:46:16Z"
+  "pinned": "2026-11-19T13:51:40Z",
+  "voices": {
+   "female": {
+    "file": "contribution-song-acoustic-female.mp3",
+    "bpm": 140.0,
+    "length": 180.0,
+    "lines": 20,
+    "pinned": "2026-11-19T13:51:51Z"
+   },
+   "duet": {
+    "file": "contribution-song-acoustic-duet.mp3",
+    "bpm": 110.0,
+    "length": 109.796,
+    "lines": 20,
+    "pinned": "2026-11-19T13:51:59Z"
+   }
+  }
+ },
+ "original": {
+  "file": "pinned/contribution-song.mp3",
+  "voice": "male",
+  "engine": "Runware \u00b7 MiniMax Music 2.6",
+  "sheet": "assets/pinned/runware-rap-lyrics.txt",
+  "bpm": 140.0,
+  "length": 76.846,
+  "lines": 20,
+  "unsung": 0,
+  "pinned": "2026-11-18T14:55:58Z",
+  "voices": {
+   "female": {
+    "file": "contribution-song-female.mp3",
+    "bpm": 140.0,
+    "length": 75.107,
+    "lines": 20,
+    "pinned": "2026-11-18T15:17:05Z"
+   },
+   "duet": {
+    "file": "contribution-song-duet.mp3",
+    "bpm": 139.5,
+    "length": 82.408,
+    "lines": 20,
+    "pinned": "2026-11-19T13:52:06Z"
+   }
+  }
  }
 }

@@ -440,7 +440,13 @@ function mix(a, b, t) {
 }
 
 // rotation of the record in degrees: the playing week sits at 12 o'clock under the needle
-const turnAt = (t) => (reduceMotion.matches ? 0 : -((t / song.bar - 0.5) * 360) / song.weeks.length);
+// seconds per week on the record: a bar of the nightly song; a pinned take that's shorter than a bar a week
+// spreads the year over its own length, so every week still comes round
+function wk(s = song) {
+  const n = s?.weeks?.length || 1;
+  return s?.pinned && s.length > 0 ? Math.min(s.bar, s.length / n) : s.bar;
+}
+const turnAt = (t) => (reduceMotion.matches ? 0 : -((t / wk() - 0.5) * 360) / song.weeks.length);
 
 function drawSleeve(t = media.currentTime) {
   if (!song) return;
@@ -449,7 +455,7 @@ function drawSleeve(t = media.currentTime) {
   if (S !== sleeveSize || !discImg) { sleeveSize = S; discImg = renderDisc(S); }
   const { D, cx, cy, R, r0, r1, label } = geo(S);
   const n = song.weeks.length;
-  const pos = t / song.bar;                       // weeks elapsed, fractional
+  const pos = t / wk();                       // weeks elapsed, fractional
   const turn = turnAt(t);
   x.fillStyle = ground;
   x.fillRect(0, 0, S, S);
@@ -545,7 +551,7 @@ sleeve.addEventListener("pointermove", (e) => {
   scratch.ang = ang;
   // the record follows the hand: turning it back (counterclockwise) moves forward in time, like the platter does
   const d = media.duration || song.length;
-  const dt = (-da / 360) * song.weeks.length * song.bar;
+  const dt = (-da / 360) * song.weeks.length * wk();
   media.currentTime = clamp(media.currentTime + dt, 0, Math.max(0, d - 0.05));
   lastT = media.currentTime;
   update(true);
@@ -558,7 +564,7 @@ function endScratch(e) {
   if (e.type === "pointercancel") { if (s.wasPlaying) play(); return; }
   if (!s.moved) {
     const p = discPoint(e);
-    jump(weekAtAngle(p.ang, s.t0) * song.bar + 0.01);
+    jump(weekAtAngle(p.ang, s.t0) * wk() + 0.01);
     play();
   } else if (s.wasPlaying) play();
 }
@@ -569,12 +575,12 @@ sleeve.addEventListener("pointerleave", () => { if (!scratch) sleeve.classList.r
 sleeve.addEventListener("keydown", (e) => {
   if (!song || e.altKey || e.ctrlKey || e.metaKey) return;
   const n = song.weeks.length;
-  const bar = clamp(Math.floor(media.currentTime / song.bar), 0, n - 1);
+  const bar = clamp(Math.floor(media.currentTime / wk()), 0, n - 1);
   const to = { ArrowRight: bar + 1, ArrowUp: bar + 1, ArrowLeft: bar - 1, ArrowDown: bar - 1, PageUp: bar + 4, PageDown: bar - 4, Home: 0, End: n - 1 }[e.key];
   if (to !== undefined) {
     e.preventDefault(); e.stopPropagation();
     if (e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) { jump(media.currentTime + (e.key === "ArrowLeft" ? -1 : 1)); return; }
-    jump(clamp(to, 0, n - 1) * song.bar + 0.01);
+    jump(clamp(to, 0, n - 1) * wk() + 0.01);
   } else if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); play(); }
 });
 
@@ -982,7 +988,7 @@ function buildGrid(data) {
       b.append(c);
       cells.push(c);
     }
-    b.addEventListener("click", () => { jump(i * data.bar + 0.01); play(); });
+    b.addEventListener("click", () => { jump(i * wk(data) + 0.01); play(); });
     b.addEventListener("keydown", (e) => {
       const k = { ArrowRight: 1, ArrowLeft: -1, Home: -999, End: 999 }[e.key];
       if (k === undefined) return;
@@ -1301,9 +1307,9 @@ function fireHits(from, to) {
   // day hits whose step fell between the last frame and this one
   if (to < from || to - from > 0.5) return;
   const n = song.weeks.length;
-  for (let b = Math.floor(from / song.bar); b <= Math.floor(to / song.bar) && b < n; b++) {
+  for (let b = Math.floor(from / wk()); b <= Math.floor(to / wk()) && b < n; b++) {
     for (let d = 0; d < 7; d++) {
-      const at = (b + d * DAY_STEP) * song.bar;
+      const at = (b + d * DAY_STEP) * wk();
       const c = song.weeks[b]?.days[d] ?? 0;
       if (at > from && at <= to && c) {
         pulse = Math.max(pulse, 0.35 + 0.65 * Math.sqrt(c / dmax));
@@ -1370,7 +1376,7 @@ function update(force) {
 
   // bar, week and section
   const n = song.weeks.length;
-  const bar = clamp(Math.floor(t / song.bar), 0, n - 1);
+  const bar = clamp(Math.floor(t / wk()), 0, n - 1);
   if (bar !== curBar || force) {
     weekEls.forEach((el, i) => { el.classList.toggle("now", i === bar && (t > 0 || !media.paused)); el.classList.toggle("ahead", i > bar); });
     curBar = bar;
@@ -1399,7 +1405,7 @@ function update(force) {
       gs.scrollTo({ left: target, behavior: reduceMotion.matches ? "auto" : "smooth" });
     }
   }
-  const step = Math.floor(((t / song.bar) % 1) / DAY_STEP);
+  const step = Math.floor(((t / wk()) % 1) / DAY_STEP);
   padEls.forEach((row) => row.forEach((pad, dd) => pad.classList.toggle("step", !media.paused && dd === step)));
 
   const sec = sectionIndex(t);
@@ -1490,6 +1496,45 @@ window.songPlayer = {
   onPanel: (fn) => panelWatchers.push(fn),
 };
 
+/* ---------- voices: each style has a male and a female take, and the day picks one ---------- */
+// song-voices.json: { epoch, days: [{ original, acoustic }, ...], original: { male, female }, acoustic: { ... } } with
+// a file base per slot (null while it's empty). Day k after the epoch (dates in IST) plays days[k % days.length];
+// an empty slot falls back to the style's other voice. ?voice=male|female|duet pins it for testing and sharing.
+// video/video.js makes the same pick, so the video page and the player agree on the day.
+const MAIN_BASE = { original: "contribution-song", acoustic: "contribution-song-acoustic" };
+const VOICE_ORDER = ["male", "female", "duet"];
+function istDay(epoch) {
+  const now = new Date(Date.now() + 5.5 * 3600e3), m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(epoch || "");
+  if (!m) return 0;
+  return Math.floor((Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - Date.UTC(+m[1], m[2] - 1, +m[3])) / 864e5);
+}
+function voicePick(cfg, st) {
+  const slots = cfg?.[st];
+  if (!slots || typeof slots !== "object") return null;
+  const q = new URLSearchParams(location.search).get("voice");
+  const days = Array.isArray(cfg.days) && cfg.days.length ? cfg.days : null;
+  const k = istDay(cfg.epoch), want = VOICE_ORDER.includes(q) ? q : days ? days[((k % days.length) + days.length) % days.length]?.[st] : null;
+  const ok = (v) => typeof slots[v] === "string" && /^[\w-]+$/.test(slots[v]);
+  const voice = [want, ...VOICE_ORDER].find(ok) || null; // an empty slot falls back to the first take there is
+  return voice ? { voice, base: slots[voice] } : null;
+}
+function voiceLabel(st) {
+  const el = $("#voice-today"), v = styleData?.[st]?.voice;
+  if (!el) return;
+  el.hidden = !v;
+  if (v) el.textContent = `today: ${v} vocal`;
+}
+// the style's take for today: its json (lines, length, timing) and mp3, or the main files when that's today's voice
+function voiceTake(cfg, st, fallback) {
+  const p = voicePick(cfg, st);
+  if (!p) return Promise.resolve(fallback);
+  if (p.base === MAIN_BASE[st]) return Promise.resolve(fallback && { ...fallback, voice: fallback.voice || p.voice });
+  return fetch(`${p.base}.json`, { credentials: "same-origin" })
+    .then((r) => (r.ok ? r.json() : Promise.reject()))
+    .then((d) => (Array.isArray(d?.lines) && d.lines.length && d.length > 0 ? { ...d, voice: d.voice || p.voice, base: p.base } : fallback))
+    .catch(() => fallback);
+}
+
 /* ---------- style switch: the Original song or the Acoustic version (contribution song only) ---------- */
 const STYLE_KEY = "song-style";
 let styleData = null, styleNow = "original";
@@ -1502,22 +1547,26 @@ function styleApply(data, st) {
   // the acoustic take is its own recording: its own lines, length and audio; the grid and stats stay
   const a = st === "acoustic" ? styleData.acoustic : styleData.original;
   data.lines = a.lines; data.length = a.length; data.bpm = a.bpm; data.key = a.key; data.engine = a.engine;
+  if (a.bar > 0) data.bar = a.bar;
+  data.pinned = !!a.pinned;
   if (a.peaks?.length) data.peaks = a.peaks;
-  if (st === "acoustic") delete data.stems; else if (styleData.original.stems) data.stems = styleData.original.stems;
-  setSrc(st === "acoustic" ? "contribution-song-acoustic.mp3" : "contribution-song.mp3");
-  mp3Size(st === "acoustic" ? "contribution-song-acoustic.mp3" : "contribution-song.mp3");
+  if (st === "acoustic" || a.base || !styleData.original.stems) delete data.stems; else data.stems = styleData.original.stems;
+  const base = a.base || MAIN_BASE[st];
+  setSrc(`${base}.mp3`);
+  mp3Size(`${base}.mp3`);
   $$('a.dl[href^="contribution-song"]').forEach((el) => {
     const mp3 = el.getAttribute("href").endsWith(".mp3"), lrc = el.getAttribute("href").endsWith(".lrc");
     if (!mp3 && !lrc) return;
     const ext = mp3 ? "mp3" : "lrc";
-    el.href = st === "acoustic" ? `contribution-song-acoustic.${ext}` : `contribution-song.${ext}`;
-    el.download = st === "acoustic" ? `nishal-contribution-song-acoustic.${ext}` : `nishal-contribution-song.${ext}`;
+    el.href = `${base}.${ext}`;
+    el.download = `nishal-${base}.${ext}`;
   });
+  voiceLabel(st);
   $$("#styles button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.style === st)));
   styleNow = st;
 }
 function styleSwitch(st) {
-  if (st === styleNow || !song) return;
+  if (st === styleNow || !song || !styleData?.[st]) return;
   try { if (st === "acoustic") localStorage.setItem(STYLE_KEY, st); else localStorage.removeItem(STYLE_KEY); } catch {}
   const playing = !media.paused, frac = song.length ? media.currentTime / song.length : 0;
   if (media !== audio) { // the remix engine plays the original's stems: start fresh on the other style
@@ -1542,16 +1591,22 @@ $$("#styles button").forEach((b) => b.addEventListener("click", () => styleSwitc
 
 function styleSetup(data) {
   if (SONG !== "contribution-song") return Promise.resolve(data);
-  if (!data.styles?.includes("acoustic")) { setSrc("contribution-song.mp3"); mp3Size("contribution-song.mp3"); return Promise.resolve(data); }
-  return fetch("contribution-song-acoustic.json", { credentials: "same-origin" })
-    .then((r) => (r.ok ? r.json() : Promise.reject()))
-    .then((ac) => {
-      styleData = { original: { lines: data.lines, length: data.length, bpm: data.bpm, key: data.key, engine: data.engine, stems: data.stems, peaks: data.peaks }, acoustic: ac };
-      $("#styles").hidden = false;
-      if (styleWanted() === "acoustic") styleApply(data, "acoustic");
+  const own = { lines: data.lines, length: data.length, bpm: data.bpm, bar: data.bar, key: data.key, engine: data.engine, stems: data.stems,
+    peaks: data.peaks, pinned: data.pinned, voice: data.voice };
+  const plain = () => { setSrc("contribution-song.mp3"); mp3Size("contribution-song.mp3"); return data; };
+  const cfgP = fetch("song-voices.json", { credentials: "same-origin" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const acP = data.styles?.includes("acoustic")
+    ? fetch("contribution-song-acoustic.json", { credentials: "same-origin" }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+    : Promise.resolve(null);
+  return Promise.all([cfgP, acP])
+    .then(([cfg, ac]) => Promise.all([voiceTake(cfg, "original", own), ac ? voiceTake(cfg, "acoustic", ac) : null]))
+    .then(([orig, ac]) => {
+      styleData = { original: orig || own, acoustic: ac };
+      if (ac) $("#styles").hidden = false; // no acoustic file: the switch stays hidden and the original plays
+      styleApply(data, ac && styleWanted() === "acoustic" ? "acoustic" : "original");
       return data;
     })
-    .catch(() => { setSrc("contribution-song.mp3"); mp3Size("contribution-song.mp3"); return data; }); // no acoustic file: the switch stays hidden and the original plays
+    .catch(plain);
 }
 
 fetch(`${SONG}.json`, { credentials: "same-origin" })

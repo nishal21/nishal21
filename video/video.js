@@ -323,13 +323,50 @@ const songItem = (ac) => ({
   src: new URL(ac ? "contribution-acoustic-video.mp3" : "contribution-video.mp3", SITE).href,
   lyric: new URL(ac ? "contribution-acoustic-video.json" : "contribution-video.json", SITE).href,
   thumb: ac ? "contribution-acoustic-poster.jpg" : "contribution-poster.jpg",
-  eyebrow: ac ? "Contribution song · acoustic" : "Contribution song · rebuilt every night",
+  eyebrow: ac ? "Contribution song · acoustic" : "Contribution song",
   title: ac ? "My year on GitHub, sung soft and acoustic" : "My year on GitHub, as a song",
   download: { href: ac ? "../player/contribution-song-acoustic.mp3" : "../player/contribution-song.mp3",
     name: ac ? "nishal-contribution-song-acoustic.mp3" : "nishal-contribution-song.mp3", label: "Download song" },
   share: ac ? "song-acoustic" : "song",
 });
 const SONG_O = songItem(false), SONG_A = songItem(true);
+// Voices: each style has a male and a female take (../player/song-voices.json) and the date in IST picks one, the
+// same way player.js does, so both pages play the same voice on a given day. An empty slot falls back to the style's
+// other voice; ?voice=male|female|duet pins it. Each take has its own lyric video plan from scripts/visitor_video.py.
+const MAIN_BASE = { original: "contribution-song", acoustic: "contribution-song-acoustic" };
+const VOICE_ORDER = ["male", "female", "duet"];
+function istDay(epoch) {
+  const now = new Date(Date.now() + 5.5 * 3600e3), m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(epoch || "");
+  if (!m) return 0;
+  return Math.floor((Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - Date.UTC(+m[1], m[2] - 1, +m[3])) / 864e5);
+}
+function voicePick(cfg, st) {
+  const slots = cfg?.[st];
+  if (!slots || typeof slots !== "object") return null;
+  const q = new URLSearchParams(location.search).get("voice");
+  const days = Array.isArray(cfg.days) && cfg.days.length ? cfg.days : null;
+  const k = istDay(cfg.epoch), want = VOICE_ORDER.includes(q) ? q : days ? days[((k % days.length) + days.length) % days.length]?.[st] : null;
+  const ok = (v) => typeof slots[v] === "string" && /^[\w-]+$/.test(slots[v]);
+  const voice = [want, ...VOICE_ORDER].find(ok) || null; // an empty slot falls back to the first take there is
+  return voice ? { voice, base: slots[voice] } : null;
+}
+// point a song item at today's take; resolves to the voice it plays (or null: the main files, voice unknown)
+async function voiceItem(it, cfg, st) {
+  const p = voicePick(cfg, st);
+  if (!p) return null;
+  if (p.base !== MAIN_BASE[st]) {
+    const name = p.base.replace(/^contribution-song/, "contribution");
+    const lyric = new URL(`${name}-video.json`, SITE).href;
+    if (!(await fetch(lyric, { method: "HEAD" }).then((r) => r.ok).catch(() => false))) {
+      const main = Object.entries(cfg[st]).find(([, b]) => b === MAIN_BASE[st]);
+      return main ? main[0] : null; // its plan isn't built: the main take plays
+    }
+    Object.assign(it, { src: new URL(`${name}-video.mp3`, SITE).href, lyric, thumb: `${name}-poster.jpg`,
+      download: { ...it.download, href: `../player/${p.base}.mp3`, name: `nishal-${p.base}.mp3` } });
+  }
+  it.eyebrow = `${st === "acoustic" ? "Contribution song · acoustic" : "Contribution song"} · today: ${p.voice} vocal`;
+  return p.voice;
+}
 const OWN = (it) => it === CLIP || it === TRAILER || it === VISITOR || it === SONG_O || it === SONG_A;
 const TRAILER_WIDE = TRAILER.src, TRAILER_TALL = new URL("trailer-vertical.mp4", SITE).href;
 let trailerMeta = null;   // trailer.json: fps, bar, cuts, kicks, hits and (newer builds) sections
@@ -406,7 +443,7 @@ function ytItem(v) {
 }
 function metaLine(it) {
   if (it === CLIP) return CLIP.metaText || "15 seconds from the contribution song";
-  if (it === TRAILER) return TRAILER.metaText || "35 seconds of the contribution song, cut on the beat";
+  if (it === TRAILER) return TRAILER.metaText || "The contribution song's last chorus, cut on the beat";
   if (it === SONG_O || it === SONG_A) return it.metaText || "The contribution song with its lyrics";
   if (it === VISITOR) return VISITOR.metaText || "Notes and lyric lines added by people who visit my profile";
   const bits = [];
@@ -2851,6 +2888,8 @@ async function boot() {
     // phones get the vertical cut
     if (matchMedia("(max-aspect-ratio: 3/4)").matches) TRAILER.download = { href: "trailer-vertical.mp4", name: "nishal-year-trailer-vertical.mp4", label: "Download vertical" };
   }
+  const voices = await fetch("../player/song-voices.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  await Promise.all([voiceItem(SONG_O, voices, "original"), voiceItem(SONG_A, voices, "acoustic")]).catch(() => {});
   const hasSong = await fetch(SONG_O.lyric, { method: "HEAD" }).then((r) => r.ok).catch(() => false);
   const hasAc = hasSong && song?.styles?.includes("acoustic") && await fetch(SONG_A.lyric, { method: "HEAD" }).then((r) => r.ok).catch(() => false);
   if (hasSong) {

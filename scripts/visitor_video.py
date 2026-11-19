@@ -498,7 +498,7 @@ def plan(v, art_url):
     return dict(
         total=round(v.total, 3), song=round(v.song, 3), first=v.first, roll_start=round(v.roll_start, 3),
         speed=v.speed, end_card=round(v.end_card, 3), notes=v.notes, people=len(v.people),
-        bpm=v.bpm, beat0=v.beat0, mood={"contribution": "rap", "contribution-acoustic": "calm"}.get(NAME[0]),
+        bpm=v.bpm, beat0=v.beat0, mood=("calm" if NAME[0].startswith("contribution-acoustic") else "rap" if NAME[0].startswith("contribution") else None),
         looks={k: dict(bg=x[0], ink=x[1], acc=x[2]) for k, x in LOOKS.items()},
         lines=[dict(t=r["t"], next=r["next"], text=r["text"], who=r["who"], section=r["section"],
                     words=[[w, round(t, 3)] for w, t in r["words"]], **wrapped(r["text"])) for r in v.rows],

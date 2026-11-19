@@ -1,0 +1,28 @@
+{
+ "epoch": "2026-11-19",
+ "tz": "Asia/Kolkata",
+ "days": [
+  {
+   "original": "male",
+   "acoustic": "female"
+  },
+  {
+   "original": "female",
+   "acoustic": "male"
+  },
+  {
+   "original": "duet",
+   "acoustic": "duet"
+  }
+ ],
+ "original": {
+  "male": "contribution-song",
+  "female": "contribution-song-female",
+  "duet": "contribution-song-duet"
+ },
+ "acoustic": {
+  "male": "contribution-song-acoustic",
+  "female": "contribution-song-acoustic-female",
+  "duet": "contribution-song-acoustic-duet"
+ }
+}

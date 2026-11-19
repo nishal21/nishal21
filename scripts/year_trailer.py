@@ -57,14 +57,40 @@ SLEEVES = ["#a9d6f5", "#cbef4a", "#ff8a65", "#f6a6c6", "#7fe3b4", "#ffc53d",
 HANDLE = "nishal21"
 SITE_URL = "nishal21.github.io/nishal21"
 
-# (first song bar, bars) of each piece of the song, in trailer order. One piece: the song from the Breakdown
-# (bar 34) to its end, so nothing is spliced and no lyric line is cut.
-EDIT = [(34, None)]  # None: to the end of the song (its last bar + fade)
-SONG_BAR0 = EDIT[0][0]
-# The trailer's sections as plan() lays them out, in trailer bars (the song's own sections from bar 34).
-# Written to trailer.json as chapters for the video page.
-SECTIONS = [(0, "Breakdown"), (4, "Build"), (6, "Chorus"), (14, "Outro")]
-TRAILER_BARS = 19  # 4 + 2 + 8 + 5
+# The soundtrack is one continuous piece of the song, from a bar line to its end, so nothing is spliced and no
+# lyric line is cut. The picture is laid out around it in trailer bars: an opening of CO bars (the last one the
+# grid fill), 2 bars of build, the 8-bar chorus from bar CO + 2, then the outro to the end.
+# The nightly song: from the Breakdown (song bar 34), CO = 4, so 4 + 2 + 8 + 5 bars.
+# A pinned take (pin_song.py) has its own bar grid (bpm, beat0): the piece starts the bar it takes to put its last
+# chorus at CO + 2, with the longest opening (4, 3 or 2 bars) whose first bar line no sung line straddles.
+class Layout:
+    def __init__(self, start, co, bar0):
+        self.start, self.co, self.bar0 = start, co, bar0  # song seconds, opening bars, song bar it starts on
+
+    def sections(self):
+        c = self.co
+        return [(0, "Breakdown" if c == 4 else "Intro"), (c, "Build"), (c + 2, "Chorus"), (c + 10, "Outro")]
+
+
+def layout(song):
+    bar, b0 = song["bar"], song.get("beat0", 0.0) if song.get("pinned") else 0.0
+    if not song.get("pinned"):
+        return Layout(34 * bar, 4, 34)
+    secs = song.get("sections") or []
+    brk = next((i for i, x in enumerate(secs) if x["name"] == "Breakdown"), None)
+    ch = next((x for x in secs[(brk or 0):] if x["name"] in ("Chorus", "Hook")), None)
+    if ch is None:
+        sys.exit("pinned song has no chorus to cut the trailer to")
+    cb = int(round((ch["start"] - b0) / bar))
+    for co in (4, 3, 2):
+        sb = cb - 2 - co
+        t = b0 + sb * bar
+        if sb >= 0 and not any(l["t"] < t - 0.02 and l["end"] > t + 0.02 for l in song["lines"]):
+            return Layout(t, co, sb)
+    sys.exit("no clean bar line to start the trailer on")
+
+
+L = Layout(34 * 1.714286, 4, 34)  # set from the song in video() / poster()
 
 
 def rgb(h):
@@ -152,11 +178,8 @@ def decode(mp3):
 def cut_audio(song, x):
     """Splice the song's bars into the trailer. The incoming piece starts at full level on its downbeat;
     the outgoing one rings on for 90 ms under it and fades, so reverb tails don't stop dead."""
-    bar = song["bar"]
     pieces, t = [], 0
-    for b0, nb in EDIT:
-        a = int(round(b0 * bar * SR))
-        e = x.shape[1] if nb is None else int(round((b0 + nb) * bar * SR))
+    for a, e in [(int(round(L.start * SR)), x.shape[1])]:
         pieces.append((t, a, e))
         t += e - a
     out = np.zeros((2, t + SR))
@@ -389,6 +412,7 @@ def score(song, site, shots, n_samples):
     """The trailer soundtrack, scored to the cut list. Returns (stereo, report)."""
     bar = song["bar"]
     T = lambda b: b * bar  # trailer bar -> seconds
+    C = L.co
     fr = lambda f: f / FPS
     stems = load_stems(site)
     if stems is None:  # no stems: the plain song edit, still with the hits on top
@@ -408,27 +432,29 @@ def score(song, site, shots, n_samples):
         # vocals: left alone. Every line plays start to finish over the picture.
         # builds: the 808 drops out and the band climbs from 60% to full, so the drop has somewhere to go
         build = lambda b0: [(T(b0), 1), (T(b0) + 0.4, 0.55), (T(b0 + 1.875), 0.78)]
-        tracks["bass"] *= gain_curve(n, [(0, 1), (T(4), 1), (T(4) + 0.43, 0), (T(6) - 0.01, 0), (T(6), 1), (n / SR, 1)])
-        bed = gain_curve(n, [(0, 1)] + build(4) + [(T(6) - 0.01, 0.95), (T(6), 1), (n / SR, 1)])
+        tracks["bass"] *= gain_curve(n, [(0, 1), (T(C), 1), (T(C) + 0.43, 0), (T(C + 2) - 0.01, 0), (T(C + 2), 1), (n / SR, 1)])
+        bed = gain_curve(n, [(0, 1)] + build(C) + [(T(C + 2) - 0.01, 0.95), (T(C + 2), 1), (n / SR, 1)])
         for k in ("drums", "keys", "synths"):
             tracks[k] *= bed
         music = sum(tracks[k] for k in ("drums", "bass", "keys", "synths"))
         vox = tracks["vocals"]
     else:
         music, vox = tracks["mix"], np.zeros((2, n))
-    # breakdown: the band sits behind a low-pass that opens back up across its four bars into the build
-    music = sweep(music, T(0), T(4), 900, 16000)
-    # and a high-pass climbing through the build (thins the band out as the riser takes over)
-    music = sweep(music, T(4), T(5.875), 30, 420, "highpass")
-    # the black 8th before the drop: the band stops (the song has no vocal there, so no line is cut)
-    gate = np.ones(n)
     blacks = [s for s in shots if s.kind == "black"]
-    for s in blacks:
-        a, b = int(fr(s.f0) * SR), int(fr(s.f1) * SR)
-        k = int(0.006 * SR)
-        gate[a:b] = 0
-        gate[a - k:a] = np.linspace(1, 0, k)
-    music *= gate
+    if stems is not None:
+        # breakdown: the band sits behind a low-pass that opens back up across its bars into the build
+        music = sweep(music, T(0), T(C), 900, 16000)
+        # and a high-pass climbing through the build (thins the band out as the riser takes over)
+        music = sweep(music, T(C), T(C + 1.875), 30, 420, "highpass")
+        # the black 8th before the drop: the band stops (the song has no vocal there, so no line is cut)
+        gate = np.ones(n)
+        for s in blacks:
+            a, b = int(fr(s.f0) * SR), int(fr(s.f1) * SR)
+            k = int(0.006 * SR)
+            gate[a:b] = 0
+            gate[a - k:a] = np.linspace(1, 0, k)
+        music *= gate
+    # a finished take has the voice in the mix, so it isn't filtered or gated: every word stays as sung
     fx = Fx()
     sfx = np.zeros((2, n))
     events = []
@@ -438,8 +464,8 @@ def score(song, site, shots, n_samples):
     place_audio(sfx, fx.boom(sec=2.5, f0=48, f1=28, tau=0.9) * 0.5, 0.0, 0.6)
     events.append((0.0, "sub drop: breakdown"))
     # the grid fills: a swell into it, a hit when the name lands
-    place_audio(sfx, fx.swell(T(1)), T(3), 0.5, end=True)
-    place_audio(sfx, fx.hit(0.8), T(3.5), 0.75); events.append((T(3.5), "hit: name"))
+    place_audio(sfx, fx.swell(T(1)), T(C - 1), 0.5, end=True)
+    place_audio(sfx, fx.hit(0.8), T(C - 0.5), 0.75); events.append((T(C - 0.5), "hit: name"))
     # build: a riser up to the black 8th, a short swell inside it, then the impact on the drop
     for i, imp in enumerate(impacts):
         drop = fr(imp.f0)
@@ -462,7 +488,7 @@ def score(song, site, shots, n_samples):
             place_audio(sfx, fx.hit(0.7), t, 0.5)
             events.append((t, f"hit: {s.kind}"))
     # out of the breakdown: a swell over the last two beats lifts it into the build
-    place_audio(sfx, fx.swell(T(0.5)) * 1.2, T(4), 0.6, end=True)
+    place_audio(sfx, fx.swell(T(0.5)) * 1.2, T(C), 0.6, end=True)
     # the light-up: a short riser into the last slam
     fin = next((s for s in shots if s.kind == "final"), None)
     lu = next((s for s in shots if s.kind == "lightup"), None)
@@ -478,7 +504,9 @@ def score(song, site, shots, n_samples):
     events.append((t_end, "impact: outro"))
     # sidechain: the band dips under each impact and slam, so the hits cut through without being louder
     g = np.ones(n)
+    soft = 1.0 if stems is not None else 0.4  # with the voice in the mix, dip it only a little
     for t, depth in duck:
+        depth *= soft
         a = int(t * SR)
         r = np.arange(min(n - a, int(SR * 0.8)))
         g[a:a + len(r)] = np.minimum(g[a:a + len(r)], 1 - depth * np.exp(-r / (SR * 0.18)))
@@ -509,7 +537,7 @@ class Shot:
         self.f0, self.f1, self.kind, self.kw = f0, f1, kind, kw
 
 
-def plan(song, F, site):
+def plan(song, F, site, n_frames=None):
     """Cut list in frames. One bar = 48 frames, a beat 12, an 8th 6, a 16th 3."""
     BAR, BEAT, E8, S16 = 48, 12, 6, 3
     shots = []
@@ -519,18 +547,31 @@ def plan(song, F, site):
         shots.append(Shot(f0, f0 + length, kind, **kw))
 
     st = F["stats"]
-    # breakdown: 4 bars. The handle, then the breakdown line word by word with the voice over the dim
+    if n_frames is None:
+        n_frames = int(round((song["length"] - L.start) * FPS))
+    # opening (the breakdown on the nightly song): 4 bars. The handle, then the breakdown line word by word with the voice over the dim
     # grid (3 bars); the grid fills on the hats and the name lands in the 4th.
-    line = next((l for l in song["lines"] if l["section"] == "Breakdown"), None)
+    C = L.co
+    t0 = L.start
+    # the first line sung inside the opening (the Breakdown line on the nightly song)
+    line = next((l for l in song["lines"] if l["section"] == "Breakdown" and l["t"] >= t0 - 0.02), None)
+    if line is None or line["t"] > t0 + (C - 1) * song["bar"]:
+        line = next((l for l in song["lines"] if t0 - 0.02 <= l["t"] < t0 + (C - 1) * song["bar"]), line)
     words = [(HANDLE, 2)]
     if line:
-        t0 = SONG_BAR0 * song["bar"]
-        on = vocal_onsets(site, line["t"] - 0.1, line["end"] + 0.2, song["bar"])
         parts = [p.strip() for p in line["text"].replace(".", ".|").replace(",", ",|").split("|") if p.strip()]
-        times = on[:len(parts)] if len(on) >= len(parts) else [line["t"] + i * (line["end"] - line["t"]) / len(parts) for i in range(len(parts))]
-        words += [(p.rstrip(".,"), int(round((t - t0) * FPS))) for p, t in zip(parts, times)]
-    add(0, 0, 3 * BAR, "cold", words=words)
-    add(3, 0, BAR, "fill")
+        if line.get("words"):  # a pinned take: each part starts on its first word's sung time
+            ws, times, k = line["words"], [], 0
+            for p in parts:
+                times.append(ws[min(k, len(ws) - 1)][1])
+                k += len(p.split())
+        else:
+            on = vocal_onsets(site, line["t"] - 0.1, line["end"] + 0.2, song["bar"])
+            times = on[:len(parts)] if len(on) >= len(parts) else [line["t"] + i * (line["end"] - line["t"]) / len(parts) for i in range(len(parts))]
+        words += [(p.rstrip(".,"), max(3, int(round((t - t0) * FPS)))) for p, t in zip(parts, times)]
+    add(0, 0, (C - 1) * BAR, "cold", words=words)
+    add(C - 1, 0, BAR, "fill")
+    D = C - 4  # everything after the opening moves with it
     # build: months on 8ths, then the rest on 16ths and the count running up; black on the last 8th
     months = F["months"]
     cum, run = [], 0
@@ -538,40 +579,40 @@ def plan(song, F, site):
         run += c
         cum.append(run)
     for i in range(min(8, len(months))):
-        add(4, i * E8, E8, "month", m=months[i], cum=cum[i])
+        add(4 + D, i * E8, E8, "month", m=months[i], cum=cum[i])
     rest = months[8:]
     k = 0
     for i, m in enumerate(rest):
-        add(5, k * S16, S16, "month", m=m, cum=cum[8 + i], small=True)
+        add(5 + D, k * S16, S16, "month", m=m, cum=cum[8 + i], small=True)
         k += 1
     steps = 14 - k
     start_n = cum[7] if len(cum) > 7 else 0
     for j in range(steps):
         p = (j + 1) / steps
-        add(5, k * S16, S16, "count", n=int(round(start_n + (st["total"] - start_n) * (1 - (1 - p) ** 2))), last=j == steps - 1)
+        add(5 + D, k * S16, S16, "count", n=int(round(start_n + (st["total"] - start_n) * (1 - (1 - p) ** 2))), last=j == steps - 1)
         k += 1
-    add(5, 14 * S16, 2 * S16, "black")
+    add(5 + D, 14 * S16, 2 * S16, "black")
     # chorus
-    add(6, 0, 2, "impact", text=str(st["total"]))
-    add(6, 2, BAR - 2, "hero", n=st["total"], label="contributions", sub=f"{fmt_day(st['first'])} to {fmt_day(st['last'])}")
+    add(6 + D, 0, 2, "impact", text=str(st["total"]))
+    add(6 + D, 2, BAR - 2, "hero", n=st["total"], label="contributions", sub=f"{fmt_day(st['first'])} to {fmt_day(st['last'])}")
     b = F["busiest"][0]
-    add(7, 0, BAR, "week", w=F["weeks"][b], total=F["week_totals"][b])
-    add(8, 0, 2 * BEAT, "stat", n=st["best_n"], label="in one day", sub=fmt_day(st["best"]))
-    add(8, 2 * BEAT, 2 * BEAT, "stat", n=st["streak"], label="days in a row", sub=f"{fmt_day(st['streak_start'], False)} to {fmt_day(st['streak_end'], False)}")
+    add(7 + D, 0, BAR, "week", w=F["weeks"][b], total=F["week_totals"][b])
+    add(8 + D, 0, 2 * BEAT, "stat", n=st["best_n"], label="in one day", sub=fmt_day(st["best"]))
+    add(8 + D, 2 * BEAT, 2 * BEAT, "stat", n=st["streak"], label="days in a row", sub=f"{fmt_day(st['streak_start'], False)} to {fmt_day(st['streak_end'], False)}")
     for i, r in enumerate(F["repos"][:4]):
-        add(9, i * BEAT, BEAT, "repo", r=r, rank=i + 1)
-    add(10, 0, 2 * BAR, "langs", langs=F["langs"])
-    add(12, 0, 2 * BEAT, "slam", n=len(F["releases"]), label="releases")
+        add(9 + D, i * BEAT, BEAT, "repo", r=r, rank=i + 1)
+    add(10 + D, 0, 2 * BAR, "langs", langs=F["langs"])
+    add(12 + D, 0, 2 * BEAT, "slam", n=len(F["releases"]), label="releases")
     if F["prs"] is not None:
-        add(12, 2 * BEAT, 2 * BEAT, "slam", n=F["prs"], label="merged pull requests")
+        add(12 + D, 2 * BEAT, 2 * BEAT, "slam", n=F["prs"], label="merged pull requests")
     else:
-        add(12, 2 * BEAT, 2 * BEAT, "slam", n=st["active"], label="active days")
-    add(13, 0, 2 * BEAT, "slam", n=len(F["created"]), label="new repos")
-    add(13, 2 * BEAT, 2 * BEAT, "slam", n=F["commits"] or st["active"], label="commits to public repos" if F["commits"] else "active days")
+        add(12 + D, 2 * BEAT, 2 * BEAT, "slam", n=st["active"], label="active days")
+    add(13 + D, 0, 2 * BEAT, "slam", n=len(F["created"]), label="new repos")
+    add(13 + D, 2 * BEAT, 2 * BEAT, "slam", n=F["commits"] or st["active"], label="commits to public repos" if F["commits"] else "active days")
     # outro: the grid lights up under "that was ... contributions", the total slams, then the handle, links, fade
-    add(14, 0, BAR + 2 * BEAT, "lightup")
-    add(15, 2 * BEAT, 2 * BEAT, "final", n=st["total"])
-    add(16, 0, 3 * BAR + int(round(2.0 * FPS)), "outro")
+    add(14 + D, 0, BAR + 2 * BEAT, "lightup")
+    add(15 + D, 2 * BEAT, 2 * BEAT, "final", n=st["total"])
+    add(16 + D, 0, max(BAR, n_frames - (16 + D) * BAR), "outro")
     shots.sort(key=lambda s: s.f0)
     return shots
 
@@ -944,7 +985,9 @@ class Edit:
         self.c = Canvas(W, H, F["ground"])
         self.n = length_frames
         self.kick_frames = [int(round(t * FPS)) for t in kicks]
-        drops = [(6 * 48, 14 * 48)]
+        c = L.co
+        self.c4 = c
+        drops = [((c + 2) * 48, (c + 10) * 48)]
         self.drop = lambda f: any(a <= f < b for a, b in drops)
         self.after_impact = {s.f1 for s in shots if s.kind == "impact"}
 
@@ -959,18 +1002,20 @@ class Edit:
         """Zoom and shake. Builds zoom in faster and faster (a speed ramp into the drop); drops kick the
         camera on every low hit; each drop shot lands slightly zoomed and settles."""
         z, dx, dy = 1.0, 0.0, 0.0
-        a, b = 4 * 48, 6 * 48
+        c = self.c4
+        a, b = c * 48, (c + 2) * 48
         if a <= f < b:
             p = (f - a) / (b - a)
             z *= 1 + 0.16 * p ** 3
-        if 3 * 48 <= f < 4 * 48:
-            z *= 1 + 0.05 * ((f - 144) / 48) ** 2
-        if 0 <= f < 3 * 48:  # breakdown: one slow push
-            z *= 1 + 0.04 * f / 144
-        if 14 * 48 <= f < 15 * 48 + 24:  # the light-up: a push that speeds up into the last slam
-            z *= 1 + 0.2 * ((f - 672) / 72) ** 2.2
-        if f >= 16 * 48:  # outro: one long, slow push to the end
-            z *= 1 + 0.08 * ((f - 16 * 48) / (self.n - 16 * 48)) ** 0.8
+        if (c - 1) * 48 <= f < c * 48:
+            z *= 1 + 0.05 * ((f - (c - 1) * 48) / 48) ** 2
+        if 0 <= f < (c - 1) * 48:  # breakdown: one slow push
+            z *= 1 + 0.04 * f / ((c - 1) * 48)
+        lu = (c + 10) * 48
+        if lu <= f < lu + 72:  # the light-up: a push that speeds up into the last slam
+            z *= 1 + 0.2 * ((f - lu) / 72) ** 2.2
+        if f >= (c + 12) * 48:  # outro: one long, slow push to the end
+            z *= 1 + 0.08 * ((f - (c + 12) * 48) / max(1, self.n - (c + 12) * 48)) ** 0.8
         if self.drop(f) and sh is not None:
             lf = f - sh.f0
             z *= 1 + 0.07 * math.exp(-lf / 3.5)
@@ -1056,14 +1101,17 @@ def write_wav(path, x):
 def video(out_dir, site, only=None):
     out_dir, site = Path(out_dir), Path(site)
     out_dir.mkdir(parents=True, exist_ok=True)
+    global L
     song = load_song(site)
+    L = layout(song)
+    print(f"trailer: song from {L.start:.3f}s (bar {L.bar0}), {L.co}-bar opening")
     F = year_facts(song)
     x = decode(site / "contribution-song.mp3")
     y, starts = cut_audio(song, x)
     n_frames = int(round(y.shape[1] / SR * FPS))
     y = y[:, :int(n_frames / FPS * SR)]
     kicks = kick_onsets(y, song["bar"])
-    shots = plan(song, F, site)
+    shots = plan(song, F, site, n_frames)
     y, events = score(song, site, shots, y.shape[1])
     wav = out_dir / "trailer-audio.wav"
     write_wav(wav, y)
@@ -1078,14 +1126,15 @@ def video(out_dir, site, only=None):
     wav.unlink()
     # poster for the video page: the first drop's hero frame
     e = Edit(song, F, shots, kicks, 1920, 1080, n_frames)
-    e.frame(6 * 48 + 20).resize((960, 540), Image.LANCZOS).save(out_dir / "trailer-poster.jpg", quality=86)
+    e.frame((L.co + 2) * 48 + 20).resize((960, 540), Image.LANCZOS).save(out_dir / "trailer-poster.jpg", quality=86)
     # cut points: where a new shot starts (the shot that follows an impact frame is part of that hit)
     after = {s.f1 for s in shots if s.kind == "impact"}
     cuts = sorted({s.f0 for s in shots if s.f0 > 0 and s.f0 not in after})
     meta = dict(fps=FPS, bpm=song["bpm"], bar=song["bar"], frames=n_frames, length=round(n_frames / FPS, 3),
                 splices=[round(s, 4) for s in starts], cuts=[c / FPS for c in cuts], shots=len(shots),
                 kicks=kicks, hits=[[round(t, 4), e] for t, e in events], generated=song.get("generated"),
-                sections=[dict(t=round(b * 48 / FPS, 3), title=name) for b, name in SECTIONS if b * 48 < n_frames])
+                sections=[dict(t=round(b * 48 / FPS, 3), title=name) for b, name in L.sections() if b * 48 < n_frames],
+                start=round(L.start, 3), song_bar=L.bar0)
     (out_dir / "trailer.json").write_text(json.dumps(meta))
     print(f"trailer: {len(shots)} shots, {len(cuts)} cuts, {n_frames / FPS:.1f}s")
 
@@ -1094,11 +1143,14 @@ def video(out_dir, site, only=None):
 
 def poster(song):
     """A card in the same style as the other README cards: the edit drawn as a timeline, one tick per cut."""
+    global L
+    L = layout(song)
     F = year_facts(song)
     shots = plan(song, F, ROOT / "assets")
     bar = song["bar"]
-    length = TRAILER_BARS * bar + 2.0
-    secs = [("Breakdown", 0, 4), ("Build", 4, 2), ("Chorus", 6, 8), ("Outro", 14, 5)]
+    length = song["length"] - L.start
+    ss = L.sections()
+    secs = [(nm, b0, (ss[i + 1][0] if i + 1 < len(ss) else length / bar) - b0) for i, (b0, nm) in enumerate(ss)]
     W, H = 495, 195
     out = {}
     for name, t in THEMES.items():
@@ -1133,7 +1185,7 @@ def poster(song):
             if tb <= 0:
                 continue
             xx = sx(tb)
-            drop = 6 <= tb < 14
+            drop = L.co + 2 <= tb < L.co + 10
             s.append(f'<rect x="{xx - 0.5:.1f}" y="{ty + (2 if drop else 6)}" width="1" height="{18 if drop else 10}" fill="{t["icon"] if drop else t["muted"]}"/>')
         s.append(f'<text x="25" y="{H - 18}" font-family="{CARD_FONT}" font-size="11.5" fill="{t["text"]}"><tspan font-weight="700">▶ Watch</tspan> · '
                  f'rebuilt every night from the same data as the song</text>')

@@ -1,7 +1,7 @@
 """Pin a finished take (made outside the nightly job, e.g. on Runware) as one style of the contribution song.
 
-  python3 scripts/pin_song.py <original|acoustic> <take.mp3> --sheet <lyrics sheet> [--engine "Runware · MiniMax Music 2.6"]
-                              [--bpm-hint 110] [--key "A minor"]
+  python3 scripts/pin_song.py <original|acoustic> <take.mp3> --sheet <lyrics sheet> --voice <male|female|duet>
+                              [--engine "Runware · MiniMax Music 2.6"] [--bpm-hint 110] [--key "A minor"] [--out dir]
 
 The sheet is the exact lyrics the take was made from ([Section] headers, one line per row). Whisper (faster-whisper,
 word timestamps) listens to the take, its words are matched to the sheet in order, and each sheet line gets the time
@@ -9,9 +9,16 @@ its first word is sung, its end, and a time per word. Lines the take never sings
 only shows what you hear; an instrumental tail after the last line becomes the credits and end card. The tempo and
 first downbeat come from the audio (onset autocorrelation), so the lyric video's beat grid follows the take.
 
-Writes assets/contribution-song[-acoustic].{mp3,json,lrc} and records the pin in assets/song-pins.json. While a style
-is pinned, contribution_song.py keeps its files and visitor_take.py --check says no new take is needed for it, so no
-nightly run replaces it or spends credit on it. Unpin by deleting its entry from song-pins.json.
+Each style has a male, a female and a duet slot (assets/song-voices.json); the pages pick one by the date in IST, so
+the video page, the player and the share links agree on the day (see VOICES below). The first voice pinned for a style
+is its main take: assets/contribution-song-acoustic.{mp3,json,lrc} for the Acoustic; for the Original, the audio and
+timing go to assets/pinned/contribution-song.{mp3,json} and contribution_song.py lays them over each night's song data
+(the weeks and stats stay live, only the voice, length and lyric timing come from the take). The other voice gets
+assets/contribution-song[-acoustic]-<voice>.{mp3,json,lrc}.
+
+The pin is recorded in assets/song-pins.json. While a style is pinned, contribution_song.py keeps its take and
+visitor_take.py --check says no new take is needed for it, so no nightly run replaces it or spends credit on it.
+Unpin by deleting its entry from song-pins.json (and its slots from song-voices.json).
 Run it again with another file to swap the audio; everything is regenerated from the file.
 """
 import difflib
@@ -31,6 +38,27 @@ from common import ASSETS, write_atomic  # noqa: E402
 
 SR = 22050
 PINS = os.path.join(ASSETS, "song-pins.json")
+VOICES = os.path.join(ASSETS, "song-voices.json")
+# a 3-day cycle from 2026-11-19 (IST): Rap male + Acoustic female, Rap female + Acoustic male, both as duets
+VOICES_DEFAULT = {"epoch": "2026-11-19", "tz": "Asia/Kolkata",
+                  "days": [{"original": "male", "acoustic": "female"}, {"original": "female", "acoustic": "male"},
+                           {"original": "duet", "acoustic": "duet"}],
+                  "original": {"male": None, "female": None, "duet": None},
+                  "acoustic": {"male": None, "female": None, "duet": None}}
+MAIN = {"original": "contribution-song", "acoustic": "contribution-song-acoustic"}
+# what a pinned Original takes over from the nightly song json (the weeks, stats and the rest stay)
+TAKE_KEYS = ("length", "bpm", "bar", "beat0", "key", "engine", "pinned", "sections", "lines", "instrumental_from", "unsung",
+             "peaks", "voice")
+
+
+def merge_original(js, take):
+    """The nightly song json with a pinned Original take laid over it: the take's voice, length and timing."""
+    for k in TAKE_KEYS:
+        if k in take:
+            js[k] = take[k]
+    js.pop("stems", None)  # the remix stems are the synth arrangement, not this take
+    js.pop("stale", None)
+    return js
 SECTION_NAMES = {"bridge": "Breakdown", "breakdown": "Breakdown", "hook": "Hook", "intro": "Intro", "outro": "Outro",
                  "chorus": "Chorus", "build": "Build"}
 
@@ -175,19 +203,31 @@ def main():
     a = sys.argv[1:]
     if len(a) < 2 or a[0] not in ("original", "acoustic") or "--sheet" not in a:
         sys.exit(__doc__)
-    if a[0] == "original" and "--out" not in a:
-        # the Original is still rebuilt from the contribution data every night (contribution_song.py), so pinning it
-        # isn't wired in yet; --out <dir> writes the timings for a candidate take there without touching assets/
-        sys.exit("pinning the Original isn't wired in yet: use --out <dir> to time a candidate take")
     style, take = a[0], a[1]
     opt = lambda k, d=None: a[a.index(k) + 1] if k in a else d  # noqa: E731
+    voice = opt("--voice")
+    if voice not in ("male", "female", "duet") and "--out" not in a:
+        sys.exit("--voice male|female|duet: which slot this take fills")
     sheet = read_sheet(opt("--sheet"))
     engine = opt("--engine", "Runware · MiniMax Music 2.6")
     hint = float(opt("--bpm-hint", "110" if style == "acoustic" else "140"))
     key = opt("--key", "A minor")
-    base = "contribution-song" + ("-acoustic" if style == "acoustic" else "")
     out_dir = opt("--out")
+    voices = json.load(open(VOICES)) if os.path.exists(VOICES) else json.loads(json.dumps(VOICES_DEFAULT))
+    slots = voices.setdefault(style, {"male": None, "female": None, "duet": None})
+    owner = next((v for v, b in slots.items() if b == MAIN[style]), None)
+    base = MAIN[style] if out_dir or owner in (None, voice) else f"{MAIN[style]}-{voice}"
     y = decode(take)
+    # --end: where the take stops (e.g. before a tag the model added after the outro), faded over --fade seconds.
+    # The committed MP3 stays as delivered; build_site.sh applies the trim when it copies the take to the site.
+    trim = None
+    if opt("--end"):
+        end = min(len(y) / SR, float(opt("--end")))
+        fade = min(end, float(opt("--fade", "1.5")))
+        y = y[:int(end * SR)].copy()
+        nf = int(fade * SR)
+        y[len(y) - nf:] *= np.linspace(1, 0, nf) ** 2
+        trim = dict(end=round(end, 3), fade=round(fade, 3))
     length = len(y) / SR
     # with the sheet as a prompt Whisper hears most takes better, but on a fast rap it can lock up; keep the better pass
     al = None
@@ -199,7 +239,7 @@ def main():
             break
     lines = []
     for (sec, text), r in zip(sheet, al):
-        if r:
+        if r and (not trim or r[1] <= trim["end"] - trim["fade"] + 0.05):
             lines.append(dict(t=r[0], end=r[1], section=sec, text=text, words=[[w, t] for w, t in r[2]]))
     bpm, beat0 = tempo(y, hint)
     bar = 4 * 60 / bpm
@@ -210,19 +250,36 @@ def main():
     last_end = max((l["end"] for l in lines), default=0.0)
     data = dict(style=style, title="Contribution song" + (" (acoustic)" if style == "acoustic" else ""),
                 length=round(length, 3), bpm=bpm, bar=round(bar, 6), beat0=beat0, key=key, engine=engine,
-                src=f"{base}.mp3", pinned=True, generated=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                src=f"{base}.mp3", pinned=True, voice=voice, generated=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 sections=secs, lines=lines, instrumental_from=round(last_end, 3),
                 unsung=[t for (_, t), r in zip(sheet, al) if not r], peaks=peaks(y))
-    dest = out_dir or ASSETS
+    if trim:
+        data["trim"] = trim
+    main_original = not out_dir and style == "original" and base == MAIN["original"]
+    # the Original's main take lives in assets/pinned/ (assets/contribution-song.mp3 is rebuilt, not committed)
+    dest = out_dir or (os.path.join(ASSETS, "pinned") if main_original else ASSETS)
     os.makedirs(dest, exist_ok=True)
     shutil.copyfile(take, os.path.join(dest, f"{base}.mp3"))
     write_atomic(os.path.join(dest, f"{base}.json"), json.dumps(data, separators=(",", ":")))
-    write_atomic(os.path.join(dest, f"{base}.lrc"), lrc(lines, data["title"]))
+    write_atomic(os.path.join(dest if not main_original else ASSETS, f"{base}.lrc"), lrc(lines, data["title"]))
     if out_dir:
         print(f"timed {take} into {out_dir}: {length:.1f}s, {bpm} BPM, {len(lines)}/{len(sheet)} lines sung (not pinned)")
         return
+    if main_original:  # lay it over the current song json now, so the pages have it before the nightly run
+        shutil.copyfile(take, os.path.join(ASSETS, f"{base}.mp3"))
+        sj = os.path.join(ASSETS, f"{base}.json")
+        if os.path.exists(sj):
+            write_atomic(sj, json.dumps(merge_original(json.load(open(sj)), data), separators=(",", ":")))
+    slots[voice] = base
+    write_atomic(VOICES, json.dumps(voices, indent=1) + "\n")
     pins = json.load(open(PINS)) if os.path.exists(PINS) else {}
-    pins[style] = dict(file=f"{base}.mp3", engine=engine, sheet=os.path.relpath(opt("--sheet"), os.path.dirname(ASSETS)),
+    if base != MAIN[style] and style in pins:  # a second voice: the style's main pin stays as it is
+        pins[style].setdefault("voices", {})[voice] = dict(file=f"{base}.mp3", bpm=bpm, length=round(length, 3),
+                                                           lines=len(lines), pinned=data["generated"])
+        write_atomic(PINS, json.dumps(pins, indent=1) + "\n")
+        print(f"pinned the {voice} {style}: {take} -> assets/{base}.mp3, {length:.1f}s, {bpm} BPM, {len(lines)}/{len(sheet)} lines")
+        return
+    pins[style] = dict(file=("pinned/" if main_original else "") + f"{base}.mp3", voice=voice, engine=engine, sheet=os.path.relpath(opt("--sheet"), os.path.dirname(ASSETS)),
                        bpm=bpm, length=round(length, 3), lines=len(lines), unsung=len(data["unsung"]), pinned=data["generated"])
     write_atomic(PINS, json.dumps(pins, indent=1) + "\n")
     print(f"pinned {style}: {take} -> assets/{base}.mp3, {length:.1f}s, {bpm} BPM (first downbeat {beat0}s), "
