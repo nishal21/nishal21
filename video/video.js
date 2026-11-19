@@ -668,9 +668,11 @@ function attachLyric(a, it, seq) {
   let lv = null, gone = false;
   const done = a.destroy;
   a.destroy = () => { gone = true; if (lyricView === lv) lyricView = null; lv?.destroy(); amb.lyric(null); done.call(a); };
-  (window.LyricVideo ? Promise.resolve() : loadScript("lyric-video.js?v=dev")).then(() => {
+  // the contribution song (Original and Acoustic) has its own look in song-video.js; the visitor song keeps lyric-video.js
+  const song = it.key === "song" || it.key === "song-acoustic", name = song ? "SongVideo" : "LyricVideo";
+  (window[name] ? Promise.resolve() : loadScript(song ? "song-video.js?v=dev" : "lyric-video.js?v=dev")).then(() => {
     if (gone || seq !== loadSeq) return;
-    lv = lyricView = window.LyricVideo.attach({ stage, video, planUrl: it.lyric, reduce: reduceMotion, night: lyricNight, onFrame: (c) => amb.lyric(c) });
+    lv = lyricView = window[name].attach({ stage, video, planUrl: it.lyric, reduce: reduceMotion, night: lyricNight, onFrame: (c) => amb.lyric(c) });
   }).catch(() => {});
 }
 
@@ -1964,8 +1966,12 @@ $("#link").addEventListener("focus", () => {
    (within a quarter of a second, both playing or both paused); otherwise YouTube's preview frames or the thumbnail go
    through the extension's renderer until it's back in step. */
 // The projector uses youtube-ambilight's own math (spread, edge, blur, fade start and curve). The starting
-// values are the ones that spread the video across the page: spread 200, blur 0, edge 12, fade start 15.
-const AMB_DEFAULTS = { v: 8, on: true, mode: "live", spread: 200, blur: 0, bright: 100, sat: 100, opacity: 100, tint: true };
+// values spread the video across the page: spread 200, edge 12, fade start 15, with blur 45. At 200% the picture is
+// stretched 3-5x, so with little blur its shapes (a lyric video's grid, letters, hard edges) show as blocks and stripes.
+const AMB_DEFAULTS = { v: 9, on: true, mode: "live", spread: 200, blur: 45, bright: 100, sat: 100, opacity: 100, tint: true };
+// the least blur a spread may have before the stretched picture turns blocky; more on a small player, where the
+// light covers most of the screen. The Blur slider keeps the extension's 0-100 scale but snaps up to it.
+const ambBlurFloor = (spread, w) => (spread <= 50 ? 0 : Math.round(Math.min(40, (spread - 50) * 0.2) + (w && w < 700 ? 10 : 0)));
 // every slider's range; saved values are pulled back inside these so an old or edited setting can't blow the light up
 const AMB_RANGE = { spread: [0, 400], blur: [0, 100], bright: [20, 200], sat: [0, 200], opacity: [10, 100] };
 const AMB_EDGE = 12, AMB_INNER = 2, AMB_FADE_START = 0.15, AMB_FADE_CURVE = 35;
@@ -1978,7 +1984,7 @@ const amb = (() => {
   function tidy(o) {
     if (!o || typeof o !== "object") return { ...AMB_DEFAULTS };
     const t = { ...AMB_DEFAULTS, on: o.on !== false, tint: o.tint !== false, mode: o.v >= 4 && o.mode === "light" ? "light" : "live" };
-    if (o.v >= 5 && o.v <= 8) for (const [k, [lo, hi]] of Object.entries(AMB_RANGE)) {
+    if (o.v >= 5 && o.v <= 9) for (const [k, [lo, hi]] of Object.entries(AMB_RANGE)) {
       const v = Number(o[k]);
       if (Number.isFinite(v)) t[k] = clamp(v, lo, hi);
     }
@@ -1986,13 +1992,16 @@ const amb = (() => {
       if (t.spread === 60 || t.spread === 17) t.spread = AMB_DEFAULTS.spread;
       if (t.blur === 30) t.blur = AMB_DEFAULTS.blur;
     }
+    // version 9: blur 0 was the old default and the cause of the blocky light, so it moves to the new one
+    if (o.v < 9 && t.blur === 0) t.blur = AMB_DEFAULTS.blur;
     return t;
   }
 
   /* ----- the renderer: youtube-ambilight's own projector code (vendor/ambilight), fed by us ----- */
   // our setting -> the extension's setting of the same meaning; everything else keeps the extension's default
+  const blurNow = () => Math.max(s.blur, ambBlurFloor(s.spread, stage.offsetWidth));
   const extSettings = () => ({
-    spread: s.spread, blur2: s.blur, brightness: s.bright, saturation: s.sat,
+    spread: s.spread, blur2: blurNow(), brightness: s.bright, saturation: s.sat,
     spreadFadeStart: AMB_FADE_START * 100, spreadFadeCurve: AMB_FADE_CURVE, edge: AMB_EDGE,
     assetsUrl: new URL("vendor/ambilight/", location.href).href,
   });
@@ -2016,7 +2025,7 @@ const amb = (() => {
   const mirrorBox = el("div", { className: "amb-mirror" }), mirrorIn = el("div", { className: "amb-mirror-in" });
   mirrorBox.append(mirrorIn);
   glowBox.append(mirrorBox);
-  let g = null, maskKey = "", lastKey = "";
+  let g = null, maskKey = "", lastKey = "", lastFloor = -1;
   let lastSrc = null;
 
   // The live copy can't be drawn into a canvas, so it gets the same geometry in CSS: scaled to the extension's
@@ -2028,12 +2037,14 @@ const amb = (() => {
     const step = AMB_EDGE / 100, pos = levels - 1 - AMB_INNER;
     const rx = W >= H ? 1 : H / W, ry = W >= H ? W / H : 1;
     const S = { x: 1 + step * rx * pos, y: 1 + step * ry * pos };
-    const dispBlur = H * 0.0025 * s.blur;
+    const dispBlur = H * 0.0025 * blurNow();
     g = { W, H, x0: stage.offsetLeft, y0: stage.offsetTop, levels, S, dispBlur };
     makeMask();
     Object.assign(mirrorBox.style, { left: g.x0 + "px", top: g.y0 + "px", width: W + "px", height: H + "px" });
     mirrorIn.style.transform = `scale(${S.x.toFixed(4)}, ${S.y.toFixed(4)})`;
     glowBox.style.setProperty("--amb-mirror-blur", dispBlur.toFixed(1) + "px");
+    const floor = ambBlurFloor(s.spread, W);
+    if (floor !== lastFloor) { lastFloor = floor; applyVars(); }   // the Blur slider's lowest step follows the player's size
     const key = JSON.stringify(extSettings()) + W + "x" + H;
     if (ambi && ambiReady && key !== lastKey) { lastKey = key; ambi.setSettings(extSettings()); return true; }
     return false;
@@ -2097,9 +2108,9 @@ const amb = (() => {
     $("#a-tint").setAttribute("aria-checked", String(s.tint));
     $$("#ambient .amb-modes button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.mode === s.mode)));
     for (const inp of $$("#amb-sliders input")) {
-      const k = inp.dataset.k, v = s[k];
+      const k = inp.dataset.k, v = k === "blur" ? blurNow() : s[k];
       inp.value = v;
-      $(`#amb-sliders output[data-for="${k}"]`).textContent = k === "blur" ? String(Math.round(v)) : `${Math.round(v)}%`;
+      $(`#amb-sliders output[data-for="${k}"]`).textContent = `${Math.round(v)}%`;
     }
     $("#amb-note").textContent = (s.mode === "live"
       ? "Live copy plays a muted, low-quality duplicate of YouTube and Vimeo videos behind the player. It only shows while it's on the same frame, and uses more data."
@@ -2526,7 +2537,7 @@ const amb = (() => {
   $("#a-on").addEventListener("click", () => { s.on = !s.on; save(); if (cur) setSource(cur); });
   $("#a-tint").addEventListener("click", () => { s.tint = !s.tint; save(); });
   $$("#ambient .amb-modes button").forEach((b) => b.addEventListener("click", () => { s.mode = b.dataset.mode; skipKey = ""; save(); if (cur) setSource(cur); }));
-  $$("#amb-sliders input").forEach((inp) => inp.addEventListener("input", () => { const k = inp.dataset.k, [lo, hi] = AMB_RANGE[k], v = parseFloat(inp.value); s[k] = clamp(Number.isFinite(v) ? v : AMB_DEFAULTS[k], lo, hi); save(); }));
+  $$("#amb-sliders input").forEach((inp) => inp.addEventListener("input", () => { const k = inp.dataset.k, [lo, hi] = AMB_RANGE[k], v = parseFloat(inp.value); s[k] = clamp(Number.isFinite(v) ? v : AMB_DEFAULTS[k], k === "blur" ? Math.max(lo, ambBlurFloor(s.spread, stage.offsetWidth)) : lo, hi); save(); }));
   $("#a-reset").addEventListener("click", () => { s = { ...AMB_DEFAULTS }; skipKey = ""; save(); if (cur) setSource(cur); });
   layout();
   applyVars();

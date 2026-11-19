@@ -82,6 +82,7 @@ python3 scripts/share_pages.py _site || echo "share pages not built"
 # after GitHub Pages' 10-minute cache, and give the video page's service worker a new cache name.
 h() { if [ -f "$1" ]; then sha1sum "$1" | cut -c1-10; else echo none; fi; }
 sed -i "s/lyric-video\.js?v=dev/lyric-video.js?v=$(h _site/video/lyric-video.js)/" _site/video/video.js
+sed -i "s/song-video\.js?v=dev/song-video.js?v=$(h _site/video/song-video.js)/" _site/video/video.js
 sed -i -e "s/video\.css?v=dev/video.css?v=$(h _site/video/video.css)/" \
        -e "s/video\.js?v=dev/video.js?v=$(h _site/video/video.js)/" \
        -e "s/menu\.css?v=dev/menu.css?v=$(h _site/video/menu.css)/" \
