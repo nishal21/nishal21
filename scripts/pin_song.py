@@ -18,6 +18,8 @@ assets/contribution-song[-acoustic]-<voice>.{mp3,json,lrc}.
 
 The pin is recorded in assets/song-pins.json. While a style is pinned, contribution_song.py keeps its take and
 visitor_take.py --check says no new take is needed for it, so no nightly run replaces it or spends credit on it.
+scripts/runware_song.py is the exception: when the lyrics change it sings today's two slots again on Runware with the
+same models and prompts, and a take that passes its check goes on a release and over the pin for the night.
 Unpin by deleting its entry from song-pins.json (and its slots from song-voices.json).
 Run it again with another file to swap the audio; everything is regenerated from the file.
 """
@@ -199,31 +201,15 @@ def lrc(lines, title, artist="Nishal K"):
     return "\n".join(out) + "\n"
 
 
-def main():
-    a = sys.argv[1:]
-    if len(a) < 2 or a[0] not in ("original", "acoustic") or "--sheet" not in a:
-        sys.exit(__doc__)
-    style, take = a[0], a[1]
-    opt = lambda k, d=None: a[a.index(k) + 1] if k in a else d  # noqa: E731
-    voice = opt("--voice")
-    if voice not in ("male", "female", "duet") and "--out" not in a:
-        sys.exit("--voice male|female|duet: which slot this take fills")
-    sheet = read_sheet(opt("--sheet"))
-    engine = opt("--engine", "Runware · MiniMax Music 2.6")
-    hint = float(opt("--bpm-hint", "110" if style == "acoustic" else "140"))
-    key = opt("--key", "A minor")
-    out_dir = opt("--out")
-    voices = json.load(open(VOICES)) if os.path.exists(VOICES) else json.loads(json.dumps(VOICES_DEFAULT))
-    slots = voices.setdefault(style, {"male": None, "female": None, "duet": None})
-    owner = next((v for v, b in slots.items() if b == MAIN[style]), None)
-    base = MAIN[style] if out_dir or owner in (None, voice) else f"{MAIN[style]}-{voice}"
+def timing(style, take, sheet, engine, hint, key, voice, base, end=None, fade=1.5):
+    """The take's pin json (line and word times, tempo, sections) and the raw alignment, one entry per sheet line."""
     y = decode(take)
-    # --end: where the take stops (e.g. before a tag the model added after the outro), faded over --fade seconds.
+    # end: where the take stops (e.g. before a tag the model added after the outro), faded over fade seconds.
     # The committed MP3 stays as delivered; build_site.sh applies the trim when it copies the take to the site.
     trim = None
-    if opt("--end"):
-        end = min(len(y) / SR, float(opt("--end")))
-        fade = min(end, float(opt("--fade", "1.5")))
+    if end:
+        end = min(len(y) / SR, end)
+        fade = min(end, fade)
         y = y[:int(end * SR)].copy()
         nf = int(fade * SR)
         y[len(y) - nf:] *= np.linspace(1, 0, nf) ** 2
@@ -255,6 +241,31 @@ def main():
                 unsung=[t for (_, t), r in zip(sheet, al) if not r], peaks=peaks(y))
     if trim:
         data["trim"] = trim
+    return data, al
+
+
+def main():
+    a = sys.argv[1:]
+    if len(a) < 2 or a[0] not in ("original", "acoustic") or "--sheet" not in a:
+        sys.exit(__doc__)
+    style, take = a[0], a[1]
+    opt = lambda k, d=None: a[a.index(k) + 1] if k in a else d  # noqa: E731
+    voice = opt("--voice")
+    if voice not in ("male", "female", "duet") and "--out" not in a:
+        sys.exit("--voice male|female|duet: which slot this take fills")
+    sheet = read_sheet(opt("--sheet"))
+    engine = opt("--engine", "Runware · MiniMax Music 2.6")
+    hint = float(opt("--bpm-hint", "110" if style == "acoustic" else "140"))
+    key = opt("--key", "A minor")
+    out_dir = opt("--out")
+    voices = json.load(open(VOICES)) if os.path.exists(VOICES) else json.loads(json.dumps(VOICES_DEFAULT))
+    slots = voices.setdefault(style, {"male": None, "female": None, "duet": None})
+    owner = next((v for v, b in slots.items() if b == MAIN[style]), None)
+    base = MAIN[style] if out_dir or owner in (None, voice) else f"{MAIN[style]}-{voice}"
+    end = float(opt("--end")) if opt("--end") else None
+    data, al = timing(style, take, sheet, engine, hint, key, voice, base, end, float(opt("--fade", "1.5")))
+    length, bpm, beat0, lines, trim = data["length"], data["bpm"], data["beat0"], data["lines"], data.get("trim")
+    last_end = data["instrumental_from"]
     main_original = not out_dir and style == "original" and base == MAIN["original"]
     # the Original's main take lives in assets/pinned/ (assets/contribution-song.mp3 is rebuilt, not committed)
     dest = out_dir or (os.path.join(ASSETS, "pinned") if main_original else ASSETS)

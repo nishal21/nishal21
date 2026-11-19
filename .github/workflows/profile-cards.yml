@@ -4,6 +4,7 @@
 # instead of being committed, so the repo doesn't grow by 1.5 MB every night.
 # Each generator runs on its own; if one fails, its previous image stays in place and Pages keeps the last song.
 # Uses the built-in GITHUB_TOKEN and public endpoints; ACESTEP_API_KEY (optional) lets acemusic.ai sing the song.
+# RUNWARE_API_KEY sings today's two voices again when the lyrics change (scripts/runware_song.py, at most $1 a run).
 # One-time setting: Settings > Pages > Build and deployment > Source: GitHub Actions.
 
 name: Profile cards
@@ -15,6 +16,10 @@ on:
     inputs:
       deapi_test:
         description: "Only make a deAPI test song (an artifact, nothing goes live)"
+        type: boolean
+        default: false
+      runware_force:
+        description: "Sing today's Runware voices even if these lyrics were tried and failed"
         type: boolean
         default: false
   push:
@@ -156,6 +161,11 @@ jobs:
         continue-on-error: true
         run: python scripts/test_song_lyrics.py
 
+      # the newest Runware takes (release contribution-song-runware) over the committed hand-pinned ones; nothing spent
+      - name: Runware takes from the release
+        continue-on-error: true
+        run: python scripts/runware_song.py apply
+
       - name: Contribution song
         id: song
         continue-on-error: true
@@ -163,6 +173,49 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CONTRIB_LINES_OUT: /tmp/contribution-lines.json
         run: python scripts/contribution_song.py
+
+      # Today's two voices in the 3-day rotation, sung again on Runware only when tonight's lyrics differ from what
+      # their take sings (and weren't tried already). One try each, no retries; a take that fails the check never goes
+      # live, the last good one stays. See scripts/runware_song.py.
+      - name: Does Runware need to sing?
+        id: rw_plan
+        if: steps.song.outcome == 'success'
+        continue-on-error: true
+        env:
+          TAKE_LINES: /tmp/contribution-lines.json
+          RUNWARE_FORCE: ${{ inputs.runware_force && '1' || '' }}
+        run: python scripts/runware_song.py plan
+
+      - name: Restore Whisper for the Runware check
+        if: steps.rw_plan.outputs.needed == 'true'
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/huggingface/hub/models--Systran--faster-whisper-small.en
+            ~/.cache/torch/hub/checkpoints
+          key: visitor-take-tools-v1
+
+      - name: Sing today's voices on Runware
+        id: runware
+        if: steps.rw_plan.outputs.needed == 'true'
+        continue-on-error: true
+        timeout-minutes: 40
+        env:
+          RUNWARE_API_KEY: ${{ secrets.RUNWARE_API_KEY }}
+          RUNWARE_FORCE: ${{ inputs.runware_force && '1' || '' }}
+          RUNWARE_CAP: "1.00"
+          TAKE_LINES: /tmp/contribution-lines.json
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python -c "import faster_whisper" 2>/dev/null || pip install --quiet faster-whisper==1.2.1
+          python scripts/runware_song.py sing /tmp/rw
+          files=$(ls /tmp/rw/* 2>/dev/null || true)
+          if [ -n "$files" ]; then
+            gh release view contribution-song-runware >/dev/null 2>&1 || gh release create contribution-song-runware \
+              --title "Contribution song: Runware takes" --notes "The newest Runware take of each voice, made when the lyrics change (scripts/runware_song.py)." --latest=false
+            gh release upload contribution-song-runware $files --clobber
+          fi
 
       # ACE-Step sings the lyrics a section at a time (acemusic.ai first, the CPU for any section it can't sing well),
       # every section Whisper-checked; the song is rendered again on its own beat grid with the stitched voice.
@@ -333,7 +386,7 @@ jobs:
           for f in /tmp/ctake/contribution-take*.json; do python -c "import json; t = json.load(open('$f')); print(f\"::notice::$(basename $f): sung by {t['engine']}, {t['accuracy_voice']:.0%} of words heard\")"; done
 
       - name: Contribution song with the take
-        if: steps.sing.outcome == 'success' || steps.deapi.outcome == 'success' || steps.deapi_ac.outcome == 'success' || steps.reuse.outputs.reuse == 'true' || steps.reuse.outputs.reuse_ac == 'true'
+        if: steps.runware.outputs.original_changed == 'true' || steps.sing.outcome == 'success' || steps.deapi.outcome == 'success' || steps.deapi_ac.outcome == 'success' || steps.reuse.outputs.reuse == 'true' || steps.reuse.outputs.reuse_ac == 'true'
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -353,7 +406,9 @@ jobs:
             pip install --quiet torch==2.10.0 torchaudio==2.10.0 --index-url https://download.pytorch.org/whl/cpu
             pip install --quiet demucs==4.1.0 faster-whisper==1.2.1 soundfile torchcodec; }
           # a new acoustic version must pass the same listening check, or the last good one stays
-          if [ -n "$(git status --porcelain -- assets/contribution-song-acoustic.mp3)" ] && [ -f assets/contribution-song-acoustic.mp3 ]; then
+          # (a pinned acoustic, hand-picked or a Runware take that passed its own check, isn't checked again)
+          if [ -n "$(git status --porcelain -- assets/contribution-song-acoustic.mp3)" ] && [ -f assets/contribution-song-acoustic.mp3 ] \
+             && ! python -c "import json,sys; sys.exit('acoustic' not in json.load(open('assets/song-pins.json')))" 2>/dev/null; then
             if ! CONTRIB_STYLE=acoustic python scripts/visitor_take.py --contribution --check-song assets/contribution-song-acoustic.mp3; then
               echo "::warning::The acoustic version didn't pass the listening check, so the last good one stays"
               export CONTRIB_ACOUSTIC_KEEP=1
@@ -392,6 +447,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # the Runware takes live on their release, so the commit keeps the hand-pinned slot files (no new MP3s)
+          python scripts/runware_song.py park /tmp/rwpark || true
           git add assets README.md
           if git diff --cached --quiet; then
             echo "No changes"
@@ -405,6 +462,11 @@ jobs:
             sleep 10
           done
           exit 1
+
+      - name: Put the Runware takes back for the site
+        if: always()
+        continue-on-error: true
+        run: '[ -d /tmp/rwpark ] && python scripts/runware_song.py unpark /tmp/rwpark || true'
 
       - name: Build the player site
         if: steps.song.outcome == 'success'
