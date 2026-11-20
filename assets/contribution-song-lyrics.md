@@ -1,6 +1,6 @@
 # Contribution song
 
-1:16 · 140 BPM · A minor · 1041 contributions from Nov 16, 2025 to Nov 19, 2026
+1:16 · 140 BPM · A minor · 1041 contributions from Nov 16, 2025 to Nov 20, 2026
 
 A finished take sings it, with lyrics written from my GitHub contribution calendar. The player spins the year's weeks under it and shows the numbers as they are tonight.
 
