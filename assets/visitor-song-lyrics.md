@@ -6,44 +6,44 @@ A song made by people who visit this profile. Base lyrics by Nishal K. Every oth
 ## Verse
 
 Someone stopped by late on a quiet night  
-<sub>[0:00](https://nishal21.github.io/nishal21/player/?song=visitor&t=0)</sub>  
+<sub>[0:18](https://nishal21.github.io/nishal21/player/?song=visitor&t=18)</sub>  
 
 left a single note and went on their way  
-<sub>[0:05](https://nishal21.github.io/nishal21/player/?song=visitor&t=5)</sub>  
+<sub>[0:22](https://nishal21.github.io/nishal21/player/?song=visitor&t=22)</sub>  
 
 I never got their name until the credits  
-<sub>[0:10](https://nishal21.github.io/nishal21/player/?song=visitor&t=10)</sub>  
+<sub>[0:28](https://nishal21.github.io/nishal21/player/?song=visitor&t=28)</sub>  
 
 now it plays here every single day  
-<sub>[0:15](https://nishal21.github.io/nishal21/player/?song=visitor&t=15)</sub>  
+<sub>[0:33](https://nishal21.github.io/nishal21/player/?song=visitor&t=33)</sub>  
 
 I was painting a picture  
-<sub>lyric: @nishal21 · [0:18](https://nishal21.github.io/nishal21/player/?song=visitor&t=18)</sub>  
+<sub>lyric: @nishal21 · [0:37](https://nishal21.github.io/nishal21/player/?song=visitor&t=37)</sub>  
 
 ## Chorus
 
 One note at a time  
-<sub>[0:23](https://nishal21.github.io/nishal21/player/?song=visitor&t=23)</sub>  
+<sub>[0:40](https://nishal21.github.io/nishal21/player/?song=visitor&t=40)</sub>  
 
 from people passing through  
-<sub>[0:28](https://nishal21.github.io/nishal21/player/?song=visitor&t=28)</sub>  
+<sub>[0:46](https://nishal21.github.io/nishal21/player/?song=visitor&t=46)</sub>  
 
 a name beside a line  
-<sub>[0:33](https://nishal21.github.io/nishal21/player/?song=visitor&t=33)</sub>  
+<sub>[0:50](https://nishal21.github.io/nishal21/player/?song=visitor&t=50)</sub>  
 
 and part of it is you  
-<sub>[0:38](https://nishal21.github.io/nishal21/player/?song=visitor&t=38)</sub>  
+<sub>[0:55](https://nishal21.github.io/nishal21/player/?song=visitor&t=55)</sub>  
 
 ## Outro
 
 Leave yours and the song gets one beat longer  
-<sub>[0:48](https://nishal21.github.io/nishal21/player/?song=visitor&t=48)</sub>  
+<sub>[1:00](https://nishal21.github.io/nishal21/player/?song=visitor&t=60)</sub>  
 
 ## Credits
 
 **Lyrics:** Nishal K (base lyrics), @nishal21
 
-**Voice and music:** ACE-Step 1.5 by ACE Studio × StepFun (Apache-2.0), sung on acemusic.ai · [ACE-Step](https://github.com/ace-step/ACE-Step-1.5) · [acemusic.ai](https://acemusic.ai)
+**Voice and music:** ACE-Step 1.5 by ACE Studio × StepFun (Apache-2.0), sung on a GitHub Actions CPU · [ACE-Step](https://github.com/ace-step/ACE-Step-1.5) · [acemusic.ai](https://acemusic.ai)
 
 **Notes, in the order they play:**
 
