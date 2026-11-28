@@ -6,38 +6,38 @@ A song made by people who visit this profile. Base lyrics by Nishal K. Every oth
 ## Verse
 
 Someone stopped by late on a quiet night  
-<sub>[0:17](https://nishal21.github.io/nishal21/player/?song=visitor&t=17)</sub>  
+<sub>[0:08](https://nishal21.github.io/nishal21/player/?song=visitor&t=8)</sub>  
 
 left a single note and went on their way  
-<sub>[0:22](https://nishal21.github.io/nishal21/player/?song=visitor&t=22)</sub>  
+<sub>[0:12](https://nishal21.github.io/nishal21/player/?song=visitor&t=12)</sub>  
 
 I never got their name until the credits  
-<sub>[0:27](https://nishal21.github.io/nishal21/player/?song=visitor&t=27)</sub>  
+<sub>[0:18](https://nishal21.github.io/nishal21/player/?song=visitor&t=18)</sub>  
 
 now it plays here every single day  
-<sub>[0:31](https://nishal21.github.io/nishal21/player/?song=visitor&t=31)</sub>  
+<sub>[0:22](https://nishal21.github.io/nishal21/player/?song=visitor&t=22)</sub>  
 
 I was painting a picture  
-<sub>lyric: @nishal21 · [0:37](https://nishal21.github.io/nishal21/player/?song=visitor&t=37)</sub>  
+<sub>lyric: @nishal21 · [0:27](https://nishal21.github.io/nishal21/player/?song=visitor&t=27)</sub>  
 
 ## Chorus
 
 One note at a time  
-<sub>[0:40](https://nishal21.github.io/nishal21/player/?song=visitor&t=40)</sub>  
+<sub>[0:37](https://nishal21.github.io/nishal21/player/?song=visitor&t=37)</sub>  
 
 from people passing through  
-<sub>[0:48](https://nishal21.github.io/nishal21/player/?song=visitor&t=48)</sub>  
+<sub>[0:42](https://nishal21.github.io/nishal21/player/?song=visitor&t=42)</sub>  
 
 a name beside a line  
-<sub>[0:54](https://nishal21.github.io/nishal21/player/?song=visitor&t=54)</sub>  
+<sub>[0:47](https://nishal21.github.io/nishal21/player/?song=visitor&t=47)</sub>  
 
 and part of it is you  
-<sub>[0:58](https://nishal21.github.io/nishal21/player/?song=visitor&t=58)</sub>  
+<sub>[0:51](https://nishal21.github.io/nishal21/player/?song=visitor&t=51)</sub>  
 
 ## Outro
 
 Leave yours and the song gets one beat longer  
-<sub>[1:03](https://nishal21.github.io/nishal21/player/?song=visitor&t=63)</sub>  
+<sub>[0:57](https://nishal21.github.io/nishal21/player/?song=visitor&t=57)</sub>  
 
 ## Credits
 
